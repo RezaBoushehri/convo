@@ -19,23 +19,28 @@ var MemoryStore = require('memorystore')(session)
 env.config();
 
 // app.io = io;
+const mongoURI = 'mongodb://localhost:27017/mydatabase'; // Replace with your URI
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error(err));
+
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-});
+// mongoose.connect(process.env.MONGO_URI, {
+//     useNewUrlParser: true,
+//     useUnifiedTopology: true,
+// });
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session(
-    {
-        secret: process.env.SECRET,
-        cookie: { maxAge: 86400000 },
-        store: new MemoryStore({
-          checkPeriod: 86400000 // prune expired entries every 24h
-        }),
-        resave: false,
-        saveUninitialized: false,
+
+app.use(
+    session({
+      secret: process.env.SESSION_SECRET || 'a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771',
+      resave: false,
+      saveUninitialized: true,
+      cookie: { secure: false }, // Set to true in production
     })
+ 
+  
 );
 //=============================================================
 //Passport Configuration
