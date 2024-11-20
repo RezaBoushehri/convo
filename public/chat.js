@@ -1,3 +1,4 @@
+
 // const socket = io.connect(window.location.hostname),
 const production = false;
 const href = production ? window.location.hostname : "localhost:4000";
@@ -18,7 +19,6 @@ const socket = io.connect(href),
         fileType: "image/jpeg",
     };
 const roomID = document.querySelector("#roomID").textContent.trim();
-
 if (roomID != "") {
     socket.emit("joinRoom", {
         handle: name.textContent,
@@ -86,6 +86,11 @@ button.addEventListener("click", () => {
     };
     message.value = "";
     socket.emit("chat", data);
+        if (!data.message || ! data.handle) {
+        window.alert('Room ID, sender, and message cannot be empty'); // Corrected alert
+        return;
+        }
+  
     let style = "display:flex;justify-content:flex-end",
         bg = `bg-secondary mess p-2 mr-1 m-2 rounded col-8 `,
         color = `text-warning text-capitalize`;
@@ -345,3 +350,75 @@ const copyId = (id) => {
     }, 1500);
 };
 //=================================================================
+// save messages to mongo 
+async function sendMessage() {
+    var roomIdSave;
+    let data = {
+        handle: name.textContent,
+        message: message.value,
+        date: new Date(),
+        image: image,
+    };
+    socket.emit("chat", data);
+    // const roomID = document.getElementById('roomID').innerText.trim();
+    let sender = data.handle; // Replace this with the dynamic username if applicable
+    sender = sender.replace(/\s+/g, '').trim();
+    // Ensure sender value is clean and trimmed
+    let messageSave = data.message
+    // const message = document.getElementById('message').value.trim();
+
+    roomIdSave = roomExists
+    console.log({ roomIdSave, sender, messageSave }); // Log the values to debug
+
+  
+  
+    // if (!message || !sender || !roomName) {
+    //     window.alert('Room ID, sender, and message cannot be empty'); // Corrected alert
+    //     return;
+    // }
+  
+    try {
+      const response = await fetch('http://localhost:4000/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ roomIdSave, sender, message }),
+      });
+  
+      if (response.ok) {
+        console.log('Message sent successfully');
+        document.getElementById('message').value = ''; // Clear input
+      } else {
+        const errorData = await response.json();
+        console.error('Error sending message:', errorData.error);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+  
+  
+//=================================================================
+// fetch messages from mongo 
+async function fetchMessages() {
+    // const roomIdSave = document.getElementById('roomIdSave').innerText.trim();
+  
+    try {
+      const response = await fetch(`http://localhost:4000/messages/${roomIdSave}`);
+      const messages = await response.json();
+  
+      const output = document.getElementById('output');
+      output.innerHTML = ''; // Clear previous messages
+  
+      messages.forEach(msg => {
+        const div = document.createElement('div');
+        div.classList.add('message');
+        div.innerHTML = `<strong>${msg.sender}:</strong> ${msg.message}`;
+        output.appendChild(div);
+      });
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  }
+  

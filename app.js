@@ -1,5 +1,6 @@
 const express = require("express"),
     app = express(),
+    cors = require('cors'),
     socket = require("socket.io"),
     path = require("path"),
     mongoose = require("mongoose"),
@@ -9,6 +10,7 @@ const express = require("express"),
     passport = require("passport"),
     middleware = require("./middleware"),
     User = require("./models/user"),
+    Message = require('./models/message'), // Import the model
     server = require("http").createServer(app),
     { addUser, getUsers, deleteUser, getRoomUsers } = require("./users/users"),
     rooms = [],
@@ -18,6 +20,13 @@ var MemoryStore = require('memorystore')(session)
  
 env.config();
 
+app.use(
+    cors({
+      origin: 'http://172.16.28.166:4000', // Allow specific origin
+      methods: ['GET', 'POST'],           // Allow specific HTTP methods
+      credentials: true                   // Allow cookies if needed
+    })
+  );
 // app.io = io;
 const mongoURI = 'mongodb://localhost:27017/mydatabase'; // Replace with your URI
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -96,6 +105,43 @@ app.post("/register", (req, res) => {
         });
     });
 });
+
+
+
+// API to save a message
+app.post('/messages', async (req, res) => {
+    const { roomId, sender, message } = req.body;
+  
+    // Validate input fields
+    if (!roomId || !sender || !message) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+  
+    // Save the message to the database
+    try {
+      const newMessage = new Message({ roomId, sender, message });
+      await newMessage.save();
+  
+      res.status(201).json({ message: 'Message saved successfully' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
+//Fetch Messages for Display
+app.get('/messages/:roomId', async (req, res) => {
+try {
+    const { roomId } = req.params;
+
+    const messages = await Message.find({ roomId }).sort({ createdAt: 1 }); // Sort by timestamp
+    res.status(200).json(messages);
+} catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+}
+});
+  
 //handle logout
 app.get("/logout", function (req, res) {
     req.logout();
