@@ -1,4 +1,7 @@
 const express = require("express"),
+    privateKey = fs.readFileSync("private-key.pem", "utf8"),
+    certificate = fs.readFileSync("certificate.pem", "utf8"),
+    credentials = { key: privateKey, cert: certificate },
     app = express(),
     cors = require("cors"),
     socket = require("socket.io"),
@@ -13,7 +16,7 @@ const express = require("express"),
     middleware = require("./middleware/index"), // Import the middleware
     { v4: uuidv4 } = require('uuid'),
     Message = require("./models/message"),
-    server = require("http").createServer(app),
+    server = require("http").createServer(credentials , app),
     { addUser, getUsers, deleteUser, getRoomUsers } = require("./users/users"),
     rooms = [],
     io =  socket(server, {
@@ -24,7 +27,7 @@ const express = require("express"),
             credentials: true,  // Ensure credentials like cookies are allowed
         },
     });
-
+   
 var session = require("express-session");
 var MemoryStore = require("memorystore")(session);
 
