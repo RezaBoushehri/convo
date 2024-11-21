@@ -1,8 +1,8 @@
 
 // const socket = io.connect(window.location.hostname),
 const production = false;
-const href = production ? window.location.hostname : "172.16.28.166:4000",
-    socket = io.connect('https://172.16.28.166:4000', {
+const href = production ? window.location.hostname : "localhost:4000",
+    socket = io.connect('https://localhost:4000', {
         transports: ['polling'],
         secure: true,
         rejectUnauthorized: false // Bypass SSL verification for self-signed certificates
@@ -376,7 +376,7 @@ const copyId = (id) => {
 //     };
 
 //     try {
-//         const response = await fetch('https://172.16.28.166:4000/messages', {
+//         const response = await fetch('https://localhost:4000/messages', {
 //             method: 'POST',
 //             headers: {
 //                 'Content-Type': 'application/json',
@@ -403,7 +403,7 @@ async function fetchMessages() {
     let roomIdSave = document.getElementById('roomID').textContent.trim();  // Ensure roomId is properly fetched
   
     try {
-        const response = await fetch(`https://172.16.28.166:4000/messages/${roomIdSave}`);
+        const response = await fetch(`https://localhost:4000/messages/${roomIdSave}`);
         const messages = await response.json();
 
         const output = document.getElementById('output');
