@@ -1,8 +1,16 @@
 const express = require("express"),
-    privateKey = fs.readFileSync("private-key.pem", "utf8"),
-    certificate = fs.readFileSync("certificate.pem", "utf8"),
-    credentials = { key: privateKey, cert: certificate },
+    fs = require('fs'),
+    https = require('https'),
     app = express(),
+    port = process.env.PORT || 4000,
+    // SSL certificate and key options
+    options = {
+        key: fs.readFileSync('private-key.pem', 'utf8'),
+        cert: fs.readFileSync('certificate.pem', 'utf8'),
+        ca_cert: fs.readFileSync('ca-certificate.pem', 'utf8'),
+        ca_key: fs.readFileSync('ca-key.pem', 'utf8'),
+        passphrase: 'farahoosh'
+    },
     cors = require("cors"),
     socket = require("socket.io"),
     path = require("path"),
@@ -16,36 +24,31 @@ const express = require("express"),
     middleware = require("./middleware/index"), // Import the middleware
     { v4: uuidv4 } = require('uuid'),
     Message = require("./models/message"),
-    server = require("http").createServer(credentials , app),
+    server = https.createServer(options, app),
     { addUser, getUsers, deleteUser, getRoomUsers } = require("./users/users"),
     rooms = [],
-    io =  socket(server, {
-        cors: {
-            origin: "http://172.16.28.166:4000", // Allow specific origin (frontend address)
-            methods: ["GET", "POST"],
-            allowedHeaders: ["my-custom-header"],
-            credentials: true,  // Ensure credentials like cookies are allowed
-        },
-    });
-   
+    io =  socket(server);
+
 var session = require("express-session");
 var MemoryStore = require("memorystore")(session);
 
 env.config();
 
-app.use(
-    cors({
-        origin: "http://172.16.28.166:4000", // Allow specific origin
-        methods: ["GET", "POST"], // Allow specific HTTP methods
-        credentials: true, // Allow cookies if needed
-    })
-);
+// Set up CORS (if needed for front-end)
+const corsOptions = {
+    origin: 'https://172.16.28.166:4000', // replace with your front-end domain
+    methods: ['GET', 'POST'],
+    credentials: true
+};
+
+app.use(cors(corsOptions));
+
 // Socket.io with CORS configuration
 
 
-const mongoURI = "mongodb://localhost:27017/mydatabase"; // Replace with your URI
+const mongoURI = "mongodb://localhost:27017/chatRoom"; // Replace with your URI
 mongoose
-    .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .connect(mongoURI, {})
     .then(() => console.log("MongoDB connected"))
     .catch((err) => console.error(err));
 
@@ -56,12 +59,15 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use(
     session({
+        store: new MemoryStore({
+            checkPeriod: 86400000 // prune expired entries every 24h
+        }),
         secret:
             process.env.SESSION_SECRET ||
             "a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771",
         resave: false,
         saveUninitialized: true,
-        cookie: { secure: false }, // Set to true in production
+        cookie: { secure: true }, // Set to true in production
     })
 );
 
@@ -158,29 +164,29 @@ app.post("/register", (req, res) => {
 });
 
 // API to Save a Message
-app.post("/messages", async (req, res) => {
-    const { roomId, sender, message } = req.body;
+// app.post("/messages", async (req, res) => {
+//     const { sender, message } = req.body;
 
-    // Validate input fields
-    if (!roomId || !sender || !message) {
-        return res.status(400).json({ error: "All fields are required" });
-    }
+//     // Validate input fields
+//     if ( !sender || !message) {
+//         return res.status(400).json({ error: "All fields are required" });
+//     }
 
-    try {
-        const newMessage = new Message({ roomId, sender, message });
-        await newMessage.save();
-        res.status(201).json({ message: "Message saved successfully" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
+//     try {
+//         const newMessage = new Message({ roomId, sender, message });
+//         await newMessage.save();
+//         res.status(201).json({ message: "Message saved successfully" });
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ error: "Internal server error" });
+//     }
+// });
 
 // Fetch Messages for Display
 app.get("/messages/:roomId", async (req, res) => {
     try {
         const { roomId } = req.params;
-        const messages = await Message.find({ roomId }).sort({ createdAt: 1 }); // Sort by timestamp
+        const messages = await Message.find({ roomID }).sort({ createdAt: 1 }); // Sort by timestamp
         res.status(200).json(messages);
     } catch (error) {
         console.error(error);
@@ -202,9 +208,13 @@ app.use(function (req, res) {
     res.status(404).render("404");
 });
 
-const port = process.env.PORT || 4000;
 
-server.listen(port, () => console.log(`Listening on ${port}`));
+server.listen(port, '0.0.0.0', () => console.log(`Listening on ${port}`));
+
+
+
+
+
 
 // Socket Configuration
 const roomExists = (roomName) => {
@@ -218,36 +228,36 @@ io.on("connection", (socket) => {
         while (await Room.findOne({ roomName })) {
             roomName = Math.random().toString(36).substr(2, 6);
         }
-
+    
         const room = new Room({
             roomName,
             admin: handle.trim(),
         });
-
-        await room.save();
-
+    
+        await room.save(); // Save the room to MongoDB
+    
         const data = { handle: handle, room: room };
-        rooms.push(room); // Keep the in-memory copy for active use
         socket.join(room.roomName);
         addUser(socket.id, handle.trim(), room);
-
+    
         socket.emit("joined", data);
         socket.broadcast.to(room.roomName).emit("newconnection", data);
     });
+    
 
     socket.on("joinRoom", async (data) => {
         const room = await Room.findOne({ roomName: data.room });
         if (room) {
-            const user = new User({
-                socketID: socket.id,
-                name: data.handle.trim(),
-                roomID: room.roomName,
-            });
+            // const user = new User({
+            //     socketID: socket.id,
+            //     name: data.handle.trim(),
+            //     roomID: room.roomName,
+            // });
 
-            await user.save();
+            // await user.save();
 
-            socket.join(data.room);
-            addUser(socket.id, data.handle.trim(), room);
+            // socket.join(data.room);
+            // addUser(socket.id, data.handle.trim(), room);
 
             socket.emit("joined", { handle: data.handle, room });
             socket.broadcast.to(data.room).emit("newconnection", { handle: data.handle });
@@ -260,7 +270,6 @@ io.on("connection", (socket) => {
         const uniqueId = uuidv4();
         const currentUser = getUsers().find((obj) => obj.id === socket.id);
         if (currentUser) {
-            console.log(`Generated unique ID: ${uniqueId}`);
             const message = new Message({
                 id: uniqueId,
                 roomID: currentUser.room.roomName,
@@ -268,13 +277,17 @@ io.on("connection", (socket) => {
                 message: data.message,
                 file: data.file || null,
             });
-
-            await message.save();
-
-            io.in(currentUser.room.roomName).emit("chat", message);
+    
+            try {
+                await message.save();
+                io.in(currentUser.room.roomName).emit("chat", message);
+            } catch (error) {
+                console.error("Error saving message:", error);
+                socket.emit("error", { message: "Failed to save message" });
+            }
         }
     });
-
+    
     socket.on("info", async () => {
         const currentUser = await User.findOne({ socketID: socket.id });
         if (currentUser) {
@@ -311,7 +324,8 @@ io.on("connection", (socket) => {
     });
 
     socket.on("error", (error) => {
-        console.log(error);
-        socket.emit("error", { message: error });
+        console.log("Socket error:", error);
+        socket.emit("error", { message: "Something went wrong, please try again later." });
     });
+    
 });

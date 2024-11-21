@@ -1,8 +1,12 @@
 
 // const socket = io.connect(window.location.hostname),
 const production = false;
-const href = production ? window.location.hostname : "localhost:4000";
-const socket = io.connect(href),
+const href = production ? window.location.hostname : "172.16.28.166:4000",
+    socket = io.connect('https://172.16.28.166:4000', {
+        transports: ['polling'],
+        secure: true,
+        rejectUnauthorized: false // Bypass SSL verification for self-signed certificates
+    }),
     message = document.getElementById("message"),
     output = document.getElementById("output"),
     button = document.getElementById("button"),
@@ -227,7 +231,7 @@ socket.on("chat", (data) => {
         }</div><img class="img-fluid rounded mb-2" src='${
             data.image
         }'/><div style="text-align:right;font-size:2vmin"> 
-    ${new Intl.DateTimeFormat("en-US", {
+    ${new Intl.DateTimeFormat("fa-IR", {
         hour: "numeric",
         minute: "numeric",
     }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
@@ -351,45 +355,46 @@ const copyId = (id) => {
 };
 //=================================================================
 // save messages to mongo 
-async function sendMessage() {
-    let roomIdSave = document.getElementById('roomID').textContent.trim();  // Ensure roomID is properly fetched
-    let sender = name.textContent.trim();  // Ensure sender value is properly cleaned up
-    let messageSave = message.value.trim();  // Ensure the message is cleaned up
+// async function sendMessage() {
+//     let roomIdSave = document.getElementById('roomID').textContent.trim();  // Ensure roomID is properly fetched
+//     let sender = name.textContent.trim();  // Ensure sender value is properly cleaned up
+//     let messageSave = message.value.trim();  // Ensure the message is cleaned up
+// console.log(roomIdSave
+//     ,sender
+//     ,messageSave)
+//     // if (!messageSave || !sender || !roomIdSave) {
+//     //     window.alert('Room ID, sender, and message cannot be empty'); // Check if any required value is missing
+//     //     return;
+//     // }
 
-    if (!messageSave || !sender || !roomIdSave) {
-        window.alert('Room ID, sender, and message cannot be empty'); // Check if any required value is missing
-        return;
-    }
+//     // Construct the message data
+//     let data = {
+//         roomId: roomIdSave, 
+//         sender: sender, 
+//         message: messageSave,
+//         file: image  // Include the image data if needed
+//     };
 
-    // Construct the message data
-    let data = {
-        roomId: roomIdSave, 
-        sender: sender, 
-        message: messageSave,
-        date: new Date(),
-        image: image  // Include the image data if needed
-    };
+//     try {
+//         const response = await fetch('https://172.16.28.166:4000/messages', {
+//             method: 'POST',
+//             headers: {
+//                 'Content-Type': 'application/json',
+//             },
+//             body: JSON.stringify(data),
+//         });
 
-    try {
-        const response = await fetch('http://localhost:4000/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-        });
-
-        if (response.ok) {
-            console.log('Message sent successfully');
-            document.getElementById('message').value = ''; // Clear input
-        } else {
-            const errorData = await response.json();
-            console.error('Error sending message:', errorData.error);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}
+//         if (response.ok) {
+//             console.log('Message sent successfully');
+//             document.getElementById('message').value = ''; // Clear input
+//         } else {
+//             const errorData = await response.json();
+//             console.error('Error sending message:', errorData.error);
+//         }
+//     } catch (error) {
+//         console.error('Error:', error);
+//     }
+// }
 
   
 //=================================================================
@@ -398,7 +403,7 @@ async function fetchMessages() {
     let roomIdSave = document.getElementById('roomID').textContent.trim();  // Ensure roomId is properly fetched
   
     try {
-        const response = await fetch(`http://localhost:4000/messages/${roomIdSave}`);
+        const response = await fetch(`https://172.16.28.166:4000/messages/${roomIdSave}`);
         const messages = await response.json();
 
         const output = document.getElementById('output');
