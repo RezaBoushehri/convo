@@ -1,69 +1,87 @@
 const express = require("express"),
     app = express(),
-    cors = require('cors'),
+    cors = require("cors"),
     socket = require("socket.io"),
     path = require("path"),
     mongoose = require("mongoose"),
     env = require("dotenv"),
     bodyParser = require("body-parser"),
-    LocalStratergy = require("passport-local"),
+    passportLocalStrategy = require("passport-local"),
     passport = require("passport"),
-    middleware = require("./middleware"),
     User = require("./models/user"),
-    Message = require('./models/message'), // Import the model
+    Room = require("./models/room"),
+    middleware = require("./middleware/index"), // Import the middleware
+    { v4: uuidv4 } = require('uuid'),
+    Message = require("./models/message"),
     server = require("http").createServer(app),
     { addUser, getUsers, deleteUser, getRoomUsers } = require("./users/users"),
     rooms = [],
-    io = socket(server);
-    var session = require('express-session')
-var MemoryStore = require('memorystore')(session)
- 
+    io =  socket(server, {
+        cors: {
+            origin: "http://172.16.28.166:4000", // Allow specific origin (frontend address)
+            methods: ["GET", "POST"],
+            allowedHeaders: ["my-custom-header"],
+            credentials: true,  // Ensure credentials like cookies are allowed
+        },
+    });
+
+var session = require("express-session");
+var MemoryStore = require("memorystore")(session);
+
 env.config();
 
 app.use(
     cors({
-      origin: 'http://172.16.28.166:4000', // Allow specific origin
-      methods: ['GET', 'POST'],           // Allow specific HTTP methods
-      credentials: true                   // Allow cookies if needed
+        origin: "http://172.16.28.166:4000", // Allow specific origin
+        methods: ["GET", "POST"], // Allow specific HTTP methods
+        credentials: true, // Allow cookies if needed
     })
-  );
-// app.io = io;
-const mongoURI = 'mongodb://localhost:27017/mydatabase'; // Replace with your URI
-mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error(err));
+);
+// Socket.io with CORS configuration
+
+
+const mongoURI = "mongodb://localhost:27017/mydatabase"; // Replace with your URI
+mongoose
+    .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("MongoDB connected"))
+    .catch((err) => console.error(err));
 
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
-// mongoose.connect(process.env.MONGO_URI, {
-//     useNewUrlParser: true,
-//     useUnifiedTopology: true,
-// });
+
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use(
     session({
-      secret: process.env.SESSION_SECRET || 'a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771',
-      resave: false,
-      saveUninitialized: true,
-      cookie: { secure: false }, // Set to true in production
+        secret:
+            process.env.SESSION_SECRET ||
+            "a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771",
+        resave: false,
+        saveUninitialized: true,
+        cookie: { secure: false }, // Set to true in production
     })
- 
-  
 );
-//=============================================================
-//Passport Configuration
+
+// Passport Configuration
 app.use(passport.initialize());
 app.use(passport.session());
-passport.use(new LocalStratergy(User.authenticate()));
+passport.use(new passportLocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+passport.deserializeUser(async (username, done) => {
+    try {
+      const user = await User.findByUsername(username);
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
+  });
+  
 app.use(function (req, res, next) {
     res.locals.currentUser = req.user;
     next();
 });
-//=============================================================
-//home route
+
+// Routes
 app.get("/", middleware.isLoggedIn, (req, res) => {
     res.render("index", { roomid: "" });
 });
@@ -71,25 +89,55 @@ app.get("/", middleware.isLoggedIn, (req, res) => {
 app.get("/join/:id", middleware.isLoggedIn, (req, res) => {
     res.render("index", { roomid: req.params.id });
 });
-//render login page
+
+
+// Login/Registration Routes (Passport Auth)
 app.get("/login", (req, res) => {
     res.render("login");
 });
-//handle login logic
-app.post(
-    "/login",
-    passport.authenticate("local", {
-        failureRedirect: "/login",
-    }),
-    (req, res) => {
-        let url = req.session.redirectUrl ? req.session.redirectUrl : "/";
-        if (url.indexOf("login") !== -1) url = "/";
-        res.redirect(url);
-    },
-);
-//handle sign up logic
+// Using async/await properly for login and handling redirects
+app.post("/login", async (req, res, next) => {
+    try {
+        // Find the user by username using async/await
+        const user = await User.findByUsername(req.body.username);
+
+        // If the user is not found
+        if (!user) {
+            return res.redirect("/login");
+        }
+
+        // Authenticate the user using Passport.js local strategy
+        passport.authenticate("local", (err, user, info) => {
+            if (err) {
+                return next(err); // Handle any errors that may occur
+            }
+
+            if (!user) {
+                // If authentication fails (no user found), redirect to login with message
+                return res.redirect("/login");
+            }
+
+            req.logIn(user, (err) => {
+                if (err) {
+                    return next(err); // Handle any login errors
+                }
+
+                // Redirect after successful login
+                let redirectUrl = req.session.redirectUrl || "/";
+                if (redirectUrl.indexOf("login") !== -1) {
+                    redirectUrl = "/";
+                }
+                res.redirect(redirectUrl);
+            });
+        })(req, res, next); // Explicitly call the authenticate function with next()
+    } catch (err) {
+        return next(err); // Handle errors while finding the user
+    }
+});
+
+
 app.post("/register", (req, res) => {
-    var newUser = new User({
+    const newUser = new User({
         username: req.body.username,
         first_name: req.body.first_name,
         last_name: req.body.first_name,
@@ -106,54 +154,47 @@ app.post("/register", (req, res) => {
     });
 });
 
-
-
-// API to save a message
-app.post('/messages', async (req, res) => {
+// API to Save a Message
+app.post("/messages", async (req, res) => {
     const { roomId, sender, message } = req.body;
-  
+
     // Validate input fields
     if (!roomId || !sender || !message) {
-      return res.status(400).json({ error: 'All fields are required' });
+        return res.status(400).json({ error: "All fields are required" });
     }
-  
-    // Save the message to the database
-    try {
-      const newMessage = new Message({ roomId, sender, message });
-      await newMessage.save();
-  
-      res.status(201).json({ message: 'Message saved successfully' });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-  
-//Fetch Messages for Display
-app.get('/messages/:roomId', async (req, res) => {
-try {
-    const { roomId } = req.params;
 
-    const messages = await Message.find({ roomId }).sort({ createdAt: 1 }); // Sort by timestamp
-    res.status(200).json(messages);
-} catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-}
+    try {
+        const newMessage = new Message({ roomId, sender, message });
+        await newMessage.save();
+        res.status(201).json({ message: "Message saved successfully" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
-  
-//handle logout
+
+// Fetch Messages for Display
+app.get("/messages/:roomId", async (req, res) => {
+    try {
+        const { roomId } = req.params;
+        const messages = await Message.find({ roomId }).sort({ createdAt: 1 }); // Sort by timestamp
+        res.status(200).json(messages);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+// Handle Logout
 app.get("/logout", function (req, res) {
     req.logout();
     res.redirect("back");
 });
 
 app.get("/sitemap.xml", function (req, res) {
-    res.sendFile("sitemap.xml", {
-        root: path.join(__dirname, "../public"),
-    });
+    res.sendFile("sitemap.xml", { root: path.join(__dirname, "../public") });
 });
-//render 404 page
+
 app.use(function (req, res) {
     res.status(404).render("404");
 });
@@ -161,88 +202,113 @@ app.use(function (req, res) {
 const port = process.env.PORT || 4000;
 
 server.listen(port, () => console.log(`Listening on ${port}`));
-//=============================================================
-//Socket configuration
 
-// io.set("transports", ["xhr-polling"]);
-// io.set("polling duration", 10);
-// let users = [];
-// const addUser = (newUser) => {
-//     users.push(newUser);
-//     console.log("---------------");
-//     console.log(users);
-// };
-// const getUsers = () => {
-//     console.log("###############");
-
-//     console.log(users);
-//     return users;
-// };
+// Socket Configuration
 const roomExists = (roomName) => {
     const index = rooms.findIndex((room) => room === roomName);
     return index === -1 ? false : true;
 };
-//  handle socket calls
+
 io.on("connection", (socket) => {
-    socket.on("createRoom", ({ handle }) => {
+    socket.on("createRoom", async ({ handle }) => {
         let roomName = Math.random().toString(36).substr(2, 6);
-        while (roomExists(roomName)) {
+        while (await Room.findOne({ roomName })) {
             roomName = Math.random().toString(36).substr(2, 6);
         }
-        const room = {
-            roomName: `${roomName}`,
+
+        const room = new Room({
+            roomName,
             admin: handle.trim(),
-        };
+        });
+
+        await room.save();
+
         const data = { handle: handle, room: room };
-        rooms.push(room);
+        rooms.push(room); // Keep the in-memory copy for active use
         socket.join(room.roomName);
         addUser(socket.id, handle.trim(), room);
+
         socket.emit("joined", data);
         socket.broadcast.to(room.roomName).emit("newconnection", data);
     });
-    socket.on("joinRoom", (data) => {
-        const index = rooms.findIndex((room) => room.roomName === data.room);
-        if (index !== -1) {
+
+    socket.on("joinRoom", async (data) => {
+        const room = await Room.findOne({ roomName: data.room });
+        if (room) {
+            const user = new User({
+                socketID: socket.id,
+                name: data.handle.trim(),
+                roomID: room.roomName,
+            });
+
+            await user.save();
+
             socket.join(data.room);
-            addUser(socket.id, data.handle.trim(), rooms[index]);
-            data.room = rooms[index];
-            socket.emit("joined", data);
-            socket.broadcast.to(data.room.roomName).emit("newconnection", data);
-        } else socket.emit("invalidRoom", { message: "Invalid room-id" });
-    });
-    socket.on("chat", (data) => {
-        const user = data.handle.trim();
-        const currentUser = getUsers().filter((obj) => obj.id === socket.id);
-        if (currentUser.length > 0) {
-            data.users = getRoomUsers(currentUser[0].room.roomName);
-            io.in(currentUser[0].room.roomName).emit("chat", data);
+            addUser(socket.id, data.handle.trim(), room);
+
+            socket.emit("joined", { handle: data.handle, room });
+            socket.broadcast.to(data.room).emit("newconnection", { handle: data.handle });
+        } else {
+            socket.emit("invalidRoom", { message: "Invalid room ID" });
         }
     });
+
+    socket.on("chat", async (data) => {
+        const uniqueId = uuidv4();
+        const currentUser = getUsers().find((obj) => obj.id === socket.id);
+        if (currentUser) {
+            console.log(`Generated unique ID: ${uniqueId}`);
+            const message = new Message({
+                id: uniqueId,
+                roomID: currentUser.room.roomName,
+                sender: data.handle.trim(),
+                message: data.message,
+                file: data.file || null,
+            });
+
+            await message.save();
+
+            io.in(currentUser.room.roomName).emit("chat", message);
+        }
+    });
+
+    socket.on("info", async () => {
+        const currentUser = await User.findOne({ socketID: socket.id });
+        if (currentUser) {
+            const room = await Room.findOne({ roomName: currentUser.roomID });
+            const users = await User.find({ roomID: currentUser.roomID });
+            const messages = await Message.find({ roomID: currentUser.roomID }).sort({ timestamp: 1 });
+
+            socket.emit("info", { room, users, messages });
+        } else {
+            socket.emit("error", { message: "User not found or not in a room" });
+        }
+    });
+
     socket.on("typing", (data) => {
         const user = data.trim();
         const currentUser = getUsers().filter((obj) => obj.id == socket.id);
         socket.broadcast.to(currentUser[0].room.roomName).emit("typing", data);
     });
+
     socket.on("leaveRoom", (handle) => {
         const user = deleteUser(socket.id);
         if (user) {
             socket.leave(user.room.roomName);
             socket.emit("left", user);
-            socket.broadcast
-                .to(user.room.roomName)
-                .emit("userDisconnected", user.name);
+            socket.broadcast.to(user.room.roomName).emit("userDisconnected", user.name);
         }
     });
+
     socket.on("disconnect", () => {
         const user = deleteUser(socket.id);
         if (user) {
-            socket.broadcast
-                .to(user.room.roomName)
-                .emit("userDisconnected", user.name);
+            socket.broadcast.to(user.room.roomName).emit("userDisconnected", user.name);
         }
     });
+
     socket.on("error", (error) => {
         console.log(error);
-        socket.emit("error", { message: err });
+        socket.emit("error", { message: error });
     });
 });

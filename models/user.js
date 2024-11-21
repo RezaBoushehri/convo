@@ -1,10 +1,15 @@
-var mongoose = require("mongoose");
-var passportLocalMongoose = require("passport-local-mongoose");
-var UserSchema = new mongoose.Schema({
+const mongoose = require("mongoose");
+const passportLocalMongoose = require("passport-local-mongoose");
+
+const userSchema = new mongoose.Schema({
     username: String,
     first_name: String,
     last_name: String,
     password: String,
+    socketID: String,  // store the socket ID
+    roomID: String,    // track the room user is in
 });
-UserSchema.plugin(passportLocalMongoose);
-module.exports = mongoose.model("User", UserSchema);
+
+userSchema.plugin(passportLocalMongoose);
+
+module.exports = mongoose.models.User || mongoose.model("User", userSchema);

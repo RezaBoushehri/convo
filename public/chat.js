@@ -352,73 +352,68 @@ const copyId = (id) => {
 //=================================================================
 // save messages to mongo 
 async function sendMessage() {
-    var roomIdSave;
-    let data = {
-        handle: name.textContent,
-        message: message.value,
-        date: new Date(),
-        image: image,
-    };
-    socket.emit("chat", data);
-    // const roomID = document.getElementById('roomID').innerText.trim();
-    let sender = data.handle; // Replace this with the dynamic username if applicable
-    sender = sender.replace(/\s+/g, '').trim();
-    // Ensure sender value is clean and trimmed
-    let messageSave = data.message
-    // const message = document.getElementById('message').value.trim();
+    let roomIdSave = document.getElementById('roomID').textContent.trim();  // Ensure roomID is properly fetched
+    let sender = name.textContent.trim();  // Ensure sender value is properly cleaned up
+    let messageSave = message.value.trim();  // Ensure the message is cleaned up
 
-    roomIdSave = roomExists
-    console.log({ roomIdSave, sender, messageSave }); // Log the values to debug
-
-  
-  
-    // if (!message || !sender || !roomName) {
-    //     window.alert('Room ID, sender, and message cannot be empty'); // Corrected alert
-    //     return;
-    // }
-  
-    try {
-      const response = await fetch('http://localhost:4000/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ roomIdSave, sender, message }),
-      });
-  
-      if (response.ok) {
-        console.log('Message sent successfully');
-        document.getElementById('message').value = ''; // Clear input
-      } else {
-        const errorData = await response.json();
-        console.error('Error sending message:', errorData.error);
-      }
-    } catch (error) {
-      console.error('Error:', error);
+    if (!messageSave || !sender || !roomIdSave) {
+        window.alert('Room ID, sender, and message cannot be empty'); // Check if any required value is missing
+        return;
     }
-  }
-  
+
+    // Construct the message data
+    let data = {
+        roomId: roomIdSave, 
+        sender: sender, 
+        message: messageSave,
+        date: new Date(),
+        image: image  // Include the image data if needed
+    };
+
+    try {
+        const response = await fetch('http://localhost:4000/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (response.ok) {
+            console.log('Message sent successfully');
+            document.getElementById('message').value = ''; // Clear input
+        } else {
+            const errorData = await response.json();
+            console.error('Error sending message:', errorData.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
   
 //=================================================================
 // fetch messages from mongo 
 async function fetchMessages() {
-    // const roomIdSave = document.getElementById('roomIdSave').innerText.trim();
+    let roomIdSave = document.getElementById('roomID').textContent.trim();  // Ensure roomId is properly fetched
   
     try {
-      const response = await fetch(`http://localhost:4000/messages/${roomIdSave}`);
-      const messages = await response.json();
-  
-      const output = document.getElementById('output');
-      output.innerHTML = ''; // Clear previous messages
-  
-      messages.forEach(msg => {
-        const div = document.createElement('div');
-        div.classList.add('message');
-        div.innerHTML = `<strong>${msg.sender}:</strong> ${msg.message}`;
-        output.appendChild(div);
-      });
+        const response = await fetch(`http://localhost:4000/messages/${roomIdSave}`);
+        const messages = await response.json();
+
+        const output = document.getElementById('output');
+        output.innerHTML = ''; // Clear previous messages
+
+        messages.forEach(msg => {
+            const div = document.createElement('div');
+            div.classList.add('message');
+            div.innerHTML = `<strong>${msg.sender}:</strong> ${msg.message}`;
+            if (msg.image) {
+                div.innerHTML += `<img src="${msg.image}" class="img-fluid rounded mb-2"/>`; // Display image if available
+            }
+            output.appendChild(div);
+        });
     } catch (error) {
-      console.error('Error fetching messages:', error);
+        console.error('Error fetching messages:', error);
     }
-  }
-  
+}
