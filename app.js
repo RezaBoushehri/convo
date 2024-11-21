@@ -25,9 +25,16 @@ const express = require("express"),
     { v4: uuidv4 } = require('uuid'),
     Message = require("./models/message"),
     server = https.createServer(options, app),
-    { addUser, getUsers, deleteUser, getRoomUsers } = require("./users/users"),
+    { addUser, getUsers, deleteUser, getRoomUsers  } = require("./users/users"),
     rooms = [],
-    io =  socket(server);
+     
+    io = socket(server, {
+        cors: {
+            origin: "https://localhost:4000", // Replace with your client URL
+            methods: ["GET", "POST"],
+            credentials: true,
+        },
+    });
 
 var session = require("express-session");
 var MemoryStore = require("memorystore")(session);
@@ -43,7 +50,18 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Socket.io with CORS configuration
+// phone validation
+function phoneVal(phoneNumber, res) {
+    // Basic server-side validation
+    const phoneRegex = /^[0-9]{10}$/;
+
+    if (!phoneRegex.test(phoneNumber)) {
+        return res.status(400).send('Invalid phone number');
+    }
+
+    // Proceed with further logic if valid
+    res.send('Phone number is valid');
+}
 
 
 const mongoURI = "mongodb://localhost:27017/chatRoom"; // Replace with your URI
@@ -96,9 +114,19 @@ app.get("/", middleware.isLoggedIn, (req, res) => {
 });
 
 app.get("/join/:id", middleware.isLoggedIn, (req, res) => {
-    res.render("index", { roomid: req.params.id });
-});
+    const roomID = req.params.id;
 
+    // Check if the room exists in the `rooms` array or object
+    const roomExists = rooms.find((room) => room.roomName === roomID);
+
+    if (roomExists) {
+        // Render the room and provide the room ID
+        res.render("index", { roomid: roomID });
+    } else {
+        // If the room does not exist, redirect or send an error
+        res.status(404).json({ error: "Room not found" });
+    }
+});
 
 // Login/Registration Routes (Passport Auth)
 app.get("/login", (req, res) => {
@@ -107,6 +135,7 @@ app.get("/login", (req, res) => {
 // Using async/await properly for login and handling redirects
 app.post("/login", async (req, res, next) => {
     try {
+        // phoneVal(req.body.username,res)
         // Find the user by username using async/await
         const user = await User.findByUsername(req.body.username);
 
@@ -146,10 +175,11 @@ app.post("/login", async (req, res, next) => {
 
 
 app.post("/register", (req, res) => {
+    // phoneVal(req.body.username,res)
     const newUser = new User({
         username: req.body.username,
         first_name: req.body.first_name,
-        last_name: req.body.first_name,
+        last_name: req.body.last_name,
     });
 
     User.register(newUser, req.body.password, (error, user) => {
@@ -186,13 +216,21 @@ app.post("/register", (req, res) => {
 app.get("/messages/:roomId", async (req, res) => {
     try {
         const { roomId } = req.params;
-        const messages = await Message.find({ roomID }).sort({ createdAt: 1 }); // Sort by timestamp
-        res.status(200).json(messages);
+
+        // Fetch messages for the given room ID
+        const messages = await Message.find({ roomID: roomId }).sort({ createdAt: 1 });
+
+        if (messages.length > 0) {
+            res.status(200).json(messages); // Return all messages
+        } else {
+            res.status(404).json({ error: "No messages found for this room" });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
+
 
 // Handle Logout
 app.get("/logout", function (req, res) {
@@ -214,19 +252,95 @@ server.listen(port, '0.0.0.0', () => console.log(`Listening on ${port}`));
 
 
 
+// Function to add the user to the room (this should be added to your user management logic)
+// const addUserToRoom = async (socketId, roomName) => {
+//     try {
+//         // Find the user from the in-memory user list or database
+//         const user = getUsers().find(user => user.id === socketId);
+        
+//         if (user) {
+//             // Update the user's roomID in the database
+//             await User.findOneAndUpdate(
+//                 { socketID: socketId },   // Filter by socketID
+//                 { $set: { roomID: roomName } },  // Set the roomID
+//                 { new: true }              // Return the updated document
+//             );
 
+//             // Update the room's members array in the database
+//             await Room.findOneAndUpdate(
+//                 { roomName: roomName },       // Find the room by its name
+//                 { $addToSet: { members: socketId } }, // Add the socketId to the members array (avoid duplicates)
+//                 { new: true }                // Return the updated room document
+//             );
 
-// Socket Configuration
-const roomExists = (roomName) => {
-    const index = rooms.findIndex((room) => room === roomName);
-    return index === -1 ? false : true;
+//             console.log(`User with socketId: ${socketId} added to room: ${roomName}`);
+//         } else {
+//             console.error("User not found when adding to room");
+//         }
+//     } catch (error) {
+//         console.error("Error adding user to room:", error);
+//     }
+// };
+const addUserToRoom = async (socketId, roomName) => {
+    try {
+        const roomExists = await Room.findOne({ roomName: roomName });
+
+        if (!roomExists) {
+            throw new Error('Room does not exist');
+        }
+
+        // Check if user is already in the room
+        if (Room.members.includes(socketId)) {
+            throw new Error('User already in the room');
+        }
+
+        Room.members.push(socketId); // Add the user
+        await Room.save();
+        console.log(`User with socketId ${socketId} added to room ${roomName}`);
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
 };
 
+// const removeUserFromRoom = async (socketId, roomName) => {
+//     try {
+//         const room = await Room.findOne({ roomName: roomName });
+
+//         if (!room) {
+//             throw new Error('Room does not exist');
+//         }
+
+//         const userIndex = room.members.indexOf(socketId);
+
+//         if (userIndex === -1) {
+//             throw new Error('User not found or not in a room');
+//         }
+
+//         room.members.splice(userIndex, 1); // Remove the user
+//         await room.save();
+//         console.log(`User with socketId ${socketId} removed from room ${roomName}`);
+//     } catch (error) {
+//         console.error('Error:', error.message);
+//     }
+// };
+
+
+// // Socket Configuration
+// const roomExists = (roomName) => {
+//     const index = rooms.findIndex((room) => room === roomName);
+//     return index === -1 ? false : true;
+// };
+
 io.on("connection", (socket) => {
-    socket.on("createRoom", async ({ handle }) => {
-        let roomName = Math.random().toString(36).substr(2, 6);
+    const socketId = socket.id; // Make sure you're getting socketId properly
+    // Add user to room with this socketId
+    addUserToRoom(socketId, 'roomName');
+    socket.on("createRoom", async ({ handle, roomID }) => {
+        let roomName = roomID;
+        
+        // Check if room name already exists, if so, keep generating a new name
         while (await Room.findOne({ roomName })) {
-            roomName = Math.random().toString(36).substr(2, 6);
+            roomName = `${roomID}-${Math.floor(Math.random() * 1000)}`; // Add random suffix to make the name unique
         }
     
         const room = new Room({
@@ -237,35 +351,47 @@ io.on("connection", (socket) => {
         await room.save(); // Save the room to MongoDB
     
         const data = { handle: handle, room: room };
-        socket.join(room.roomName);
-        addUser(socket.id, handle.trim(), room);
+        socket.join(room.roomName);  // Join the socket to the room
     
-        socket.emit("joined", data);
-        socket.broadcast.to(room.roomName).emit("newconnection", data);
+        addUser(socket.id, handle.trim(), room);  // Add user to a custom user list (if needed)
+    
+        socket.emit("joined", data);  // Notify the user they've joined the room
+        socket.broadcast.to(room.roomName).emit("newconnection", data);  // Broadcast to other users in the room
     });
     
+   // Handle joining a room
+    // socket.on("joinRoom", async ({ roomID }) => {
+    //     try {
+    //         // Check if the room exists
+    //         const roomExists = await Room.findOne({ roomName: roomID });
+            
+    //         if (roomExists) {
+    //             // Join the socket to the room
+    //             socket.join(roomID);
+                
+    //             // Ensure user is added to the room (update the 'room' or 'members' field in the database)
+    //             addUserToRoom(socket.id, roomID);
+                
+    //             // Fetch past messages for the room and send to the user
+    //             const messages = await Message.find({ roomID: roomID }).sort({ createdAt: 1 });
+    //             socket.emit("restoreMessages", messages);
+                
+    //             // Optional: Notify room of new connection (if needed)
+    //             socket.broadcast.to(roomID).emit("userJoined", { userID: socket.id, roomID: roomID });
+    //         } else {
+    //             socket.emit("error", { error: "Room does not exist" });
+    //         }
+    //     } catch (error) {
+    //         console.error("Error joining room:", error);
+    //         socket.emit("error", { error: "Failed to join room" });
+    //     }
+    // });
 
-    socket.on("joinRoom", async (data) => {
-        const room = await Room.findOne({ roomName: data.room });
-        if (room) {
-            // const user = new User({
-            //     socketID: socket.id,
-            //     name: data.handle.trim(),
-            //     roomID: room.roomName,
-            // });
-
-            // await user.save();
-
-            // socket.join(data.room);
-            // addUser(socket.id, data.handle.trim(), room);
-
-            socket.emit("joined", { handle: data.handle, room });
-            socket.broadcast.to(data.room).emit("newconnection", { handle: data.handle });
-        } else {
-            socket.emit("invalidRoom", { message: "Invalid room ID" });
-        }
-    });
-
+    socket.on('joinRoom', (roomName) => {
+        console.log(`Adding user with socketId: ${socket.id} to room: ${roomName}`);
+        addUserToRoom(socket.id, roomName);
+    });    
+    
     socket.on("chat", async (data) => {
         const uniqueId = uuidv4();
         const currentUser = getUsers().find((obj) => obj.id === socket.id);
@@ -275,12 +401,13 @@ io.on("connection", (socket) => {
                 roomID: currentUser.room.roomName,
                 sender: data.handle.trim(),
                 message: data.message,
-                file: data.file || null,
+                file: data.image || null,
             });
     
             try {
                 await message.save();
                 io.in(currentUser.room.roomName).emit("chat", message);
+
             } catch (error) {
                 console.error("Error saving message:", error);
                 socket.emit("error", { message: "Failed to save message" });
@@ -303,18 +430,37 @@ io.on("connection", (socket) => {
 
     socket.on("typing", (data) => {
         const user = data.trim();
-        const currentUser = getUsers().filter((obj) => obj.id == socket.id);
-        socket.broadcast.to(currentUser[0].room.roomName).emit("typing", data);
-    });
-
-    socket.on("leaveRoom", (handle) => {
-        const user = deleteUser(socket.id);
-        if (user) {
-            socket.leave(user.room.roomName);
-            socket.emit("left", user);
-            socket.broadcast.to(user.room.roomName).emit("userDisconnected", user.name);
+        const currentUser = getUsers().find((obj) => obj.id == socket.id); // Use find() instead of filter()
+        
+        if (currentUser && currentUser.room) {
+            socket.broadcast.to(currentUser.room.roomName).emit("typing", user); // Emit typing event to the room
+        } else {
+            console.error("Error: User not found or not in a room");
+            socket.emit("error", { message: "User not found or not in a room" });
         }
     });
+    
+    socket.on("leaveRoom", async ({ roomID }) => {
+        try {
+            const room = await Room.findOne({ roomName: roomID });
+    
+            if (room) {
+                // Remove the user from the room's members list
+                room.members = room.members.filter(member => member !== socket.id);
+                await room.save();
+    
+                socket.leave(roomID);
+                socket.emit("leftRoom", { roomID: room.roomName });
+    
+            } else {
+                socket.emit("error", { error: "Room does not exist" });
+            }
+        } catch (error) {
+            console.error(error);
+            socket.emit("error", { error: "Failed to leave room" });
+        }
+    });
+    
 
     socket.on("disconnect", () => {
         const user = deleteUser(socket.id);
@@ -324,8 +470,22 @@ io.on("connection", (socket) => {
     });
 
     socket.on("error", (error) => {
+        console.log(getUsers());  // Check if the user list is correct
+
         console.log("Socket error:", error);
-        socket.emit("error", { message: "Something went wrong, please try again later." });
-    });
+        console.log(`Adding user with socketId: ${socketId} to room: ${roomName}`);
+
+        if (typeof user !== 'undefined' && user !== null) {
+            console.log(user.username); // Log specific fields
+        }
+        
+        const safeLog = (obj) => {
+            try {
+                console.log(JSON.parse(JSON.stringify(obj)));
+            } catch (error) {
+                console.error("Error logging object:", error);
+            }
+        };
+            });
     
 });

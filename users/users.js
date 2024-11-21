@@ -19,6 +19,8 @@ const deleteUser = (id) => {
     }
     return null;
 };
+
+
 const getRoomUsers = (room) => {
     return users.filter((user) => user.room.roomName === room);
 };

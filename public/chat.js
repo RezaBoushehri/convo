@@ -3,7 +3,7 @@
 const production = false;
 const href = production ? window.location.hostname : "localhost:4000",
     socket = io.connect('https://localhost:4000', {
-        transports: ['polling'],
+        transports: ['polling', "websocket"],
         secure: true,
         rejectUnauthorized: false // Bypass SSL verification for self-signed certificates
     }),
@@ -14,8 +14,9 @@ const href = production ? window.location.hostname : "localhost:4000",
     name = document.getElementById("dropdownMenuButton"),
     alert = document.getElementById("alert"),
     chat_window = document.getElementById("chat-window"),
-    roomName = document.getElementById("roomName"),
+    joinRoomName = document.getElementById("joinRoomName"),
     fileInput = document.getElementById("file-input"),
+   
     options = {
         maxSizeMB: 0.3,
         maxWidthOrHeight: 1920,
@@ -59,16 +60,42 @@ $("#file-input").on("change", (e) => {
 
 //=================================================================
 //Emit Create, Join and Leave room events
-
 const createRoom = () => {
-    socket.emit("createRoom", { handle: name.textContent });
-};
-const joinRoom = () => {
-    socket.emit("joinRoom", {
-        handle: name.textContent,
-        room: `${roomName.value}`,
+    const createRoomName = document.getElementById('createRoomName');  // Make sure you're getting the correct input element
+    const roomID = createRoomName.value.trim();
+    
+    if (!roomID) {
+        alert.innerHTML=("Please enter a room ID.");  // Validation: Ensure the room ID is not empty
+        return;
+    }
+
+    socket.emit("createRoom", { 
+        handle: name.textContent,  // Assuming `name.textContent` contains the user's name
+        roomID: roomID
     });
 };
+
+const joinRoom = () => {
+    const roomID = document.getElementById('joinRoomName').value.trim();  // Ensure this matches the actual input field ID
+    
+    if (!roomID) {
+        alert.innerHTML=("Please enter a room ID.");  // Validation: Ensure the room ID is not empty
+        return;
+    }else{
+        console.log(roomID)
+    }
+
+    socket.emit("joinRoom", { 
+        roomName: roomID
+    });
+
+    // // Optionally, listen for errors from the server
+    // socket.on("error", (data) => {
+    //     alert.innerHTML=(data.error);  // Show the error message received from the server
+    // });
+};
+
+
 const leaveRoom = () => {
     socket.emit("leaveRoom", name.textContent);
     document.querySelector("#roomInfo").innerHTML = "";
@@ -91,7 +118,7 @@ button.addEventListener("click", () => {
     message.value = "";
     socket.emit("chat", data);
         if (!data.message || ! data.handle) {
-        window.alert('Room ID, sender, and message cannot be empty'); // Corrected alert
+            alert.innerHTML=('Room ID, sender, and message cannot be empty'); // Corrected alert
         return;
         }
   
@@ -130,7 +157,7 @@ message.addEventListener("keyup", (event) => {
     //13 => keycode for Enter
     if (event.keyCode === 13) button.click();
 });
-document.querySelector("#roomName").addEventListener("keyup", (event) => {
+document.querySelector(".roomNameInput").addEventListener("keyup", (event) => {
     if (event.keyCode === 13) joinRoom();
 });
 //=================================================================
@@ -201,46 +228,47 @@ socket.on("invalidRoom", ({ message }) => {
 //=================================================================
 //Handle chat event (Recieve message from server and show it on client side)
 socket.on("chat", (data) => {
-    let style,
-        bg,
-        color,
-        users = "";
+    // let style,
+    //     bg,
+    //     color,
+    //     users = "";
 
-    if (data.handle === name.textContent) {
-        style = "display:flex;justify-content:flex-end";
-        data.users.forEach((item) => {
-            if (item.name.trim() !== data.handle.trim())
-                users += `${item.name} , `;
-        });
-        users = users.slice(0, users.length - 3);
-        if (users !== "") {
-            output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
-        }
-        $(".spinner-border")
-            .parent()
-            .append("<i class='fa fa-check text-warning'></i>");
-        $(".spinner-border").remove();
-    } else {
-        style = "display:flex;justify-content:flex-start";
-        bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
-        color = `text-success text-capitalize`;
-        output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
-            data.handle
-        }</h6><div>${
-            data.message
-        }</div><img class="img-fluid rounded mb-2" src='${
-            data.image
-        }'/><div style="text-align:right;font-size:2vmin"> 
-    ${new Intl.DateTimeFormat("fa-IR", {
-        hour: "numeric",
-        minute: "numeric",
-    }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
-    }
-    $("file-input").val("");
-    image = "";
-    socket.emit("typing", "stop");
-    showUp();
-    scroll();
+    // if (data.handle === name.textContent) {
+    //     style = "display:flex;justify-content:flex-end";
+    //     data.users.forEach((item) => {
+    //         if (item.name.trim() !== data.handle.trim())
+    //             users += `${item.name} , `;
+    //     });
+    //     users = users.slice(0, users.length - 3);
+    //     if (users !== "") {
+    //         output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
+    //     }
+    //     $(".spinner-border")
+    //         .parent()
+    //         .append("<i class='fa fa-check text-warning'></i>");
+    //     $(".spinner-border").remove();
+    // } else {
+    //     style = "display:flex;justify-content:flex-start";
+    //     bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
+    //     color = `text-success text-capitalize`;
+    //     output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
+    //         data.handle
+    //     }</h6><div>${
+    //         data.message
+    //     }</div><img class="img-fluid rounded mb-2" src='${
+    //         data.image
+    //     }'/><div style="text-align:right;font-size:2vmin"> 
+    // ${new Intl.DateTimeFormat("fa-IR", {
+    //     hour: "numeric",
+    //     minute: "numeric",
+    // }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
+    // }
+    // $("file-input").val("");
+    // image = "";
+    // socket.emit("typing", "stop");
+    // showUp();
+    // scroll();
+    addMessageToChatUI(data)
 });
 
 //=================================================================
@@ -354,71 +382,78 @@ const copyId = (id) => {
     }, 1500);
 };
 //=================================================================
-// save messages to mongo 
-// async function sendMessage() {
-//     let roomIdSave = document.getElementById('roomID').textContent.trim();  // Ensure roomID is properly fetched
-//     let sender = name.textContent.trim();  // Ensure sender value is properly cleaned up
-//     let messageSave = message.value.trim();  // Ensure the message is cleaned up
-// console.log(roomIdSave
-//     ,sender
-//     ,messageSave)
-//     // if (!messageSave || !sender || !roomIdSave) {
-//     //     window.alert('Room ID, sender, and message cannot be empty'); // Check if any required value is missing
-//     //     return;
-//     // }
+// Function to add messages to the chat UI
+socket.on("restoreMessages", (messages) => {
+    messages.forEach((message) => {
+        addMessageToChatUI(message); // A function to add messages to the UI
+    });
+});
+function addMessageToChatUI(data) {
+    let style, bg, color, users = "";
 
-//     // Construct the message data
-//     let data = {
-//         roomId: roomIdSave, 
-//         sender: sender, 
-//         message: messageSave,
-//         file: image  // Include the image data if needed
-//     };
-
-//     try {
-//         const response = await fetch('https://localhost:4000/messages', {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json',
-//             },
-//             body: JSON.stringify(data),
-//         });
-
-//         if (response.ok) {
-//             console.log('Message sent successfully');
-//             document.getElementById('message').value = ''; // Clear input
-//         } else {
-//             const errorData = await response.json();
-//             console.error('Error sending message:', errorData.error);
-//         }
-//     } catch (error) {
-//         console.error('Error:', error);
-//     }
-// }
-
-  
-//=================================================================
-// fetch messages from mongo 
-async function fetchMessages() {
-    let roomIdSave = document.getElementById('roomID').textContent.trim();  // Ensure roomId is properly fetched
-  
-    try {
-        const response = await fetch(`https://localhost:4000/messages/${roomIdSave}`);
-        const messages = await response.json();
-
-        const output = document.getElementById('output');
-        output.innerHTML = ''; // Clear previous messages
-
-        messages.forEach(msg => {
-            const div = document.createElement('div');
-            div.classList.add('message');
-            div.innerHTML = `<strong>${msg.sender}:</strong> ${msg.message}`;
-            if (msg.image) {
-                div.innerHTML += `<img src="${msg.image}" class="img-fluid rounded mb-2"/>`; // Display image if available
-            }
-            output.appendChild(div);
+    // Check if the message is from the current user or another user
+    if (data.handle === name.textContent) {
+        style = "display:flex;justify-content:flex-end";
+        data.users.forEach((item) => {
+            if (item.name.trim() !== data.handle.trim()) users += `${item.name}, `;
         });
-    } catch (error) {
-        console.error('Error fetching messages:', error);
+        users = users.slice(0, users.length - 3);
+        
+        // Add seen by users message
+        if (users !== "") {
+            output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
+        }
+        
+        // Replace spinner with a check icon
+        $(".spinner-border").parent().append("<i class='fa fa-check text-warning'></i>");
+        $(".spinner-border").remove();
+    } else {
+    //     style = "display:flex;justify-content:flex-start";
+    //     bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
+    //     color = `text-success text-capitalize`;
+
+    //     output.innerHTML += `<div style=${style}><div class='${bg}'><h6 class= ${color}>${
+    //         data.handle
+    //     }</h6><div>${
+    //         data.message
+    //     }</div><img class="img-fluid rounded mb-2" src='${
+    //         data.image
+    //     }'/><div style="text-align:right;font-size:2vmin"> 
+    // ${new Intl.DateTimeFormat("fa-IR", {
+    //     hour: "numeric",
+    //     minute: "numeric",
+    // }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
+    // }
+    style = "display:flex;justify-content:flex-start";
+    bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
+    color = `text-success text-capitalize`;
+
+    // Format the date and check if it's valid
+    let formattedDate = "Invalid Date";
+    const parsedDate = new Date(data.date);
+    if (!isNaN(parsedDate.getTime())) {
+        formattedDate = new Intl.DateTimeFormat("fa-IR", {
+            hour: "numeric",
+            minute: "numeric",
+        }).format(parsedDate);
     }
+
+    output.innerHTML += `
+        <div style="${style}">
+            <div class="${bg}">
+                <h6 class="${color}">${data.handle}</h6>
+                <div>${data.message}</div>
+                <img class="img-fluid rounded mb-2" src="${data.image}" />
+                <div style="text-align:right;font-size:2vmin">${formattedDate}&nbsp;&nbsp;</div>
+            </div>
+        </div>
+    `;
+}
+    // Reset file input and image
+    $("file-input").val("");
+    image = "";
+    socket.emit("typing", "stop"); // Stop typing indication
+
+    showUp();  // Show "scroll up" button if needed
+    scroll();  // Scroll to the bottom to show the latest message
 }

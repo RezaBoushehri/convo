@@ -2,8 +2,13 @@
     <div id="form" class="p-3 pr-4 pl-4 rounded">
         <form method="POST" action='/login'>
             <div class="form-group">
-                <label for="email">Email address</label>
-                <input type="email" class="form-control" name="username" placeholder="Enter email">
+                <input 
+                    type="tel" 
+                    class="form-control phone-input" 
+                    name="username" 
+                    placeholder="Phone number">
+                <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
+
             </div>
 
             <div class="form-group">
@@ -11,7 +16,7 @@
                 <input type="password" class="form-control" name="password" placeholder="Password">
             </div>
             <div class="form-group">
-                New to <span style="font-family: 'Pacifico';">CONVO</span> ?
+                New to <span style="font-family: 'Pacifico';">meta chat</span> ?
                 <a class="badge badge-lg badge-success" data-toggle="modal" data-target="#signup">Sign Up</a>
             </div>
             <button type="submit" class="btn btn-primary">Submit</button>
@@ -43,7 +48,13 @@
                         </div>
                         <div class="form-group">
                             <!-- <label for="email">Email address</label> -->
-                            <input type="email" class="form-control" name="username" placeholder="E-mail">
+                            <input 
+                                type="tel" 
+                                class="form-control phone-input" 
+                                name="username" 
+                                placeholder="Phone number">
+                            <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
+
                         </div>
 
                         <div class="form-group">
@@ -63,6 +74,20 @@
             </div>
         </div>
     </div>
+    <script>
+       const phoneInput = document.querySelector(".phone-input");
+        const errorMessage = document.querySelector(".error-message");
+
+        phoneInput.addEventListener("input", () => {
+            const phoneRegex = /^[0-9]{11}$/; // Adjust regex for your specific needs
+            if (!phoneRegex.test(phoneInput.value)) {
+                errorMessage.style.display = "block";
+            } else {
+                errorMessage.style.display = "none";
+            }
+        });
+
+    </script>
     <%-include('partials/footer.ejs')%>
         </body>
 

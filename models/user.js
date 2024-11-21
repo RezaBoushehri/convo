@@ -6,8 +6,8 @@ const userSchema = new mongoose.Schema({
     first_name: String,
     last_name: String,
     password: String,
-    socketID: String,  // store the socket ID
-    roomID: String,    // track the room user is in
+    socketID: String,  // Store the socket ID
+    roomID: String,    // Track the room the user is in
 });
 
 userSchema.plugin(passportLocalMongoose);
