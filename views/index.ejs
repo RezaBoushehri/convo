@@ -43,7 +43,7 @@
                 <div class="modal-dialog" role="document">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="exampleModalLabel">Create a room</h5>
+                            <h5 class="modal-title" id="exampleModalLabel"> Create a room</h5>
                             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                 <span aria-hidden="true">&times;</span>
                             </button>
@@ -69,6 +69,7 @@
 
             <div id="output" class="p-3 container">
             </div>
+            <input id="username" type="hidden" value="<%= currentUser.username.trim() %>">
             <div id="feedback" class='p-3'></div>
             <button id="up" class="btn btn-warning m-2 text-white" onclick="scrollUp()"></i></button>
 
@@ -86,7 +87,7 @@
         </div>
     </div>
 
-    <script src='../chat.js'>
+    <script src='../chat.js' defer>
     </script>
     <%-include('partials/footer.ejs')%>
         </body>

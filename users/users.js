@@ -32,23 +32,7 @@ const deleteUser = (username) => {
 };
 
 
-const updateUserSocketId = async (username, socketId) => {
-    try {
-        const user = await User.findOneAndUpdate(
-            { username: username },
-            { socketId: socketId },
-            { new: true } // Return the updated user
-        );
-        if (user) {
-            console.log(`Updated socketId for user ${username}: ${socketId}`);
-        } else {
-            console.log(`User ${username} not found in the database`);
-        }
-    } catch (error) {
-        console.error("Error updating socketId in database:", error);
-    }
-};
 const getRoomUsers = (room) => {
     return users.filter((user) => user.room.roomName === room);
 };
-module.exports = { addUser, getUsers, deleteUser, getRoomUsers , updateUserSocketId };
+module.exports = { addUser, getUsers, deleteUser, getRoomUsers };

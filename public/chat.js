@@ -5,7 +5,7 @@ const href = production ? window.location.hostname : "localhost:4000",
     socket = io.connect('https://localhost:4000', {
         transports: ['polling', "websocket"],
         secure: true,
-        withCredentials: true, // Ensures cookies are sent along with requests
+        withCredentials: false, // Ensures cookies are sent along with requests
         rejectUnauthorized: false // Bypass SSL verification for self-signed certificates
     }),
     message = document.getElementById("message"),
@@ -17,7 +17,9 @@ const href = production ? window.location.hostname : "localhost:4000",
     chat_window = document.getElementById("chat-window"),
     joinRoomName = document.getElementById("joinRoomName"),
     fileInput = document.getElementById("file-input"),
-   
+    currentUser = {
+        username: document.getElementById('username').value
+    },
     options = {
         maxSizeMB: 0.3,
         maxWidthOrHeight: 1920,
@@ -31,6 +33,7 @@ if (roomID != "") {
         room: roomID,
     });
 }
+document.getElementById('username').value = ''
 let image = "";
 $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 
@@ -61,6 +64,9 @@ $("#file-input").on("change", (e) => {
 
 //=================================================================
 //Emit Create, Join and Leave room events
+
+socket.emit("userLoggedIn", { username: currentUser.username });
+
 const createRoom = () => {
     const createRoomName = document.getElementById('createRoomName');  // Make sure you're getting the correct input element
     const roomID = createRoomName.value.trim();
@@ -87,7 +93,8 @@ const joinRoom = () => {
     }
 
     socket.emit("joinRoom", { 
-        roomName: roomID
+        roomName: roomID,
+        username: currentUser.username
     });
 
     // // Optionally, listen for errors from the server
@@ -111,14 +118,16 @@ const leaveRoom = () => {
 
 button.addEventListener("click", () => {
     let data = {
+        username : currentUser.username,
         handle: name.textContent,
+        roomID: roomID,
         message: message.value,
         date: new Date(),
         image: image,
     };
     message.value = "";
     socket.emit("chat", data);
-        if (!data.message || ! data.handle) {
+        if (!data.message || ! data.username) {
             alert.innerHTML=('Room ID, sender, and message cannot be empty'); // Corrected alert
         return;
         }
@@ -384,11 +393,11 @@ const copyId = (id) => {
 };
 //=================================================================
 // Function to add messages to the chat UI
-socket.on("restoreMessages", (messages) => {
-    messages.forEach((message) => {
-        addMessageToChatUI(message); // A function to add messages to the UI
-    });
-});
+// socket.on("restoreMessages", (messages) => {
+//     messages.forEach((message) => {
+//         addMessageToChatUI(message); // A function to add messages to the UI
+//     });
+// });
 function addMessageToChatUI(data) {
     let style, bg, color, users = "";
 
@@ -409,47 +418,47 @@ function addMessageToChatUI(data) {
         $(".spinner-border").parent().append("<i class='fa fa-check text-warning'></i>");
         $(".spinner-border").remove();
     } else {
-    //     style = "display:flex;justify-content:flex-start";
-    //     bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
-    //     color = `text-success text-capitalize`;
+        style = "display:flex;justify-content:flex-start";
+        bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
+        color = `text-success text-capitalize`;
 
-    //     output.innerHTML += `<div style=${style}><div class='${bg}'><h6 class= ${color}>${
-    //         data.handle
-    //     }</h6><div>${
-    //         data.message
-    //     }</div><img class="img-fluid rounded mb-2" src='${
-    //         data.image
-    //     }'/><div style="text-align:right;font-size:2vmin"> 
-    // ${new Intl.DateTimeFormat("fa-IR", {
-    //     hour: "numeric",
-    //     minute: "numeric",
-    // }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
+        output.innerHTML += `<div style=${style}><div class='${bg}'><h6 class= ${color}>${
+            data.handle
+        }</h6><div>${
+            data.message
+        }</div><img class="img-fluid rounded mb-2" src='${
+            data.image
+        }'/><div style="text-align:right;font-size:2vmin"> 
+    ${new Intl.DateTimeFormat("fa-IR", {
+        hour: "numeric",
+        minute: "numeric",
+    }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
+    
+    // style = "display:flex;justify-content:flex-start";
+    // bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
+    // color = `text-success text-capitalize`;
+
+    // // Format the date and check if it's valid
+    // let formattedDate = "Invalid Date";
+    // const parsedDate = new Date(data.date);
+    // if (!isNaN(parsedDate.getTime())) {
+    //     formattedDate = new Intl.DateTimeFormat("fa-IR", {
+    //         hour: "numeric",
+    //         minute: "numeric",
+    //     }).format(parsedDate);
     // }
-    style = "display:flex;justify-content:flex-start";
-    bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
-    color = `text-success text-capitalize`;
 
-    // Format the date and check if it's valid
-    let formattedDate = "Invalid Date";
-    const parsedDate = new Date(data.date);
-    if (!isNaN(parsedDate.getTime())) {
-        formattedDate = new Intl.DateTimeFormat("fa-IR", {
-            hour: "numeric",
-            minute: "numeric",
-        }).format(parsedDate);
+    // output.innerHTML += `
+    //     <div style="${style}">
+    //         <div class="${bg}">
+    //             <h6 class="${color}">${data.handle}</h6>
+    //             <div>${data.message}</div>
+    //             <img class="img-fluid rounded mb-2" src="${data.image}" />
+    //             <div style="text-align:right;font-size:2vmin">${formattedDate}&nbsp;&nbsp;</div>
+    //         </div>
+    //     </div>
+    // `;
     }
-
-    output.innerHTML += `
-        <div style="${style}">
-            <div class="${bg}">
-                <h6 class="${color}">${data.handle}</h6>
-                <div>${data.message}</div>
-                <img class="img-fluid rounded mb-2" src="${data.image}" />
-                <div style="text-align:right;font-size:2vmin">${formattedDate}&nbsp;&nbsp;</div>
-            </div>
-        </div>
-    `;
-}
     // Reset file input and image
     $("file-input").val("");
     image = "";
@@ -457,4 +466,22 @@ function addMessageToChatUI(data) {
 
     showUp();  // Show "scroll up" button if needed
     scroll();  // Scroll to the bottom to show the latest message
+}
+function uploadImage() {
+    const input = document.getElementById('imageUpload');
+    const file = input.files[0];
+
+    if (file) {
+        const reader = new FileReader();
+        
+        reader.onloadend = function () {
+            const base64Image = reader.result.split(',')[1]; // Get the Base64 string
+            // Send the Base64 string to the server
+            socket.emit('sendImage', { image: base64Image });
+        };
+
+        reader.readAsDataURL(file);  // Convert the file to Base64
+    } else {
+        console.log("No file selected.");
+    }
 }
