@@ -5,6 +5,7 @@ const href = production ? window.location.hostname : "localhost:4000",
     socket = io.connect('https://localhost:4000', {
         transports: ['polling', "websocket"],
         secure: true,
+        withCredentials: true, // Ensures cookies are sent along with requests
         rejectUnauthorized: false // Bypass SSL verification for self-signed certificates
     }),
     message = document.getElementById("message"),
