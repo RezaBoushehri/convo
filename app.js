@@ -448,80 +448,130 @@ io.on("connection", (socket) => {
     //     }
     // });
 
-    socket.on('joinRoom', async ({ roomName , username }) => {
+    // socket.on('joinRoom', async ({ roomName , username }) => {
+    //     try {
+    //         if (typeof roomName !== 'string') {
+    //             throw new Error("Invalid roomName type. Expected a string.");
+    //         }
+    
+    //         console.log(`Adding user with USERNAME: ${username} to room: ${roomName}`);
+    
+    //         // Check if the room exists
+    //         const room = await Room.findOne({ roomName });
+    
+    //         if (!room) {
+    //             throw new Error("Room does not exist");
+    //         }
+    
+    //         // Add the user to the room
+    //         addUserToRoom(username, roomName);
+    
+    //         // Join the socket.io room
+    //         socket.join(roomName);
+    
+    //         console.log(`User ${username} successfully joined room ${roomName}`);
+    
+    //         socket.emit("joined", { room });
+    //         socket.broadcast.to(roomName).emit("userJoined", { userId: username, roomName });
+    
+    //     } catch (error) {
+    //         console.error("Error joining room:", error.message);
+    //         socket.emit("error", { message: error.message });
+    //     }
+    // });
+    socket.on("joinRoom", async ({ roomName, username }) => {
         try {
-            if (typeof roomName !== 'string') {
-                throw new Error("Invalid roomName type. Expected a string.");
-            }
-    
-            console.log(`Adding user with USERNAME: ${username} to room: ${roomName}`);
-    
-            // Check if the room exists
+            console.log(`User ${username} is trying to join room ${roomName}`);
+            
+            // Ensure room exists
             const room = await Room.findOne({ roomName });
-    
+            console.log("Room existence check:", room);
             if (!room) {
-                throw new Error("Room does not exist");
+                console.error(`Room "${roomName}" does not exist.`);
+                throw new Error(`Room "${roomName}" does not exist`);
             }
     
-            // Add the user to the room
-            addUserToRoom(username, roomName);
+            // Add user to the room
+            console.log(`Adding user ${username} to room ${roomName}`);
+            await addUserToRoom(username, roomName);
+            console.log("User successfully added to the room");
     
-            // Join the socket.io room
+            // Join the socket room
+            console.log(`Socket ${socket.id} joining room ${roomName}`);
             socket.join(roomName);
+            console.log(`Socket ${socket.id} joined room ${roomName}`);
     
-            console.log(`User ${username} successfully joined room ${roomName}`);
+            // Fetch messages and resolve sender details
+            console.log("Fetching messages for room:", roomName);
+            const rawMessages = await Message.find({ roomID: roomName }).sort({ timestamp: 1 }).lean();
     
+            const messages = await Promise.all(
+                rawMessages.map(async (msg) => {
+                    const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
+                    return {
+                        ...msg,
+                        sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+                        handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+                    };
+                })
+            );
+    
+            console.log("Messages fetched with user details:", messages);
+    
+            // Emit messages to the user
+            console.log("Emitting restoreMessages event");
+            socket.emit("restoreMessages", messages);
+    
+            // Notify others in the room of the new user
+            console.log(`Notifying others in ${roomName} about new user ${username}`);
+            socket.broadcast.to(roomName).emit("userJoined", { username, roomName });
             socket.emit("joined", { room });
-            socket.broadcast.to(roomName).emit("userJoined", { userId: username, roomName });
     
         } catch (error) {
-            console.error("Error joining room:", error.message);
+            console.error("Error joining room:", error);
             socket.emit("error", { message: error.message });
         }
     });
-       
-  
-socket.on("chat", async (data) => {
-    try {
-        const uniqueId = uuidv4();
-        console.log("All data is:", data);
-
-        // Find the current user by username
-        const currentUser = await User.findOne({ username: data.username });
-
-        if (!currentUser) {
-            console.error("User not found.");
-            socket.emit("error", { message: "User not found" });
-            return;
+    
+    
+    socket.on("chat", async (data) => {
+        try {
+            const uniqueId = uuidv4();
+    
+            // Find the current user by username
+            const currentUser = await User.findOne({ username: data.username });
+    
+            if (!currentUser || !currentUser.roomID) {
+                throw new Error("User not found or not part of a room");
+            }
+    
+            // Create a new message
+            const message = new Message({
+                id: uniqueId,
+                roomID: currentUser.roomID,
+                sender: data.username.trim(),
+                message: data.message,
+                file: data.image || null,
+            });
+    
+            // Save the message in the database
+            await message.save();
+    
+            // Enrich the message with sender details
+            const enrichedMessage = {
+                ...message.toObject(),
+                sender: `${currentUser.first_name} ${currentUser.last_name}`, // Full name
+                handle: `${currentUser.first_name} ${currentUser.last_name}`, // Optional for UI consistency
+            };
+    
+            // Emit the enriched message to the room
+            // io.in(currentUser.roomID).emit("chat", enrichedMessage);
+        } catch (error) {
+            console.error("Error saving message:", error);
+            socket.emit("error", { message: "Failed to save message" });
         }
-
-        if (!currentUser.roomID) {
-            console.error("User is not part of a room.");
-            socket.emit("error", { message: "User is not part of a room" });
-            return;
-        }
-
-        // Create a new message
-        const message = new Message({
-            id: uniqueId,
-            roomID: currentUser.roomID,
-            sender: data.username.trim(),
-            message: data.message,
-            file: data.image || null, // Optional file (Base64 image or similar)
-        });
-
-        // Save the message in the database
-        await message.save();
-
-        // Emit the message to the room
-        io.in(currentUser.roomID).emit("chat", message);
-        console.log("Message saved and broadcasted:", message);
-
-    } catch (error) {
-        console.error("Error saving message:", error);
-        socket.emit("error", { message: "Failed to save message" });
-    }
-});
+    });
+    
     socket.on("info", async () => {
         const currentUser = await User.findOne({ socketID: socket.id });
         if (currentUser) {

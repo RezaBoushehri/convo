@@ -34,7 +34,7 @@
             <% } else { %>
                 <div class="dropdown align-right">
                     <button class="btn btn-primary btn dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                <%=currentUser.first_name.trim()%>
+                <%=currentUser.first_name.trim()+" "+currentUser.last_name.trim()%>
             </button>
                     <div class="dropdown-menu dropdown-menu-right bg-secondary" aria-labelledby="dropdownMenuButton">
                         <a class="btn btn-dark btn-xs dropdown-item " href="/logout">Log Out <i class='fa fa-sign-out '></i></a>

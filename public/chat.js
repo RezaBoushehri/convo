@@ -195,25 +195,43 @@ socket.on("newconnection", (data) => {
 });
 //=================================================================
 //Handle User joined the room event
-
 socket.on("joined", (data) => {
+    console.log("User joined room:", data);
+
+    // Ensure required fields exist
+    if (!data.room || !data.room.roomName || !data.room.admin) {
+        console.error("Invalid data received in 'joined' event:", data);
+        return;
+    }
+
     document.querySelector(".close").click();
-    document.querySelector("#roomInfo").innerHTML = `<div >
-                                                        <button type="button" class="btn btn-secondary"  data-toggle="tooltip" data-html="true" title="Copy <b>Room-id</b>" data-placement="left" onclick='copyId("${data.room.roomName}")' id='tooltip'>
-                                                            RoomId: <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
-                                                            Admin : <em class='text-warning'>${data.room.admin}</em>
-                                                        </button>
-                                                        <a href="whatsapp://send?text=${href}/join/${data.room.roomName}" data-action="share/whatsapp/share" class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" target="_blank" title="Share on whatsapp"  data-toggle="tooltip" data-placement="bottom"><i class='fa fa-whatsapp'></i></a>
-                                                        <button type='button' class='btn btn-danger ml-1' onclick='leaveRoom()'>
-                                                            <i class='fa fa fa-sign-out'></i>
-                                                        </button>
-                                                    </div>`;
+    document.querySelector("#roomInfo").innerHTML = `
+        <div>
+            <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
+                title="Copy <b>Room-id</b>" data-placement="left" onclick='copyId("${data.room.roomName}")' id='tooltip'>
+                RoomId: <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
+                Admin : <em class='text-warning'>${data.room.admin}</em>
+            </button>
+            <a href="whatsapp://send?text=${href}/join/${data.room.roomName}" data-action="share/whatsapp/share" 
+                class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
+                target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
+                <i class='fa fa-whatsapp'></i>
+            </a>
+            <button type='button' class='btn btn-danger ml-1' onclick='leaveRoom()'>
+                <i class='fa fa fa-sign-out'></i>
+            </button>
+        </div>`;
+    
+    // Toggle UI elements
     document.getElementById("btns").style.display = "none";
     document.getElementById("chat-window").style.display = "block";
     document.querySelector(".form-inline").style.display = "flex";
     document.querySelector("footer").style.display = "none";
+    
+    // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
 });
+
 //=================================================================
 //Handle invalidRoom event
 socket.on("invalidRoom", ({ message }) => {
@@ -393,72 +411,63 @@ const copyId = (id) => {
 };
 //=================================================================
 // Function to add messages to the chat UI
-// socket.on("restoreMessages", (messages) => {
-//     messages.forEach((message) => {
-//         addMessageToChatUI(message); // A function to add messages to the UI
-//     });
-// });
-function addMessageToChatUI(data) {
-    let style, bg, color, users = "";
+socket.on("restoreMessages", (messages) => {
+    console.log("Restoring messages:", messages);
 
-    // Check if the message is from the current user or another user
-    if (data.handle === name.textContent) {
-        style = "display:flex;justify-content:flex-end";
-        data.users.forEach((item) => {
-            if (item.name.trim() !== data.handle.trim()) users += `${item.name}, `;
-        });
-        users = users.slice(0, users.length - 3);
-        
-        // Add seen by users message
-        if (users !== "") {
-            output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
-        }
-        
-        // Replace spinner with a check icon
-        $(".spinner-border").parent().append("<i class='fa fa-check text-warning'></i>");
-        $(".spinner-border").remove();
-    } else {
-        style = "display:flex;justify-content:flex-start";
-        bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
-        color = `text-success text-capitalize`;
-
-        output.innerHTML += `<div style=${style}><div class='${bg}'><h6 class= ${color}>${
-            data.handle
-        }</h6><div>${
-            data.message
-        }</div><img class="img-fluid rounded mb-2" src='${
-            data.image
-        }'/><div style="text-align:right;font-size:2vmin"> 
-    ${new Intl.DateTimeFormat("fa-IR", {
-        hour: "numeric",
-        minute: "numeric",
-    }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
-    
-    // style = "display:flex;justify-content:flex-start";
-    // bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
-    // color = `text-success text-capitalize`;
-
-    // // Format the date and check if it's valid
-    // let formattedDate = "Invalid Date";
-    // const parsedDate = new Date(data.date);
-    // if (!isNaN(parsedDate.getTime())) {
-    //     formattedDate = new Intl.DateTimeFormat("fa-IR", {
-    //         hour: "numeric",
-    //         minute: "numeric",
-    //     }).format(parsedDate);
-    // }
-
-    // output.innerHTML += `
-    //     <div style="${style}">
-    //         <div class="${bg}">
-    //             <h6 class="${color}">${data.handle}</h6>
-    //             <div>${data.message}</div>
-    //             <img class="img-fluid rounded mb-2" src="${data.image}" />
-    //             <div style="text-align:right;font-size:2vmin">${formattedDate}&nbsp;&nbsp;</div>
-    //         </div>
-    //     </div>
-    // `;
+    if (!Array.isArray(messages)) {
+        console.error("Invalid messages received:", messages);
+        return;
     }
+
+    messages.forEach((message, index) => {
+        try {
+            if (!message || !message.timestamp || !message.sender || !message.message) {
+                throw new Error(`Missing required fields in message at index ${index}`);
+            }
+
+            addMessageToChatUI(message);
+        } catch (error) {
+            console.error("Error adding message to chat UI:", { error, message, index });
+        }
+    });
+
+});
+
+function addMessageToChatUI(data) {
+    console.log(
+        data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+    );
+    
+    const style = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+        ? "display:flex;justify-content:flex-end"
+        : "display:flex;justify-content:flex-start";
+
+    const bg = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+        ? "bg-success"
+        : "bg-dark";
+
+    const color = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+        ? "text-warning"
+        : "text-success";
+
+    // Add message to the chat window
+    output.innerHTML += `
+        <div style="${style}">
+            <div class="${bg} mess p-2 mr-1 m-2 rounded col-8">
+                <h6 style="font-style: italic;text-align: end;" class="${color}">${data.handle}</h6>
+                <div>${data.message}</div>
+                ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
+                <div style="text-align:right;font-size:2vmin">
+                    ${new Intl.DateTimeFormat("fa-IR", {
+                        hour: "numeric",
+                        minute: "numeric",
+                    }).format(new Date(data.timestamp))}
+                </div>
+            </div>
+        </div>`;
+
+
+
     // Reset file input and image
     $("file-input").val("");
     image = "";
@@ -467,6 +476,16 @@ function addMessageToChatUI(data) {
     showUp();  // Show "scroll up" button if needed
     scroll();  // Scroll to the bottom to show the latest message
 }
+// ========================================================================================
+// _______________reply____________________
+
+
+function clearReply() {
+    const replyBox = document.getElementById("replyBox");
+    replyBox.innerHTML = ""; // Clear the reply preview
+    delete replyBox.dataset.replyId; // Remove the reply id
+}
+
 function uploadImage() {
     const input = document.getElementById('imageUpload');
     const file = input.files[0];

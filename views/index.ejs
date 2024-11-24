@@ -75,6 +75,18 @@
 
         </div>
         <div class='form-inline' style='display:none'>
+                <!-- reply -->
+
+            <div id="replyBox" class="reply-preview p-2 border" style="display: none;">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong id="replyHandle"></strong>
+                        <div id="replyMessage" class="text-muted"></div>
+                    </div>
+                    <button onclick="clearReply()" class="btn btn-sm btn-danger">X</button>
+                </div>
+            </div>
+            <!-- ------------------ -->
             <input class='form-control col-8 roomNameInput' type="text" placeholder="Type your message ..." id="message">
             <button class="form-control align-center btn btn-danger col-2">
             <input type="file" accept="image/*" id="file-input">
