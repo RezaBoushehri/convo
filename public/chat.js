@@ -503,7 +503,7 @@ function addMessageToChatUI(data) {
                 <h6 style="font-style: italic;text-align: end;">${data.handle}</h6>
                 <div dir=auto>${data.message}</div>
                 ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
-                <div style="text-align:right;font-size:2vmin">
+                <div style="text-align:right;font-size:1rem">
                     ${new Intl.DateTimeFormat("en-US", {
                         hour: "numeric",
                         minute: "numeric",
