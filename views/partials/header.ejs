@@ -49,12 +49,26 @@
                     </div>
                 </div>
                 
-                <% } %>
+               
     </nav>
     <div id="settingsPanel" class="settings-panel">
          <!-- Close button -->
          <button id="closeSettings" class="close-btn"><i class="bi bi-x-square" style="font-size: larger;"></i></button>
+        <h5>Customize Chat Window</h5>
+        <label for="margin-left">Margin Left (%)</label>
+        <input type="number" id="margin-left" value="10" min="0" max="50">
+        <br>
 
+        <label for="margin-right">Margin Right (%)</label>
+        <input type="number" id="margin-right" value="10" min="0" max="50">
+        <br>
+
+        <label for="chatWindowBg-color">Background Color</label>
+        <input type="color" id="chatWindowBg-color" value="#434343">
+        <br>
+        <label for="chatWindowFg-color">Font Color(date,event,...)</label>
+        <input type="color" id="chatWindowFg-color" value="#0000">
+        <hr>
         <h5>User Settings</h5>
         <label for="bgColorPicker">Select Background Color:</label>
         <input type="color" id="bgColorPicker" value="#ffffff" />
@@ -76,9 +90,21 @@
             <span id="fontSizeValue">16px</span>
         </div>        
 
-        <div id="previewArea" class="preview-area  my-5" style="padding: 10px;display:flex;justify-content:flex-end;">
-            <p>This is a live preview area where you can see your changes.</p>
+        <div id="previewArea" class="preview-area rounded overflow-auto shadow">
+            <div dir="auto" style="border-radius: 6px;text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
+                14/11/1382
+            </div>
+            <div class="mess p-2 mr-1 m-2 rounded col-md-6">
+                <h6 style="font-style: italic;text-align: end;"> <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %></h6>
+                <div id="chat" class="p-3 container" style="display:flex;justify-content:flex-start">
+                    <p dir="auto">
+                        This is a live preview area where you can see your changes.
+                    </p>
+                    
+                </div>
+            </div>
         </div>
         <button id="saveSettings" class="btn btn-primary">Save Settings</button>
     </div>
 
+    <% } %>

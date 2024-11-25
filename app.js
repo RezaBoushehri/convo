@@ -264,7 +264,8 @@ app.get("/messages/:roomId", async (req, res) => {
 
 
 // Handle Logout
-app.get("/logout", function (req, res) {
+app.get("/logout",async function (req, res) {
+   
     req.logout();
     res.redirect("back");
 });
@@ -382,7 +383,7 @@ io.on("connection", (socket) => {
     
     socket.on("userLoggedIn", async (data) => {
         const { username } = data; // Ensure you have a username from the frontend
-        const currentUser = getUsers().find((user) => user.id == socket.id);
+        const currentUser = getUsers().find((user) => user.username == username.username);
     
         if (currentUser) {
             await updateUserSocketId(currentUser, socket.id);
@@ -506,17 +507,33 @@ io.on("connection", (socket) => {
             // Fetch messages and resolve sender details
             console.log("Fetching messages for room:", roomName);
             const rawMessages = await Message.find({ roomID: roomName }).sort({ timestamp: 1 }).lean();
+
+            let firstUnreadFound = false;
     
             const messages = await Promise.all(
                 rawMessages.map(async (msg) => {
+                    // Update the message document to add the current user to the read array
+                    await Message.updateOne(
+                        { id: msg.id }, // Match the message by its ID
+                        { $addToSet: { read: username } } // Add the username to the read array
+                    );
+    
+                    // Check if the current message is unread
+                    const isUnread = !msg.read || !msg.read.includes(username);
+    
+                    // Set `readLine: true` for the first unread message
+                    const readLine = isUnread && !firstUnreadFound ? (firstUnreadFound = true) : false;
+    
                     const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
                     return {
                         ...msg,
                         sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
                         handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+                        readLine, // Add the readLine property
                     };
                 })
             );
+            
             socket.emit("applySettings", user.settings); // Send settings to client
     
             console.log("Messages fetched with user details:", messages);
@@ -556,8 +573,14 @@ io.on("connection", (socket) => {
                 sender: data.username.trim(),
                 message: data.message,
                 file: data.image || null,
+                read: [data.username.trim()] // Initialize as an array
             });
-    
+            
+            // await message.findOneAndUpdate(
+            //     { roomName: roomName },       // Find the room by its name
+            //     { $addToSet: { read: username } }, // Add the username to the members array (avoid duplicates)
+            //     { new: true }                // Return the updated room document
+            // );
             // Save the message in the database
             await message.save();
     
@@ -588,19 +611,34 @@ io.on("connection", (socket) => {
             socket.emit("error", { message: "User not found or not in a room" });
         }
     });
-    socket.on("typing", (data) => {
-        const user = data.trim();
-        // جستجوی کاربر با استفاده از socket.id
-        const currentUser = User.find({ username: data.username });  // باید به درستی اطلاعات ذخیره شده را جستجو کنید
+    socket.on("typing", async (data) => {
+        try {
+            const { username, isTyping } = data; // Extract username and typing status
     
-        if (currentUser) {
-            // اگر کاربر پیدا شد، ارسال رویداد تایپ به اتاق
-            socket.broadcast.to(currentUser.roomID).emit("typing...", user);
-        } else {
-            console.error("Error: User not found or not in a room");
-            socket.emit("error", { message: "User not found or not in a room" });
+            if (!username || typeof isTyping === "undefined") {
+                console.error("Invalid data received for typing event:", data);
+                return;
+            }
+    
+            // Find the user and their room
+            const currentUser = await User.findOne({ username }).lean();
+            if (!currentUser || !currentUser.roomID) {
+                console.error("Error: User not found or not in a room");
+                socket.emit("error", { message: "User not found or not in a room" });
+                return;
+            }
+    
+            // Broadcast typing status to others in the room (excluding the sender)
+            socket.broadcast.to(currentUser.roomID).emit("typing", { 
+                username, 
+                isTyping 
+            });
+        } catch (error) {
+            console.error("Error handling typing event:", error.message);
+            socket.emit("error", { message: "An error occurred while handling the typing event" });
         }
     });
+    
     socket.on("saveSettings", async (settings , username) => {
         try {
             const user = await User.findOne({ username: username });
@@ -617,38 +655,65 @@ io.on("connection", (socket) => {
     });
     
 
-    socket.on("leaveRoom", async ({ roomID }) => {
+    socket.on("leaveRoom", async ({ username , roomID }) => {
         try {
-            const room = await Room.findOne({ roomName: roomID });
-    
-            if (room) {
-                // Remove the user from the room's members list
-                room.members = room.members.filter(member => member !== socket.id);
-                await room.save();
-    
-                socket.leave(roomID);
-                socket.emit("leftRoom", { roomID: room.roomName });
-    
-            } else {
-                socket.emit("error", { error: "Room does not exist" });
+            if (!username || !roomID) {
+                socket.emit("error", { error: `${username} : ${roomID} Invalid data provided for leaving the room` });
+                return;
             }
+    
+            // Find the room
+            const room = await Room.findOne({ roomName: roomID });
+            if (!room) {
+                socket.emit("error", { error: `Room "${roomID}" does not exist` });
+                return;
+            }
+    
+            // Check if the user is a member of the room
+            if (!room.members.includes(username)) {
+                socket.emit("error", { error: `User "${username}" is not a member of room "${roomID}"` });
+                return;
+            }
+    
+            // Remove the user from the room's members list
+            room.members = room.members.filter(member => member !== username);
+            await room.save();
+    
+            // Have the socket leave the room
+            socket.leave(roomID);
+            const updatedUser = await User.findOneAndUpdate(
+                { username: username },
+                { roomID : null},
+                { new: true } // Return the updated user
+            );
+            if (updatedUser) {
+                console.log(`${username} left ${roomID} room`);
+            }
+            // Notify the user that they have successfully left
+            socket.emit("leftRoom", { roomID });
+    
+            // Notify others in the room about the user's departure
+            socket.broadcast.to(roomID).emit("userLeft", { username, roomID });
+    
         } catch (error) {
-            console.error(error);
-            socket.emit("error", { error: "Failed to leave room" });
+            console.error("Error handling leaveRoom event:", error);
+            socket.emit("error", { error: "Failed to leave the room due to an internal error" });
         }
     });
+    
     
 
     socket.on("disconnect", async () => {
         try {
-            const user = await deleteUser(socket.id); // Ensure deleteUser is synchronous
+            const user = await User.findOne({ username: currentUsername });
             if (user) {
-                socket.broadcast.to(user.room.roomName).emit("userDisconnected", user.name);
+                socket.broadcast.to(user.roomID).emit("userDisconnected", user.last_name);
                 
                 const updatedUser = await User.findOneAndUpdate(
-                    { socketId: socket.id },
+                    { username: currentUsername },
                     { socketId: null }, // Reset socketId on disconnect
-                    { new: true }
+                    { roomID : null},
+                    { new: true } // Return the updated user
                 );
                 
                 if (updatedUser) {

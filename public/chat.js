@@ -77,6 +77,7 @@ const createRoom = () => {
         alert.innerHTML=("Please enter a room ID.");  // Validation: Ensure the room ID is not empty
         return;
     }
+    document.querySelector("#roomID").textContent= roomID
 
     socket.emit("createRoom", { 
         handle: name.textContent,  // Assuming `name.textContent` contains the user's name
@@ -93,7 +94,7 @@ const joinRoom = () => {
     }else{
         console.log(roomID)
     }
-
+    document.querySelector("#roomID").textContent= roomID
     socket.emit("joinRoom", { 
         roomName: roomID,
         username: currentUser.username
@@ -107,7 +108,27 @@ const joinRoom = () => {
 
 
 const leaveRoom = () => {
-    socket.emit("leaveRoom", name.textContent);
+    const roomID = document.querySelector("#roomID").textContent.trim()
+    socket.emit("leaveRoom",{username : currentUser.username , roomID : roomID});
+    // Leave room event
+
+    // Success feedback
+    socket.on("leftRoom", ({ roomID }) => {
+        console.log(`You have left room: ${roomID}`);
+        // Update the UI to reflect the user leaving the room
+    });
+
+    // Error feedback
+    socket.on("error", ({ error }) => {
+        console.error("Error:", error);
+    });
+
+    // Notify other users when someone leaves
+    socket.on("userLeft", ({ username, roomID }) => {
+        console.log(`${username} has left the room: ${roomID}`);
+        // Update the UI to reflect the user's departure
+    });
+
     document.querySelector("#roomInfo").innerHTML = "";
     document.getElementById("chat-window").style.display = "none";
     document.querySelector(".form-inline").style.display = "none";
@@ -136,7 +157,7 @@ button.addEventListener("click", () => {
         return;
         }
     // let style = "display:flex;justify-content:flex-end",
-    //     bg = `bg-secondary mess p-2 mr-1 m-2 rounded col-8 `,
+    //     bg = `bg-secondary mess p-2 mr-1 m-2 rounded col-md-8 `,
     //     color = `text-warning text-capitalize`;
     // addMessage = async () => {
     //     output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
@@ -163,10 +184,27 @@ button.addEventListener("click", () => {
 
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
+let typeUsername = currentUser.username;
+const typingTimeout = 2000; // Timeout for detecting "stop typing"
+let typingTimer;
+
 
 message.addEventListener("keyup", (event) => {
-    if (message.value !== "") socket.emit("typing", name.textContent);
-    else socket.emit("typing", "stop");
+    clearTimeout(typingTimer); // Reset timer
+
+    // Emit "typing" event with correct property name
+    socket.emit("typing", { 
+        username: typeUsername, // Replace with your actual username variable
+        isTyping: true 
+    });
+
+    // Set a timeout to emit "stop typing"
+    typingTimer = setTimeout(() => {
+        socket.emit("typing", { 
+            username: typeUsername, 
+            isTyping: false 
+        });
+    }, typingTimeout);
     //13 => keycode for Enter
     if (event.keyCode === 13) button.click();
 });
@@ -272,7 +310,7 @@ socket.on("chat", (data) => {
     //     });
     //     users = users.slice(0, users.length - 3);
     //     if (users !== "") {
-    //         output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
+    //         output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-md-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
     //     }
     //     $(".spinner-border")
     //         .parent()
@@ -280,7 +318,7 @@ socket.on("chat", (data) => {
     //     $(".spinner-border").remove();
     // } else {
     //     style = "display:flex;justify-content:flex-start";
-    //     bg = `bg-dark mess p-2 mr-1 m-2 rounded col-8 `;
+    //     bg = `bg-dark mess p-2 mr-1 m-2 rounded col-md-8 `;
     //     color = `text-success text-capitalize`;
     //     output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
     //         data.handle
@@ -305,14 +343,25 @@ socket.on("chat", (data) => {
 //=================================================================
 //Handle typing event
 socket.on("typing", (data) => {
-    if (data === "stop") $(".type").remove();
-    else {
-        $("#feedback").html(
-            `<p class='badge badge-info p-2 ml-2 type'><em>${data} is typing .... </em></p>`,
-        );
+    const { username, isTyping } = data;
+
+    if (isTyping) {
+        // Add a typing indicator if one doesn't already exist
+        if (!$(`#typing-${username}`).length) {
+            $("#feedback").append(
+                `<p id="typing-${username}" class="badge badge-info p-2 ml-2 type">
+                    <em>${username} is typing ....</em>
+                </p>`
+            );
+        }
+    } else {
+        // Remove the typing indicator for this user
+        $(`#typing-${username}`).remove();
     }
-    scroll();
+    scroll()
 });
+
+
 
 //=================================================================
 //Handle user-left  event
@@ -469,7 +518,10 @@ socket.on("restoreMessages", (messages) => {
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-
+    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
+    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+    document.getElementById("chat-window").style.backgroundColor = chatWindowBgColor
+    document.getElementById("chat-window").style.color = chatWindowFgColor
     if (savedSettings) {
         document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
@@ -485,11 +537,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+let lastMessageDate = null;
+
 function addMessageToChatUI(data) {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
     const fontSize = savedSettings?.fontSize || "16px";
     const fgColor = savedSettings?.fgColor || "#4444";
+    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+
     const style = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
         ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize}`
         : `background-color:#333;color:white;font-size:${fontSize}`;
@@ -497,31 +553,54 @@ function addMessageToChatUI(data) {
         ? `display:flex;justify-content:flex-end;`
         : `display:flex;justify-content:flex-start;`;
 
+    // Get the date of the current message
+    const messageDate = new Date(data.timestamp);
+    const messageDateString = messageDate.toLocaleDateString("fa-IR", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+
+    // Check if we need to add a date tag
+    if (lastMessageDate !== messageDateString) {
+        output.innerHTML += `
+            <div dir="auto" style="color: ${chatWindowFgColor} ; border-radius: 6px;text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
+                ${messageDateString}
+            </div>`;
+        lastMessageDate = messageDateString;
+    }
+    // Check if we need to add a date tag
+    if (data.readLine) {
+        output.innerHTML += `
+            <div dir="auto" style="color: ${chatWindowFgColor} ; border-radius: 6px;text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
+              Unreaded Messages
+            </div>`;
+        lastMessageDate = messageDateString;
+    }
+
     output.innerHTML += `
-        <div style="${divStyle}" >
-            <div style="${style}" class="mess p-2 mr-1 m-2 rounded col-6">
+        <div style="${divStyle}">
+            <div style="${style}" class="mess p-2 mr-1 m-2 rounded col-md-6">
                 <h6 style="font-style: italic;text-align: end;">${data.handle}</h6>
-                <div dir=auto>${data.message}</div>
+                <span dir="auto">${data.message}</span>
                 ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
-                <div style="text-align:right;font-size:1rem">
+                <div style="text-align:right;font-size:0.8rem">
                     ${new Intl.DateTimeFormat("en-US", {
                         hour: "numeric",
                         minute: "numeric",
-                    }).format(new Date(data.timestamp))}
+                    }).format(messageDate)}
                 </div>
             </div>
         </div>`;
 
-
-
     // Reset file input and image
     $("file-input").val("");
     image = "";
-    socket.emit("typing", "stop"); // Stop typing indication
 
-    showUp();  // Show "scroll up" button if needed
-    scroll();  // Scroll to the bottom to show the latest message
+    showUp(); // Show "scroll up" button if needed
+    scroll(); // Scroll to the bottom to show the latest message
 }
+
 // ========================================================================================
 // _______________reply____________________
 
@@ -554,11 +633,15 @@ document.getElementById("settingsButton").addEventListener("click", () => {
     const panel = document.getElementById("settingsPanel");
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
+    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
+    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     const fgColor = savedSettings?.fgColor || "#cccc";
     const fontSize = savedSettings?.fontSize || "16px";
     panel.style.display = panel.style.display === "block" ? "none" : "block";
     document.getElementById("bgColorPicker").value = bgColor
     document.getElementById("fgColorPicker").value = fgColor
+    document.getElementById("chatWindowBg-color").value = chatWindowBgColor
+    document.getElementById("chatWindowFg-color").value = chatWindowFgColor
     fontSizeValue.textContent = fontSize;
     // Initialize with default preview
     updatePreview();
@@ -571,6 +654,10 @@ document.getElementById("saveSettings").addEventListener("click", () => {
 
     // Save settings locally
     const userSettings = {
+        marginLeft: document.getElementById('margin-left').value,
+        marginRight: document.getElementById('margin-right').value,
+        chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
+        chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
         bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
         fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
         fontSize: `${fontSizeRange.value}px`, // Get font size from range input
