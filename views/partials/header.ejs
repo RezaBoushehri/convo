@@ -17,6 +17,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script> -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
@@ -33,12 +36,49 @@
             <a class="btn btn-primary btn align-right text-white" href='/login'>login <i class='fa fa-user'></i></a>
             <% } else { %>
                 <div class="dropdown align-right">
-                    <button class="btn btn-primary btn dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                <%=currentUser.first_name.trim()+" "+currentUser.last_name.trim()%>
-            </button>
+                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %>
+                    </button>
                     <div class="dropdown-menu dropdown-menu-right bg-secondary" aria-labelledby="dropdownMenuButton">
-                        <a class="btn btn-dark btn-xs dropdown-item " href="/logout">Log Out <i class='fa fa-sign-out '></i></a>
+                        <a class="btn btn-dark btn-xs dropdown-item" href="/logout">
+                            Log Out <i class="fa fa-sign-out"></i>
+                        </a>
+                        <button id="settingsButton" class="btn btn-dark btn-xs dropdown-item">
+                            Settings
+                        </button>
                     </div>
                 </div>
+                
                 <% } %>
     </nav>
+    <div id="settingsPanel" class="settings-panel">
+         <!-- Close button -->
+         <button id="closeSettings" class="close-btn"><i class="bi bi-x-square" style="font-size: larger;"></i></button>
+
+        <h5>User Settings</h5>
+        <label for="bgColorPicker">Select Background Color:</label>
+        <input type="color" id="bgColorPicker" value="#ffffff" />
+        <br>
+        <label for="fgColorPicker">Select font Color:</label>
+        <input type="color" id="fgColorPicker" value="#ffffff" />
+        <br>
+        <label for="fontSizeSelector">Select Font Size:</label>
+        <div>
+            <label for="fontSizeRange">Font Size:</label>
+            <input 
+                type="range" 
+                id="fontSizeRange" 
+                min="12" 
+                max="24" 
+                step="1" 
+                value="16" 
+            />
+            <span id="fontSizeValue">16px</span>
+        </div>        
+
+        <div id="previewArea" class="preview-area  my-5" style="padding: 10px;display:flex;justify-content:flex-end;">
+            <p>This is a live preview area where you can see your changes.</p>
+        </div>
+        <button id="saveSettings" class="btn btn-primary">Save Settings</button>
+    </div>
+

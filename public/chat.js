@@ -67,6 +67,8 @@ $("#file-input").on("change", (e) => {
 
 socket.emit("userLoggedIn", { username: currentUser.username });
 
+// socket.emit("applySettings", user.settings); // Send settings to client
+
 const createRoom = () => {
     const createRoomName = document.getElementById('createRoomName');  // Make sure you're getting the correct input element
     const roomID = createRoomName.value.trim();
@@ -111,6 +113,8 @@ const leaveRoom = () => {
     document.querySelector(".form-inline").style.display = "none";
     document.getElementById("btns").style.display = "block";
     document.querySelector("footer").style.display = "block";
+    // Refresh the page after leaving the room
+    window.location.reload(); // This will refresh the page and reset the UI
 };
 
 //=================================================================
@@ -131,31 +135,30 @@ button.addEventListener("click", () => {
             alert.innerHTML=('Room ID, sender, and message cannot be empty'); // Corrected alert
         return;
         }
-  
-    let style = "display:flex;justify-content:flex-end",
-        bg = `bg-secondary mess p-2 mr-1 m-2 rounded col-8 `,
-        color = `text-warning text-capitalize`;
-    addMessage = async () => {
-        output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
-            data.handle
-        }</h6><div>${
-            data.message
-        }</div><img class="img-fluid rounded mb-2" src='${
-            data.image
-        }'/><div style="text-align:right;font-size:2vmin"> 
-    ${new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        minute: "numeric",
-    }).format(
-        new Date(data.date),
-    )}&nbsp &nbsp<div class= 'spinner-border spinner-border-sm' role = 'status' > <span class='sr-only'>Loading...</span></div></div></div></div>`;
-        $("file-input").val("");
-    };
-    addMessage().then(() => {
-        image = "";
-        scroll();
-        showUp();
-    });
+    // let style = "display:flex;justify-content:flex-end",
+    //     bg = `bg-secondary mess p-2 mr-1 m-2 rounded col-8 `,
+    //     color = `text-warning text-capitalize`;
+    // addMessage = async () => {
+    //     output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
+    //         data.handle
+    //     }</h6><div>${
+    //         data.message
+    //     }</div><img class="img-fluid rounded mb-2" src='${
+    //         data.image
+    //     }'/><div style="text-align:right;font-size:2vmin"> 
+    // ${new Intl.DateTimeFormat("en-US", {
+    //     hour: "numeric",
+    //     minute: "numeric",
+    // }).format(
+    //     new Date(data.date),
+    // )}&nbsp &nbsp<div class= 'spinner-border spinner-border-sm' role = 'status' > <span class='sr-only'>Loading...</span></div></div></div></div>`;
+    //     $("file-input").val("");
+    // };
+    // addMessage().then(() => {
+    //     image = "";
+    //     scroll();
+    //     showUp();
+    // });
 });
 
 //=================================================================
@@ -364,22 +367,53 @@ socket.on("error", ({ message }) => {
 });
 
 //=================================================================
-//utility functions
+// Show the "scroll up" button when the chat window is scrollable
 const showUp = () => {
-    if (chat_window.scrollHeight > chat_window.clientHeight) $("#up").show();
-};
-const scroll = () => {
-    window.setInterval(
+    if (chat_window.scrollHeight > chat_window.clientHeight) {
+        $("#up").show(); // Show scroll-up button
+    }else{
+    
+        // $("#down").show(); // Optionally show the scroll-down button
+    };
+}
+
+// Scroll to the bottom of the chat window
+
+// Scroll to the bottom of the chat window just once
+const scrollDown = () => {
         chat_window.scrollTo({
-            top: chat_window.scrollHeight,
-            behavior: "smooth",
-        }),
-        300,
-    );
+            top: chat_window.scrollHeight, // Scroll to the bottom
+            behavior: "smooth",            // Smooth scrolling
+        }); 
 };
+
+
+// Scroll to the top of the chat window
 const scrollUp = () => {
-    chat_window.scrollTo({ top: 0, behavior: "smooth" });
+    chat_window.scrollTo({
+        top: 0,                        // Scroll to the top
+        behavior: "smooth",            // Smooth scrolling
+    });
 };
+
+// Scroll to the bottom on new messages
+let hasScrolledDown = false; // Flag to track if the scroll has already occurred
+
+// Scroll to the bottom on new messages
+const scroll = () => {
+    if (!hasScrolledDown) { // Check if the scroll down hasn't already been triggered
+        setTimeout(() => { // Use setTimeout for a one-time scroll
+            chat_window.scrollTo({
+                top: chat_window.scrollHeight, // Scroll to the bottom
+                behavior: "smooth",            // Smooth scrolling
+            });
+        }, 300); // Delay to make sure content has loaded
+
+        hasScrolledDown = true; // Set flag to true after scrolling down
+    }
+};
+
+
 const setImage = (file) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -432,33 +466,45 @@ socket.on("restoreMessages", (messages) => {
     });
 
 });
+// -----------------setting----------------
+document.addEventListener("DOMContentLoaded", () => {
+    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+
+    if (savedSettings) {
+        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
+        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+    }
+});
+// ----------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+
+    if (savedSettings) {
+        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
+        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+    }
+});
 
 function addMessageToChatUI(data) {
-    console.log(
-        data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
-    );
-    
+    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+    const bgColor = savedSettings?.bgColor || "#ffff";
+    const fontSize = savedSettings?.fontSize || "16px";
+    const fgColor = savedSettings?.fgColor || "#4444";
     const style = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
-        ? "display:flex;justify-content:flex-end"
-        : "display:flex;justify-content:flex-start";
+        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize}`
+        : `background-color:#333;color:white;font-size:${fontSize}`;
+    const divStyle = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+        ? `display:flex;justify-content:flex-end;`
+        : `display:flex;justify-content:flex-start;`;
 
-    const bg = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
-        ? "bg-success"
-        : "bg-dark";
-
-    const color = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
-        ? "text-warning"
-        : "text-success";
-
-    // Add message to the chat window
     output.innerHTML += `
-        <div style="${style}">
-            <div class="${bg} mess p-2 mr-1 m-2 rounded col-8">
-                <h6 style="font-style: italic;text-align: end;" class="${color}">${data.handle}</h6>
-                <div>${data.message}</div>
+        <div style="${divStyle}" >
+            <div style="${style}" class="mess p-2 mr-1 m-2 rounded col-6">
+                <h6 style="font-style: italic;text-align: end;">${data.handle}</h6>
+                <div dir=auto>${data.message}</div>
                 ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
                 <div style="text-align:right;font-size:2vmin">
-                    ${new Intl.DateTimeFormat("fa-IR", {
+                    ${new Intl.DateTimeFormat("en-US", {
                         hour: "numeric",
                         minute: "numeric",
                     }).format(new Date(data.timestamp))}
@@ -504,3 +550,42 @@ function uploadImage() {
         console.log("No file selected.");
     }
 }
+document.getElementById("settingsButton").addEventListener("click", () => {
+    const panel = document.getElementById("settingsPanel");
+    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+    const bgColor = savedSettings?.bgColor || "#ffff";
+    const fgColor = savedSettings?.fgColor || "#cccc";
+    const fontSize = savedSettings?.fontSize || "16px";
+    panel.style.display = panel.style.display === "block" ? "none" : "block";
+    document.getElementById("bgColorPicker").value = bgColor
+    document.getElementById("fgColorPicker").value = fgColor
+    fontSizeValue.textContent = fontSize;
+    // Initialize with default preview
+    updatePreview();
+
+});
+document.getElementById("saveSettings").addEventListener("click", () => {
+    const panel = document.getElementById("settingsPanel");
+
+    panel.style.display = panel.style.display === "block" ? "none" : "block";
+
+    // Save settings locally
+    const userSettings = {
+        bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
+        fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
+        fontSize: `${fontSizeRange.value}px`, // Get font size from range input
+    };
+    localStorage.setItem("userSettings", JSON.stringify(userSettings));
+
+    // Optionally save settings to the server
+    socket.emit("saveSettings", userSettings , currentUser.username);
+
+    alert("Settings saved successfully!");
+    document.getElementById("settingsPanel").style.display = "none"; // Close panel
+});
+socket.on("applySettings", (settings) => {
+
+    localStorage.setItem("userSettings", JSON.stringify(settings));
+    document.documentElement.style.setProperty("--user-bg-color", settings.bgColor);
+    document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
+});

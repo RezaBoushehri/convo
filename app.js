@@ -191,7 +191,7 @@ app.post("/login", async (req, res, next) => {
                         console.error("Error saving session:", err);
                     }
                 });
-
+               
                 res.redirect("/"); // Redirect after login
             });
         })(req, res, next);
@@ -481,6 +481,8 @@ io.on("connection", (socket) => {
     // });
     socket.on("joinRoom", async ({ roomName, username }) => {
         try {
+            const user = await User.findOne({ username: username });
+
             console.log(`User ${username} is trying to join room ${roomName}`);
             
             // Ensure room exists
@@ -515,6 +517,7 @@ io.on("connection", (socket) => {
                     };
                 })
             );
+            socket.emit("applySettings", user.settings); // Send settings to client
     
             console.log("Messages fetched with user details:", messages);
     
@@ -525,6 +528,7 @@ io.on("connection", (socket) => {
             // Notify others in the room of the new user
             console.log(`Notifying others in ${roomName} about new user ${username}`);
             socket.broadcast.to(roomName).emit("userJoined", { username, roomName });
+
             socket.emit("joined", { room });
     
         } catch (error) {
@@ -565,7 +569,7 @@ io.on("connection", (socket) => {
             };
     
             // Emit the enriched message to the room
-            // io.in(currentUser.roomID).emit("chat", enrichedMessage);
+            io.in(currentUser.roomID).emit("chat", enrichedMessage);
         } catch (error) {
             console.error("Error saving message:", error);
             socket.emit("error", { message: "Failed to save message" });
@@ -597,8 +601,22 @@ io.on("connection", (socket) => {
             socket.emit("error", { message: "User not found or not in a room" });
         }
     });
+    socket.on("saveSettings", async (settings , username) => {
+        try {
+            const user = await User.findOne({ username: username });
+            if (!user) throw new Error("User not found");
     
+            user.settings = settings; // Assume `settings` field exists in user schema
+            await user.save();
     
+            console.log("Settings saved for user:", user.username);
+        } catch (error) {
+            console.error("Error saving settings:", error);
+            socket.emit("error", { message: "Failed to save settings" });
+        }
+    });
+    
+
     socket.on("leaveRoom", async ({ roomID }) => {
         try {
             const room = await Room.findOne({ roomName: roomID });

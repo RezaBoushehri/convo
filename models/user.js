@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: null, // Optional, will be null if not set
     },
+    settings: {
+        bgColor: { type: String, default: "#ffffff" },
+        fgColor: { type: String, default: "#ffffff" },
+        fontSize: { type: String, default: "16px" },
+    },
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 
 userSchema.plugin(passportLocalMongoose);

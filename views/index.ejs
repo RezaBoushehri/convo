@@ -87,7 +87,7 @@
                 </div>
             </div>
             <!-- ------------------ -->
-            <input class='form-control col-8 roomNameInput' type="text" placeholder="Type your message ..." id="message">
+            <input dir="auto" class='form-control col-md-8 roomNameInput' type="text" placeholder="Type your message ..." id="message">
             <button class="form-control align-center btn btn-danger col-2">
             <input type="file" accept="image/*" id="file-input">
             <label class="input-label  " for="file-input"><i class="fa fa-camera"></i></label>
@@ -101,6 +101,9 @@
 
     <script src='../chat.js' defer>
     </script>
+    <script src="../setting.js" defer>   
+    </script>
+
     <%-include('partials/footer.ejs')%>
         </body>
 
