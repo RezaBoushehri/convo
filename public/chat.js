@@ -140,47 +140,50 @@ const leaveRoom = () => {
 
 //=================================================================
 //emit chat event (send message)
-
 button.addEventListener("click", () => {
-    let data = {
-        username : currentUser.username,
+    const data = {
+        username: currentUser.username,
         handle: name.textContent,
         roomID: roomID,
-        message: message.value,
+        message: message.value.trim(),
         date: new Date(),
-        image: image,
+        image: image || null,
     };
-    message.value = "";
-    socket.emit("chat", data);
-        if (!data.message || ! data.username) {
-            alert.innerHTML=('Room ID, sender, and message cannot be empty'); // Corrected alert
+
+    // Display "sending" message in UI
+    output.innerHTML += `<div id="sending-placeholder" style="display:flex;justify-content:flex-end;color:gray;">
+    Sending
+    <img src="../svg/threeDotsLoopTransparency.svg" alt="Sending..." style="width:24px;height:24px;margin-right:10px;" />
+    </div>`;
+
+    if (!data.message || !data.username) {
+        alert.innerHTML = "Room ID, sender, and message cannot be empty";
         return;
+    }
+    scrollDown()
+    // Send message to server
+    socket.emit("chat", data);
+
+    // Clear input fields
+    message.value = "";
+    image = "";
+
+    // Add listener for server acknowledgment
+    socket.on("chat", (response) => {
+        if (response.error) {
+            alert(response.error);
+            document.getElementById("sending-placeholder").remove(); // Remove placeholder if there's an error
+            return;
         }
-    // let style = "display:flex;justify-content:flex-end",
-    //     bg = `bg-secondary mess p-2 mr-1 m-2 rounded col-md-8 `,
-    //     color = `text-warning text-capitalize`;
-    // addMessage = async () => {
-    //     output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
-    //         data.handle
-    //     }</h6><div>${
-    //         data.message
-    //     }</div><img class="img-fluid rounded mb-2" src='${
-    //         data.image
-    //     }'/><div style="text-align:right;font-size:2vmin"> 
-    // ${new Intl.DateTimeFormat("en-US", {
-    //     hour: "numeric",
-    //     minute: "numeric",
-    // }).format(
-    //     new Date(data.date),
-    // )}&nbsp &nbsp<div class= 'spinner-border spinner-border-sm' role = 'status' > <span class='sr-only'>Loading...</span></div></div></div></div>`;
-    //     $("file-input").val("");
-    // };
-    // addMessage().then(() => {
-    //     image = "";
-    //     scroll();
-    //     showUp();
-    // });
+
+        // Remove "sending" placeholder once the message is successfully added to the UI
+        document.getElementById("sending-placeholder").remove();
+
+        // // Add the message to the UI
+        // addMessageToChatUI(response);
+    });
 });
+
 
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
@@ -189,7 +192,7 @@ const typingTimeout = 2000; // Timeout for detecting "stop typing"
 let typingTimer;
 
 
-message.addEventListener("input", (event) => {
+message.addEventListener("keyup", (event) => {
     clearTimeout(typingTimer); // Reset timer
 
     // Emit "typing" event with correct property name
@@ -208,7 +211,7 @@ message.addEventListener("input", (event) => {
     //13 => keycode for Enter
     if (event.keyCode === 13) button.click();
 });
-document.querySelector(".roomNameInput").addEventListener("input", (event) => {
+document.querySelector(".roomNameInput").addEventListener("keyup", (event) => {
     if (event.keyCode === 13) joinRoom();
 });
 //=================================================================
@@ -462,6 +465,21 @@ const scroll = () => {
     }
 };
 
+const scrollToUnread = () => {
+    var unreadMarker = document.querySelector(".message.unread");
+    if (unreadMarker) {
+        const rect = unreadMarker.getBoundingClientRect();
+        console.log("Unread marker position:", rect);
+        unreadMarker.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+        });
+    }else{
+        scrollDown() 
+    }
+    
+};
+
 
 const setImage = (file) => {
     const reader = new FileReader();
@@ -495,7 +513,7 @@ const copyId = (id) => {
 //=================================================================
 // Function to add messages to the chat UI
 socket.on("restoreMessages", (messages) => {
-    console.log("Restoring messages:", messages);
+    // console.log("Restoring messages:", messages);
 
     if (!Array.isArray(messages)) {
         console.error("Invalid messages received:", messages);
@@ -513,7 +531,10 @@ socket.on("restoreMessages", (messages) => {
             console.error("Error adding message to chat UI:", { error, message, index });
         }
     });
-
+    setTimeout(() => {
+        scrollToUnread();
+    }, 500); // Adjust delay time if necessary
+    
 });
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
@@ -527,108 +548,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
     }
 });
-// ----------------------------------------
-document.addEventListener("DOMContentLoaded", () => {
-    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-
-    if (savedSettings) {
-        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
-        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
-    }
-});
-
-let lastMessageDate = null;
-
-function addMessageToChatUI(data) {
-    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "#ffff";
-    const fontSize = savedSettings?.fontSize || "16px";
-    const fgColor = savedSettings?.fgColor || "#4444";
-    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
-
-    const style = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
-        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize}`
-        : `background-color:#333;color:white;font-size:${fontSize}`;
-    const divStyle = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
-        ? `display:flex;justify-content:flex-end;`
-        : `display:flex;justify-content:flex-start;`;
-
-    // Get the date of the current message
-    const messageDate = new Date(data.timestamp);
-    const messageDateString = messageDate.toLocaleDateString("fa-IR", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-    });
-
-    // Check if we need to add a date tag
-    if (lastMessageDate !== messageDateString) {
-        output.innerHTML += `
-            <div dir="auto" style="color: ${chatWindowFgColor} ; border-radius: 6px;text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
-                ${messageDateString}
-            </div>`;
-        lastMessageDate = messageDateString;
-    }
-    // Check if we need to add a date tag
-    if (data.readLine) {
-        output.innerHTML += `
-            <div dir="auto" style="color: ${chatWindowFgColor} ; border-radius: 6px;text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
-              Unreaded Messages
-            </div>`;
-        lastMessageDate = messageDateString;
-    }
-
-    output.innerHTML += `
-        <div style="${divStyle}">
-            <div style="${style}" class="mess p-2 mr-1 m-2 rounded col-md-6">
-                <h6 style="font-style: italic;text-align: end;">${data.handle}</h6>
-                <span dir="auto">${data.message}</span>
-                ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
-                <div style="text-align:right;font-size:0.8rem">
-                    ${new Intl.DateTimeFormat("en-US", {
-                        hour: "numeric",
-                        minute: "numeric",
-                    }).format(messageDate)}
-                </div>
-            </div>
-        </div>`;
-
-    // Reset file input and image
-    $("file-input").val("");
-    image = "";
-
-    showUp(); // Show "scroll up" button if needed
-    scroll(); // Scroll to the bottom to show the latest message
-}
-
-// ========================================================================================
-// _______________reply____________________
-
-
-function clearReply() {
-    const replyBox = document.getElementById("replyBox");
-    replyBox.innerHTML = ""; // Clear the reply preview
-    delete replyBox.dataset.replyId; // Remove the reply id
-}
-
-function uploadImage() {
-    const input = document.getElementById('imageUpload');
-    const file = input.files[0];
-
-    if (file) {
-        const reader = new FileReader();
-        
-        reader.onloadend = function () {
-            const base64Image = reader.result.split(',')[1]; // Get the Base64 string
-            // Send the Base64 string to the server
-            socket.emit('sendImage', { image: base64Image });
-        };
-
-        reader.readAsDataURL(file);  // Convert the file to Base64
-    } else {
-        console.log("No file selected.");
-    }
-}
 document.getElementById("settingsButton").addEventListener("click", () => {
     const panel = document.getElementById("settingsPanel");
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
@@ -661,6 +580,7 @@ document.getElementById("saveSettings").addEventListener("click", () => {
         bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
         fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
         fontSize: `${fontSizeRange.value}px`, // Get font size from range input
+        borderRad: `${borderRadRange.value}px`, // Get font size from range input
     };
     localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
@@ -669,6 +589,8 @@ document.getElementById("saveSettings").addEventListener("click", () => {
 
     alert("Settings saved successfully!");
     document.getElementById("settingsPanel").style.display = "none"; // Close panel
+    window.location.reload(); // This will refresh the page and reset the UI
+
 });
 socket.on("applySettings", (settings) => {
 
@@ -676,3 +598,152 @@ socket.on("applySettings", (settings) => {
     document.documentElement.style.setProperty("--user-bg-color", settings.bgColor);
     document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
 });
+document.getElementById("resetSettings").addEventListener("click", () => {
+    if(confirm("Are u sure ? (It may delete all customized setting.)")){
+        const userSettings = {
+            marginLeft: "10%",
+            marginRight: "%10",
+            chatWindowBgColor: "#434343",
+            chatWindowFgColor: "#ffffff",
+            bgColor: "#99ff85", // Assuming a background color picker exists
+            fgColor: "#000000", // Assuming a background color picker exists
+            fontSize: "16px", // Get font size from range input
+            borderRad: "5px", // Get font size from range input
+        };
+        localStorage.setItem("userSettings", JSON.stringify(userSettings));
+
+        // Optionally save settings to the server
+        socket.emit("saveSettings", userSettings , currentUser.username);
+    
+        alert("Settings saved successfully!");
+        document.getElementById("settingsPanel").style.display = "none"; // Close panel
+        window.location.reload(); // This will refresh the page and reset the UI
+
+    }
+})
+// ----------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+
+    if (savedSettings) {
+        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
+        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+    }
+});
+
+let lastMessageDate = null;
+
+function addMessageToChatUI(data) {
+    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+    const bgColor = savedSettings?.bgColor || "#ffff";
+    const fontSize = savedSettings?.fontSize || "16px";
+    const borderRad = savedSettings?.borderRad || "5px";
+    const fgColor = savedSettings?.fgColor || "#4444";
+    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+
+    const style = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize}; border-radius : ${borderRad};`
+        : `background-color:#333;color:white;font-size:${fontSize}; border-radius : ${borderRad};`;
+    const divStyle = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+        ? `display:flex;justify-content:flex-end;`
+        : `display:flex;justify-content:flex-start;`;
+
+    // Get the date of the current message
+    const messageDate = new Date(data.timestamp);
+    const messageDateString = messageDate.toLocaleDateString("fa-IR", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+
+    // Check if we need to add a date tag
+    if (lastMessageDate !== messageDateString) {
+        output.innerHTML += `
+            <div dir="auto" style="color: ${chatWindowFgColor} ;font-size:${fontSize}; border-radius:  ${borderRad};text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
+                ${messageDateString}
+            </div>`;
+        lastMessageDate = messageDateString;
+    }
+    // Check if we need to add a date tag
+    if (data.readLine) {
+        output.innerHTML += `
+            <div class="message unread" style="color: ${chatWindowFgColor} ;font-size:${fontSize}; border-radius:  ${borderRad};text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
+              Unreaded Messages
+            </div>`;
+        lastMessageDate = messageDateString;
+    }
+
+    output.innerHTML += `
+        <div style="${divStyle}">
+            <div style="${style}" data-id="${data.id}" class="message mess p-2 mr-1 m-2 col-md-6">
+                <h6 style="font-style: italic;text-align: end;">${data.handle}</h6>
+                <span dir="auto">${data.message}</span>
+                ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
+                <div style="text-align:right;font-size:0.8rem">
+                    ${new Intl.DateTimeFormat("en-US", {
+                        hour: "numeric",
+                        minute: "numeric",
+                    }).format(messageDate)}
+                </div>
+            </div>
+        </div>`;
+
+    // Reset file input and image
+    $("file-input").val("");
+    image = "";
+
+    showUp(); // Show "scroll up" button if needed
+    // scroll(); // Scroll to the bottom to show the latest message
+    // scrollToUnread()
+}
+
+// ========================================================================================
+
+// readed messages ===========================================================
+
+chat_window.addEventListener("scroll", () => {
+    const visibleMessages = [];
+    const messages = document.querySelectorAll(".message"); // Class of each message div
+
+    messages.forEach((message) => {
+        const rect = message.getBoundingClientRect();
+        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+            visibleMessages.push(message.dataset.id); // Assuming each message has a unique `data-id` attribute
+        }
+    });
+
+    // Emit the IDs of visible messages to the server
+    if (visibleMessages.length > 0) {
+        socket.emit("markMessagesRead", { messageIds: visibleMessages , username : currentUser.username });
+    }
+});
+
+
+// _______________reply____________________
+
+
+function clearReply() {
+    const replyBox = document.getElementById("replyBox");
+    replyBox.innerHTML = ""; // Clear the reply preview
+    delete replyBox.dataset.replyId; // Remove the reply id
+}
+
+function uploadImage() {
+    const input = document.getElementById('imageUpload');
+    const file = input.files[0];
+
+    if (file) {
+        const reader = new FileReader();
+        
+        reader.onloadend = function () {
+            const base64Image = reader.result.split(',')[1]; // Get the Base64 string
+            // Send the Base64 string to the server
+            socket.emit('sendImage', { image: base64Image });
+        };
+
+        reader.readAsDataURL(file);  // Convert the file to Base64
+    } else {
+        console.log("No file selected.");
+    }
+}
+

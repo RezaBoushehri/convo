@@ -36,6 +36,7 @@ const express = require("express"),
         },
     });
 
+const { timeStamp } = require("console");
 var session = require("express-session");
 var MemoryStore = require("memorystore")(session);
 
@@ -509,30 +510,23 @@ io.on("connection", (socket) => {
             const rawMessages = await Message.find({ roomID: roomName }).sort({ timestamp: 1 }).lean();
 
             let firstUnreadFound = false;
-    
+            
             const messages = await Promise.all(
                 rawMessages.map(async (msg) => {
-                    // Update the message document to add the current user to the read array
-                    await Message.updateOne(
-                        { id: msg.id }, // Match the message by its ID
-                        { $addToSet: { read: username } } // Add the username to the read array
-                    );
-    
-                    // Check if the current message is unread
-                    const isUnread = !msg.read || !msg.read.includes(username);
-    
-                    // Set `readLine: true` for the first unread message
+                    const isUnread = !msg.read || !msg.read.some((r) => r.username === username);
+            
                     const readLine = isUnread && !firstUnreadFound ? (firstUnreadFound = true) : false;
-    
+            
                     const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
                     return {
                         ...msg,
                         sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
                         handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
-                        readLine, // Add the readLine property
+                        readLine,
                     };
                 })
             );
+            
             
             socket.emit("applySettings", user.settings); // Send settings to client
     
@@ -557,47 +551,59 @@ io.on("connection", (socket) => {
     
     socket.on("chat", async (data) => {
         try {
+
             const uniqueId = uuidv4();
-    
-            // Find the current user by username
+            const timestamp = new Date();
+
             const currentUser = await User.findOne({ username: data.username });
-    
             if (!currentUser || !currentUser.roomID) {
                 throw new Error("User not found or not part of a room");
             }
     
-            // Create a new message
             const message = new Message({
                 id: uniqueId,
                 roomID: currentUser.roomID,
                 sender: data.username.trim(),
                 message: data.message,
                 file: data.image || null,
-                read: [data.username.trim()] // Initialize as an array
+                read: { username : data.username.trim(), time: timestamp },
             });
-            
-            // await message.findOneAndUpdate(
-            //     { roomName: roomName },       // Find the room by its name
-            //     { $addToSet: { read: username } }, // Add the username to the members array (avoid duplicates)
-            //     { new: true }                // Return the updated room document
-            // );
-            // Save the message in the database
+    
             await message.save();
     
-            // Enrich the message with sender details
             const enrichedMessage = {
                 ...message.toObject(),
-                sender: `${currentUser.first_name} ${currentUser.last_name}`, // Full name
-                handle: `${currentUser.first_name} ${currentUser.last_name}`, // Optional for UI consistency
+                sender: `${currentUser.first_name} ${currentUser.last_name}`,
+                handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
     
-            // Emit the enriched message to the room
             io.in(currentUser.roomID).emit("chat", enrichedMessage);
         } catch (error) {
             console.error("Error saving message:", error);
-            socket.emit("error", { message: "Failed to save message" });
+            socket.emit("chat", { error: "Failed to save message" });
         }
     });
+    
+    socket.on("markMessagesRead", async ({ messageIds , username}) => {
+        try {
+            const timestamp = new Date();
+    
+            // Update only messages where the username is not already in the read array
+            await Promise.all(
+                messageIds.map(async (messageId) => {
+                    await Message.updateOne(
+                        { id: messageId, "read.username": { $ne: username } }, // Ensure username doesn't exist in `read`
+                        { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
+                    );
+                })
+            );
+    
+            console.log(`Marked messages as read for user: ${username}`, messageIds);
+        } catch (error) {
+            console.error("Error marking messages as read:", error);
+        }
+    });
+    
     
     socket.on("info", async () => {
         const currentUser = await User.findOne({ socketID: socket.id });
@@ -643,7 +649,7 @@ io.on("connection", (socket) => {
         try {
             const user = await User.findOne({ username: username });
             if (!user) throw new Error("User not found");
-    
+            
             user.settings = settings; // Assume `settings` field exists in user schema
             await user.save();
     

@@ -8,7 +8,7 @@
     <meta name="description" content="Chatting web app for different people to get along with one another. Chat are deleted after single use">
     <meta name="keywords" content="Convoo, Convo, Chat, Chatting, HerkouApp, heroku app ">
     <meta name="author" content="Sparsh Jain">
-    <link rel="icon" href="../logo.svg" type='icon/svg'>
+    <link rel="icon" href="../svg/logo.svg" type='icon/svg'>
     <title>Convo</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
@@ -31,7 +31,7 @@
 
 <body>
     <nav class="navbar navbar-dark bg-dark">
-        <a class="navbar-brand" href='/'><img class='img-fluid' src='../logo.svg' width='45px'><span class='my-auto'>&nbspMETA CHAT</span></a>
+        <a class="navbar-brand" href='/'><img class='img-fluid' src='../svg/logo.svg' width='45px'><span class='my-auto'>&nbspMETA CHAT</span></a>
         <% if(!currentUser){ %>
             <a class="btn btn-primary btn align-right text-white" href='/login'>login <i class='fa fa-user'></i></a>
             <% } else { %>
@@ -40,12 +40,12 @@
                         <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %>
                     </button>
                     <div class="dropdown-menu dropdown-menu-right bg-secondary" aria-labelledby="dropdownMenuButton">
-                        <a class="btn btn-dark btn-xs dropdown-item" href="/logout">
-                            Log Out <i class="fa fa-sign-out"></i>
-                        </a>
                         <button id="settingsButton" class="btn btn-dark btn-xs dropdown-item">
                             Settings
                         </button>
+                        <a class="btn btn-dark btn-xs dropdown-item" href="/logout">
+                            Log Out <i class="fa fa-sign-out"></i>
+                        </a>
                     </div>
                 </div>
                 
@@ -89,13 +89,25 @@
             />
             <span id="fontSizeValue">16px</span>
         </div>        
+        <div>
+            <label for="borderRadRange">Border Curve degree:</label>
+            <input 
+                type="range" 
+                id="borderRadRange" 
+                min="0" 
+                max="15" 
+                step="1" 
+                value="5" 
+            />
+            <span id="borderRadSet">5px</span>
+        </div>        
 
         <div id="previewArea" class="preview-area rounded overflow-auto shadow">
             <div dir="auto" style="border-radius: 6px;text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
                 14/11/1382
             </div>
             <div class="mess p-2 mr-1 m-2 rounded col-md-6">
-                <h6 style="font-style: italic;text-align: end;"> <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %></h6>
+                <h6 style="font-style: italic;text-align: start;"> <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %></h6>
                 <div id="chat" class="p-3 container" style="display:flex;justify-content:flex-start">
                     <p dir="auto">
                         This is a live preview area where you can see your changes.
@@ -105,6 +117,7 @@
             </div>
         </div>
         <button id="saveSettings" class="btn btn-primary">Save Settings</button>
+        <button id="resetSettings" class="btn btn-warning">Reset Settings</button>
     </div>
 
     <% } %>
