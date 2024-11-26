@@ -676,15 +676,18 @@ function addMessageToChatUI(data) {
     }
 
     // Main message box with "read details" bubble
-    const readInfoHTML = data.readUsers
+    const readInfoHTML =
+     data.readUsers
         ? `
-        <div class="read-info" id="read-info-${data.id}" style="color: ${fgColor}; font-size:${fontSize}; border-radius: ${borderRad}; display: none; position: absolute; top: -30px; left: -30px; right: 0; background-color: #fff;  padding: 8px;  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); text-align: left; z-index: 10; width: 150px; display: none;">
+        <div class="read-info" id="read-info-${data.id}" style="color: #000000; font-size:${fontSize}; border-radius: ${borderRad}; display: none; position: absolute; top: -30px; left: -30px; right: 0; background-color: #fff;  padding: 8px;  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); text-align: left; z-index: 10; width: 150px; display: none;">
             ${data.readUsers
                 .map(
                     (r) =>
+                       r.name !== name.textContent.trim().normalize('NFC')?
                         `<div style="font-size: 0.9rem; text-align: left;">
                             ${r.name} at ${r.time}
                         </div>`
+                        :""
                 )
                 .join("")}
         </div>`
@@ -697,7 +700,7 @@ function addMessageToChatUI(data) {
                 <span dir="auto">${data.message}</span>
                 ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
-                    <div style="text-align: right;">
+                    <div style="text-align: left;">
                         ${new Intl.DateTimeFormat("en-US", {
                             hour: "numeric",
                             minute: "numeric",
@@ -705,7 +708,7 @@ function addMessageToChatUI(data) {
                     </div>
                     ${
                     data.read && data.read.length && ownMessage > 0
-                        ? `<button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor: pointer; text-align: left; font-size: 0.8rem; color: #007bff; border: none; background: none;">
+                        ? `<button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor: pointer; text-align: right; font-size: 0.8rem; color: ${fgColor}; border: none; background: none;">
                                <i class="bi bi-arrow-90deg-up"></i> Show Readers
                             </button>
                             `
