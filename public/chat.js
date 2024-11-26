@@ -640,11 +640,12 @@ function addMessageToChatUI(data) {
     const borderRad = savedSettings?.borderRad || "5px";
     const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+    const ownMessage = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
 
-    const style = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+    const style = ownMessage
         ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize}; border-radius : ${borderRad};`
         : `background-color:#333;color:white;font-size:${fontSize}; border-radius : ${borderRad};`;
-    const divStyle = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+    const divStyle = ownMessage
         ? `display:flex;justify-content:flex-end;`
         : `display:flex;justify-content:flex-start;`;
 
@@ -659,34 +660,63 @@ function addMessageToChatUI(data) {
     // Check if we need to add a date tag
     if (lastMessageDate !== messageDateString) {
         output.innerHTML += `
-            <div dir="auto" style="color: ${chatWindowFgColor} ;font-size:${fontSize}; border-radius:  ${borderRad};text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
+            <div dir="auto" style="color: ${chatWindowFgColor}; font-size:${fontSize}; border-radius: ${borderRad}; text-align: center; border: 1px solid #232323; margin: 10px 0; font-weight: bold;">
                 ${messageDateString}
             </div>`;
         lastMessageDate = messageDateString;
     }
+
     // Check if we need to add a date tag
     if (data.readLine) {
         output.innerHTML += `
-            <div class="message unread" style="color: ${chatWindowFgColor} ;font-size:${fontSize}; border-radius:  ${borderRad};text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
-              Unreaded Messages
+            <div class="message unread" style="color: ${chatWindowFgColor}; font-size:${fontSize}; border-radius: ${borderRad}; text-align: center; border: 1px solid #232323; margin: 10px 0; font-weight: bold;">
+                Unread Messages
             </div>`;
         lastMessageDate = messageDateString;
     }
 
+    // Main message box with "read details" bubble
+    const readInfoHTML = data.readUsers
+        ? `
+        <div class="read-info" id="read-info-${data.id}" style="color: ${fgColor}; font-size:${fontSize}; border-radius: ${borderRad}; display: none; position: absolute; top: -30px; left: -30px; right: 0; background-color: #fff;  padding: 8px;  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); text-align: left; z-index: 10; width: 150px; display: none;">
+            ${data.readUsers
+                .map(
+                    (r) =>
+                        `<div style="font-size: 0.9rem; text-align: left;">
+                            ${r.name} at ${r.time}
+                        </div>`
+                )
+                .join("")}
+        </div>`
+        : "";
+
     output.innerHTML += `
         <div style="${divStyle}">
             <div style="${style}" data-id="${data.id}" class="message mess p-2 mr-1 m-2 col-md-6">
-                <h6 style="font-style: italic;text-align: end;">${data.handle}</h6>
+                <h6 style="font-style: italic; text-align: end;">${data.handle}</h6>
                 <span dir="auto">${data.message}</span>
                 ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
-                <div style="text-align:right;font-size:0.8rem">
-                    ${new Intl.DateTimeFormat("en-US", {
-                        hour: "numeric",
-                        minute: "numeric",
-                    }).format(messageDate)}
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
+                    <div style="text-align: right;">
+                        ${new Intl.DateTimeFormat("en-US", {
+                            hour: "numeric",
+                            minute: "numeric",
+                        }).format(messageDate)}
+                    </div>
+                    ${
+                    data.read && data.read.length && ownMessage > 0
+                        ? `<button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor: pointer; text-align: left; font-size: 0.8rem; color: #007bff; border: none; background: none;">
+                               <i class="bi bi-arrow-90deg-up"></i> Show Readers
+                            </button>
+                            `
+                        : ""
+                    }
+                    ${ownMessage ? readInfoHTML : ""}
                 </div>
-            </div>
+            </div>   
         </div>`;
+
+
 
     // Reset file input and image
     $("file-input").val("");
@@ -696,6 +726,26 @@ function addMessageToChatUI(data) {
     // scroll(); // Scroll to the bottom to show the latest message
     // scrollToUnread()
 }
+function openReadedMessage(dataId) {
+    // Get the read info div based on the data-id (used as read-info-${dataId})
+    var infoDiv = document.querySelector(`#read-info-${dataId}`);
+
+    // Get the read-toggle button based on the data-id attribute (correct selector)
+    var toggleBtn = document.querySelector(`[read-data-id="${dataId}"]`);
+
+    if (infoDiv && toggleBtn) {
+        // Check if the read info is visible and toggle it
+        if (infoDiv.style.display === "none" || infoDiv.style.display === "") {
+            infoDiv.style.display = "block";  // Show the read info
+            toggleBtn.innerHTML = `<i class="bi bi-x-lg"></i> Hide Readers`;  // Change button text
+        } else {
+            infoDiv.style.display = "none";  // Hide the read info
+            toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Show Readers`;  // Change button text
+        }
+    }
+}
+
+
 
 // ========================================================================================
 

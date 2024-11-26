@@ -343,6 +343,47 @@ const addUserToRoom = async (username, roomName) => {
 //     return index === -1 ? false : true;
 // };
 
+/**
+ * Formats a timestamp based on the given rules:
+ * - Same day: HH:mm
+ * - Within a week: X days ago at HH:mm
+ * - More than a week: 1 week, 2 weeks, etc.
+ * - Over a year: Y/M/D (fa-IR locale)
+ * @param {Date} timestamp - The timestamp to format.
+ * @returns {string} - Formatted timestamp.
+ */
+function formatTimestamp(timestamp) {
+    const now = new Date();
+    const timeDiff = now - new Date(timestamp);
+    const oneDay = 24 * 60 * 60 * 1000; // Milliseconds in a day
+    const oneWeek = 7 * oneDay; // Milliseconds in a week
+
+    if (timeDiff < oneDay) {
+        // Same day
+        return new Date(timestamp).toLocaleTimeString("fa-IR", {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    } else if (timeDiff < oneWeek) {
+        // Within a week
+        const daysAgo = Math.floor(timeDiff / oneDay);
+        return `${daysAgo} day${daysAgo > 1 ? "s" : ""} ago at ${new Date(timestamp).toLocaleTimeString("fa-IR", {
+            hour: "2-digit",
+            minute: "2-digit",
+        })}`;
+    } else if (timeDiff < 365 * oneDay) {
+        // Within a year
+        const weeksAgo = Math.floor(timeDiff / oneWeek);
+        return `${weeksAgo} week${weeksAgo > 1 ? "s" : ""}`;
+    } else {
+        // Over a year
+        return new Date(timestamp).toLocaleDateString("fa-IR", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        });
+    }
+}
 
 const updateUserSocketId = async (username, socketId) => {
     try {
@@ -518,19 +559,33 @@ io.on("connection", (socket) => {
                     const readLine = isUnread && !firstUnreadFound ? (firstUnreadFound = true) : false;
             
                     const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
+                    const readUsers = await Promise.all(
+                        (msg.read || []).map(async (readEntry) => {
+                            const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
+                            return {
+                                name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
+                                time: formatTimestamp(readEntry.time), // Keep the time from the read entry
+                            };
+                        })
+                    );
+                    
                     return {
                         ...msg,
                         sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
                         handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+                        readUsers, // Array of objects with name and time
                         readLine,
                     };
+                    
+                    
+                  
                 })
             );
             
             
             socket.emit("applySettings", user.settings); // Send settings to client
     
-            console.log("Messages fetched with user details:", messages);
+            // console.log("Messages fetched with user details:", messages);
     
             // Emit messages to the user
             console.log("Emitting restoreMessages event");
@@ -549,60 +604,72 @@ io.on("connection", (socket) => {
     });
     
     
+    
     socket.on("chat", async (data) => {
         try {
-
-            const uniqueId = uuidv4();
+            const { username, message, image } = data;
             const timestamp = new Date();
-
-            const currentUser = await User.findOne({ username: data.username });
+    
+            // Validate the user
+            const currentUser = await User.findOne({ username });
             if (!currentUser || !currentUser.roomID) {
-                throw new Error("User not found or not part of a room");
+                throw new Error("User not found or not part of a room.");
             }
     
-            const message = new Message({
-                id: uniqueId,
+            // Create and save the message
+            const newMessage = new Message({
+                id: uuidv4(),
                 roomID: currentUser.roomID,
-                sender: data.username.trim(),
-                message: data.message,
-                file: data.image || null,
-                read: { username : data.username.trim(), time: timestamp },
+                sender: username.trim(),
+                message,
+                file: image || null,
+                read: [],
+                timestamp,
             });
     
-            await message.save();
+            await newMessage.save();
     
+            // Enrich the message with sender details
             const enrichedMessage = {
-                ...message.toObject(),
+                ...newMessage.toObject(),
                 sender: `${currentUser.first_name} ${currentUser.last_name}`,
                 handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
     
+            // Broadcast the message to the room
             io.in(currentUser.roomID).emit("chat", enrichedMessage);
+    
+            console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
         } catch (error) {
-            console.error("Error saving message:", error);
-            socket.emit("chat", { error: "Failed to save message" });
+            console.error("Error in chat:", error.message);
+            socket.emit("chat", { error: "Failed to send message." });
         }
     });
     
-    socket.on("markMessagesRead", async ({ messageIds , username}) => {
+    
+    socket.on("markMessagesRead", async ({ messageIds, username }) => {
         try {
             const timestamp = new Date();
     
-            // Update only messages where the username is not already in the read array
+            // Update the `read` array for each message
             await Promise.all(
-                messageIds.map(async (messageId) => {
-                    await Message.updateOne(
-                        { id: messageId, "read.username": { $ne: username } }, // Ensure username doesn't exist in `read`
+                messageIds.map((messageId) =>
+                    Message.updateOne(
+                        { id: messageId, "read.username": { $ne: username } }, // Ensure username isn't already marked
                         { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
-                    );
-                })
+                    )
+                )
             );
     
-            console.log(`Marked messages as read for user: ${username}`, messageIds);
+            // console.log(`Messages marked as read for user "${username}":`, messageIds);
+    
+            // Optionally notify others in the room of read receipts
+            socket.broadcast.emit("messagesRead", { messageIds, username, timestamp });
         } catch (error) {
-            console.error("Error marking messages as read:", error);
+            console.error("Error in markMessagesRead:", error.message);
         }
     });
+    
     
     
     socket.on("info", async () => {
