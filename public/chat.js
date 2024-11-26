@@ -189,7 +189,7 @@ const typingTimeout = 2000; // Timeout for detecting "stop typing"
 let typingTimer;
 
 
-message.addEventListener("keyup", (event) => {
+message.addEventListener("input", (event) => {
     clearTimeout(typingTimer); // Reset timer
 
     // Emit "typing" event with correct property name
@@ -208,7 +208,7 @@ message.addEventListener("keyup", (event) => {
     //13 => keycode for Enter
     if (event.keyCode === 13) button.click();
 });
-document.querySelector(".roomNameInput").addEventListener("keyup", (event) => {
+document.querySelector(".roomNameInput").addEventListener("input", (event) => {
     if (event.keyCode === 13) joinRoom();
 });
 //=================================================================
