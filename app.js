@@ -1,3 +1,8 @@
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
+
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
 const express = require("express"),
     fs = require('fs'),
     https = require('https'),
@@ -343,47 +348,7 @@ const addUserToRoom = async (username, roomName) => {
 //     return index === -1 ? false : true;
 // };
 
-/**
- * Formats a timestamp based on the given rules:
- * - Same day: HH:mm
- * - Within a week: X days ago at HH:mm
- * - More than a week: 1 week, 2 weeks, etc.
- * - Over a year: Y/M/D (fa-IR locale)
- * @param {Date} timestamp - The timestamp to format.
- * @returns {string} - Formatted timestamp.
- */
-function formatTimestamp(timestamp) {
-    const now = new Date();
-    const timeDiff = now - new Date(timestamp);
-    const oneDay = 24 * 60 * 60 * 1000; // Milliseconds in a day
-    const oneWeek = 7 * oneDay; // Milliseconds in a week
 
-    if (timeDiff < oneDay) {
-        // Same day
-        return new Date(timestamp).toLocaleTimeString("fa-IR", {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    } else if (timeDiff < oneWeek) {
-        // Within a week
-        const daysAgo = Math.floor(timeDiff / oneDay);
-        return `${daysAgo} day${daysAgo > 1 ? "s" : ""} ago at ${new Date(timestamp).toLocaleTimeString("fa-IR", {
-            hour: "2-digit",
-            minute: "2-digit",
-        })}`;
-    } else if (timeDiff < 365 * oneDay) {
-        // Within a year
-        const weeksAgo = Math.floor(timeDiff / oneWeek);
-        return `${weeksAgo} week${weeksAgo > 1 ? "s" : ""}`;
-    } else {
-        // Over a year
-        return new Date(timestamp).toLocaleDateString("fa-IR", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-        });
-    }
-}
 
 const updateUserSocketId = async (username, socketId) => {
     try {
@@ -557,14 +522,14 @@ io.on("connection", (socket) => {
                     const isUnread = !msg.read || !msg.read.some((r) => r.username === username);
             
                     const readLine = isUnread && !firstUnreadFound ? (firstUnreadFound = true) : false;
-            
+                    console.log(readLine)
                     const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
                     const readUsers = await Promise.all(
                         (msg.read || []).map(async (readEntry) => {
                             const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
                             return {
                                 name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
-                                time: formatTimestamp(readEntry.time), // Keep the time from the read entry
+                                time: readEntry.time, // Keep the time from the read entry
                             };
                         })
                     );
@@ -615,13 +580,14 @@ io.on("connection", (socket) => {
             if (!currentUser || !currentUser.roomID) {
                 throw new Error("User not found or not part of a room.");
             }
-    
+
+            const clean = DOMPurify.sanitize(message);
             // Create and save the message
             const newMessage = new Message({
                 id: uuidv4(),
                 roomID: currentUser.roomID,
-                sender: username.trim(),
-                message,
+                sender: username,
+                message : clean,
                 file: image || null,
                 read: [],
                 timestamp,
@@ -646,6 +612,48 @@ io.on("connection", (socket) => {
         }
     });
     
+    socket.on("markMessagesRead", async ({ messageIds, username }) => {
+        try {
+            const timestamp = new Date();
+            console.log(messageIds)
+            // Update the `read` array for each message
+            const updatedMessages = await Promise.all(
+                messageIds.map(async (messageId) => {
+                    await Message.updateOne(
+                        { id: messageId, "read.username": { $ne: username } }, // Ensure username isn't already marked
+                        { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
+                    );
+    
+                    // Fetch the updated message
+                    const message = await Message.findOne({ id: messageId }).lean();
+                    if (!message) return null;
+    
+                    // Enrich the `readUsers` with user details
+                    const readUsers = await Promise.all(
+                        message.read.map(async (readEntry) => {
+                            const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
+                            return {
+                                name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
+                                time: readEntry.time,
+                            };
+                        })
+                    );
+    
+                    return { id: messageId, readUsers };
+                })
+            );
+    
+            // Emit the updated read data to the room or all clients
+            updatedMessages
+                .filter((msg) => msg) // Ensure no null values
+                .forEach((msg) => {
+                    socket.broadcast.emit("readMessageUpdate", { id: msg.id, readUsers: msg.readUsers });
+                });
+    
+        } catch (error) {
+            console.error("Error in markMessagesRead:", error.message);
+        }
+    });
     
     socket.on("markMessagesRead", async ({ messageIds, username }) => {
         try {
@@ -686,7 +694,7 @@ io.on("connection", (socket) => {
     });
     socket.on("typing", async (data) => {
         try {
-            const { username, isTyping } = data; // Extract username and typing status
+            const { username, isTyping , name} = data; // Extract username and typing status
     
             if (!username || typeof isTyping === "undefined") {
                 console.error("Invalid data received for typing event:", data);
@@ -703,7 +711,8 @@ io.on("connection", (socket) => {
     
             // Broadcast typing status to others in the room (excluding the sender)
             socket.broadcast.to(currentUser.roomID).emit("typing", { 
-                username, 
+                username,
+                name, 
                 isTyping 
             });
         } catch (error) {

@@ -66,7 +66,7 @@
             
         </div>
         <div id="chat-window" class="rounded overflow-auto shadow" style='display:none'>
-
+            <div id="headTag" dir="auto" style=" text-align: center;" ></div>
             <div id="output" class="p-3 container">
             </div>
             <input id="username" type="hidden" value="<%= currentUser.username.trim() %>">
@@ -87,18 +87,67 @@
                 </div>
             </div>
             <!-- ------------------ -->
-            <input dir="auto" class='form-control col-md-8 roomNameInput' type="text" placeholder="Type your message ..." id="message">
-            <button class="form-control align-center btn btn-danger col-md-2">
-            <input type="file" accept="image/*" id="file-input">
-            <label class="input-label  " for="file-input"><i class="fa fa-camera"></i></label>
-        </button>
-        <button class="btn btn-primary form-control col-md-2" type="submit" id="button" >
-            <i class="fa fa-paper-plane"></i>
-          </button>
-          
+            <div class="col-md-12 my-2" style="padding-left: 0 !important;display: flex; justify-content: space-between;">
+                <div 
+                id="editable-message-text" 
+                class="form-control allow-selection flexible-div col-md-12" 
+                contenteditable="true" 
+                role="textbox" 
+                dir="auto" 
+                tabindex="0" 
+                aria-label="Message" 
+                aria-placeholder="message ..."
+                autocomplete="off">
+                </div>
+            
+                <script>
+                    const editableMessageText = document.getElementById("editable-message-text");
+                
+                    // Set placeholder text
+                    const placeholderText = "message ...";
+                
+                    // Add the placeholder when the content is empty
+                    function setPlaceholder() {
+                        if (editableMessageText.textContent.trim() === "") {
+                            editableMessageText.textContent = placeholderText;
+                        } else if (editableMessageText.textContent === placeholderText) {
+                            editableMessageText.textContent = "";
+                        }
+                    }
+                
+                    // Trigger placeholder logic on focus and blur
+                    editableMessageText.addEventListener("focus", function() {
+                        if (editableMessageText.textContent === placeholderText) {
+                            editableMessageText.textContent = "";
+                        }
+                    });
+                
+                    editableMessageText.addEventListener("blur", function() {
+                        setPlaceholder();
+                    });
+                
+                    // Initialize placeholder on page load
+                    setPlaceholder();
+                </script>
+            
+                <div class="button-container">
+                    <div class="">
+                        <button class="form-control align-center btn btn-outline-danger file-button col-md-6">
+                            <input type="file" accept="image/*" id="file-input">
+                            <label class="input-label" for="file-input"><i class="fa fa-camera"></i></label>
+                            </button>
+                            <button class="btn btn-outline-primary send-button  col-md-6" type="submit" id="button">
+                                <i class="fa fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-
+</div>
+    
+    <script src='/js/timeFormated.js' defer>
+    </script>
     <script src='../chat.js' defer>
     </script>
     <script src="../setting.js" defer>   

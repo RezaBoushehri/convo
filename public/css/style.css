@@ -4,17 +4,24 @@ body {
     overflow-y: auto;
     font-family: 'Nunito', sans-serif;
     height: 100%;
+    text-align: unset;
 }
 
 .navbar .navbar-brand {
     font-family: 'Pacifico', cursive
 }
 
-#main {
-    margin-left: 10%;
-    margin-right: 10%;
-}
+/* #main {
+    margin-left: 20%;
+    margin-right: 20%;
+} */
+#headTag{
+    
+    position: fixed;
+    width: 100%;
+    z-index: 100;
 
+}
 #chat-window {
     margin-top: 2vh;
     background-color: #434343;
@@ -23,6 +30,9 @@ body {
     overflow-y: auto;
     color: black;
     color: white;
+    overflow: scroll; /* Keep scrolling enabled */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
 }
 
 #form {
@@ -37,11 +47,45 @@ body {
     word-wrap: break-word;
     font-size: x-small;
     max-width: max-content;
-    min-width: 20vw;
+    min-width: 15vw;
     font-size: 3vmin;
     /* max-width: fit-content; */
 }
 
+#editable-message-text {
+    color: #666; /* Grey color for placeholder text */
+}
+
+#editable-message-text:not(.editing):empty::before {
+    content: attr(aria-placeholder);
+    color: #999; /* Light grey for placeholder */
+}
+
+#editable-message-text {
+
+    position: relative; /* To position buttons within it */
+    max-height: 200px; /* Optional: max height before scrolling is needed */
+    overflow-y: auto; /* Enable scrolling when content exceeds max height */
+    align-items: center;
+    /* padding-right: 100px; */
+    width: calc(100% - 100px);
+    overflow: scroll; /* Keep scrolling enabled */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+    box-sizing: border-box; /* To ensure padding does not affect overall size */
+}
+.button-container {
+    position: absolute;
+    right: 0;
+    top: -1px;
+    width: 100px;
+}
+.btnPosition {
+    /* position: absolute;
+    right: 5px;
+    bottom: 5px; */
+    padding-left: 276px !important;
+}
 @media only screen and (max-width: 768px) {
     .mess {
         word-wrap: break-word;

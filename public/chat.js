@@ -1,14 +1,14 @@
 
 // const socket = io.connect(window.location.hostname),
 const production = false;
-const href = production ? window.location.hostname : "localhost:4000",
-    socket = io.connect('https://localhost:4000', {
+const href = production ? window.location.hostname : "172.16.28.166:4000",
+    socket = io.connect('https://172.16.28.166:4000', {
         transports: ['polling', "websocket"],
         secure: true,
         withCredentials: false, // Ensures cookies are sent along with requests
         rejectUnauthorized: false // Bypass SSL verification for self-signed certificates
     }),
-    message = document.getElementById("message"),
+    message = document.getElementById("editable-message-text"),
     output = document.getElementById("output"),
     button = document.getElementById("button"),
     feedback = document.getElementById("feedback"),
@@ -17,6 +17,7 @@ const href = production ? window.location.hostname : "localhost:4000",
     chat_window = document.getElementById("chat-window"),
     joinRoomName = document.getElementById("joinRoomName"),
     fileInput = document.getElementById("file-input"),
+    headTag = document.getElementById('headTag'),
     currentUser = {
         username: document.getElementById('username').value
     },
@@ -33,6 +34,13 @@ if (roomID != "") {
         room: roomID,
     });
 }
+// const editableDiv = document.getElementById("editable-message-text");
+
+message.addEventListener("input", function () {
+    this.style.height = "auto"; // Reset height to calculate content height
+    this.style.height = `${this.scrollHeight}px`; // Set height based on content
+});
+
 document.getElementById('username').value = ''
 let image = "";
 $("#up").html('<i class= "fa fa-arrow-up" >').hide();
@@ -80,7 +88,7 @@ const createRoom = () => {
     document.querySelector("#roomID").textContent= roomID
 
     socket.emit("createRoom", { 
-        handle: name.textContent,  // Assuming `name.textContent` contains the user's name
+        handle: currentUser.username,  // Assuming `name.textContent` contains the user's name
         roomID: roomID
     });
 };
@@ -141,31 +149,38 @@ const leaveRoom = () => {
 //=================================================================
 //emit chat event (send message)
 button.addEventListener("click", () => {
+    let text = message.innerHTML.trim();
+
+    // Replace block elements (e.g., paragraphs, divs, etc.) with newlines
+    text = text.replace(/<\/?p>/g, '\n');  // Replace <p> and </p> with newline
+    text = text.replace(/<\/?div>/g, '\n');  // Replace <div> and </div> with newline
+    text = text.replace(/<br\s*\/?>/g, '\n');  // Replace <br> tags with newline
+
     const data = {
         username: currentUser.username,
         handle: name.textContent,
         roomID: roomID,
-        message: message.value.trim(),
+        message: text,
         date: new Date(),
         image: image || null,
     };
 
+    
+    if (!data.message || !data.username) {
+        alert.innerHTML = "Room ID, sender, and message cannot be empty";
+        return;
+    }
     // Display "sending" message in UI
     output.innerHTML += `<div id="sending-placeholder" style="display:flex;justify-content:flex-end;color:gray;">
     Sending
     <img src="../svg/threeDotsLoopTransparency.svg" alt="Sending..." style="width:24px;height:24px;margin-right:10px;" />
     </div>`;
-
-    if (!data.message || !data.username) {
-        alert.innerHTML = "Room ID, sender, and message cannot be empty";
-        return;
-    }
     scrollDown()
     // Send message to server
     socket.emit("chat", data);
 
     // Clear input fields
-    message.value = "";
+    message.innerHTML = "";
     image = "";
 
     // Add listener for server acknowledgment
@@ -188,15 +203,17 @@ button.addEventListener("click", () => {
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
 let typeUsername = currentUser.username;
-const typingTimeout = 2000; // Timeout for detecting "stop typing"
+const typingTimeout = 1000; // Timeout for detecting "stop typing"
 let typingTimer;
 
 
-message.addEventListener("keyup", (event) => {
+
+message.addEventListener("input", (event) => {
     clearTimeout(typingTimer); // Reset timer
 
     // Emit "typing" event with correct property name
     socket.emit("typing", { 
+        name: name.textContent.trim(), // Replace with your actual username variable
         username: typeUsername, // Replace with your actual username variable
         isTyping: true 
     });
@@ -204,12 +221,25 @@ message.addEventListener("keyup", (event) => {
     // Set a timeout to emit "stop typing"
     typingTimer = setTimeout(() => {
         socket.emit("typing", { 
+            name: name.textContent.trim(), 
             username: typeUsername, 
             isTyping: false 
         });
     }, typingTimeout);
-    //13 => keycode for Enter
-    if (event.keyCode === 13) button.click();
+});
+
+message.addEventListener("keydown", (event) => {
+    // 13 => keycode for Enter
+    if (event.keyCode === 13) {
+        if (event.shiftKey) {
+            // Shift + Enter for new line
+            return; // Do nothing, just insert a newline in the editable div
+        } else {
+            // Enter without shift, submit the message (simulate button click)
+            button.click();
+            event.preventDefault(); // Prevent default behavior (e.g., new line)
+        }
+    }
 });
 document.querySelector(".roomNameInput").addEventListener("keyup", (event) => {
     if (event.keyCode === 13) joinRoom();
@@ -341,19 +371,20 @@ socket.on("chat", (data) => {
     // showUp();
     // scroll();
     addMessageToChatUI(data)
+    scrollDown()
 });
 
 //=================================================================
 //Handle typing event
 socket.on("typing", (data) => {
-    const { username, isTyping } = data;
+    const { name,username, isTyping } = data;
 
     if (isTyping) {
         // Add a typing indicator if one doesn't already exist
         if (!$(`#typing-${username}`).length) {
             $("#feedback").append(
                 `<p id="typing-${username}" class="badge badge-info p-2 ml-2 type">
-                    <em>${username} is typing ....</em>
+                    <em>${name} is typing ....</em>
                 </p>`
             );
         }
@@ -539,10 +570,19 @@ socket.on("restoreMessages", (messages) => {
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+    const bgColor = savedSettings?.bgColor || "#ffff";
+    const fontSize = savedSettings?.fontSize || "16px";
+    const borderRad = savedSettings?.borderRad || "5px";
+    const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     document.getElementById("chat-window").style.backgroundColor = chatWindowBgColor
     document.getElementById("chat-window").style.color = chatWindowFgColor
+    headTag.style.fontSize = fontSize+"px"
+    headTag.style.color = chatWindowFgColor
+    headTag.style.borderRadius = borderRad
+    headTag.style.border = `1px solid ${chatWindowFgColor}`
+
     if (savedSettings) {
         document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
@@ -632,8 +672,9 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 let lastMessageDate = null;
+let headTagVal = null;
 
-function addMessageToChatUI(data) {
+function addMessageToChatUI(data , prepend=false) {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
     const fontSize = savedSettings?.fontSize || "16px";
@@ -656,79 +697,124 @@ function addMessageToChatUI(data) {
         month: "short",
         day: "numeric",
     });
-
     // Check if we need to add a date tag
     if (lastMessageDate !== messageDateString) {
-        output.innerHTML += `
-            <div dir="auto" style="color: ${chatWindowFgColor}; font-size:${fontSize}; border-radius: ${borderRad}; text-align: center; border: 1px solid #232323; margin: 10px 0; font-weight: bold;">
+        
+         headTagVal=`
+            <div dir="auto" class="Date message" style="color: ${chatWindowFgColor}; font-size:${fontSize}; border-radius: ${borderRad}; text-align: center; border: 1px solid #232323; margin: 10px 0; font-weight: bold;">
                 ${messageDateString}
             </div>`;
+        output.innerHTML +=  headTagVal;
+
         lastMessageDate = messageDateString;
     }
 
     // Check if we need to add a date tag
     if (data.readLine) {
-        output.innerHTML += `
+        output.innerHTML +=
+        `
             <div class="message unread" style="color: ${chatWindowFgColor}; font-size:${fontSize}; border-radius: ${borderRad}; text-align: center; border: 1px solid #232323; margin: 10px 0; font-weight: bold;">
                 Unread Messages
-            </div>`;
+            </div>` 
         lastMessageDate = messageDateString;
     }
 
     // Main message box with "read details" bubble
     const readInfoHTML =
-     data.readUsers
-        ? `
+    `
         <div class="read-info" id="read-info-${data.id}" style="color: #000000; font-size:${fontSize}; border-radius: ${borderRad}; display: none; position: absolute; top: -30px; left: -30px; right: 0; background-color: #fff;  padding: 8px;  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); text-align: left; z-index: 10; width: 150px; display: none;">
-            ${data.readUsers
+            ${ data.readUsers
+                ? 
+                data.readUsers
                 .map(
                     (r) =>
                        r.name !== name.textContent.trim().normalize('NFC')?
                         `<div style="font-size: 0.9rem; text-align: left;">
-                            ${r.name} at ${r.time}
+                            ${r.name} at ${formatTimestamp(r.time)}
                         </div>`
                         :""
                 )
-                .join("")}
+                .join(""): ""}
         </div>`
-        : "";
+        ;
 
-    output.innerHTML += `
-        <div style="${divStyle}">
-            <div style="${style}" data-id="${data.id}" class="message mess p-2 mr-1 m-2 col-md-6">
-                <h6 style="font-style: italic; text-align: end;">${data.handle}</h6>
-                <span dir="auto">${data.message}</span>
-                ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" />` : ""}
+    let messageHTML = `
+    <div id="${data.id}"  style="${divStyle}">
+        <div style="${style}"  class="message mess p-2 mr-1 m-2 col-md-6">
+            <h6 style="font-style: italic; text-align: end;">${data.handle}</h6>
+            <div dir="auto">${data.message}</div>
+            ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" loading="lazy" />` : ""}
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
                     <div style="text-align: left;">
                         ${new Intl.DateTimeFormat("en-US", {
                             hour: "numeric",
                             minute: "numeric",
                         }).format(messageDate)}
+                        </div>
+                        ${ownMessage ?
+                        ` 
+                        <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor: pointer; text-align: right; font-size: 0.8rem; color: ${fgColor}; border: none; background: none;">
+                            <i class="bi bi-arrow-90deg-up"></i> Last seen
+                        </button>
+                        ${readInfoHTML}`
+                        : ""}
                     </div>
-                    ${
-                    data.read && data.read.length && ownMessage > 0
-                        ? `<button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor: pointer; text-align: right; font-size: 0.8rem; color: ${fgColor}; border: none; background: none;">
-                               <i class="bi bi-arrow-90deg-up"></i> Show Readers
-                            </button>
-                            `
-                        : ""
-                    }
-                    ${ownMessage ? readInfoHTML : ""}
-                </div>
-            </div>   
-        </div>`;
+                </div>   
+            </div>
+        </div>
+    </div>
+        <div data-id="${data.id}" class="message"></div>
+                        `;
 
 
 
     // Reset file input and image
     $("file-input").val("");
     image = "";
-
+    if (prepend) {
+        output.insertAdjacentHTML("afterbegin", messageHTML); // Prepend for older/unread messages
+    } else {
+        output.insertAdjacentHTML("beforeend", messageHTML); // Append for new messages
+    }
     showUp(); // Show "scroll up" button if needed
     // scroll(); // Scroll to the bottom to show the latest message
     // scrollToUnread()
 }
+// Example usage within your socket event
+socket.on("readMessageUpdate", ({ id, readUsers }) => {
+    const readInfoElement = document.querySelector(`#read-info-${id}`);
+
+    if (readInfoElement) {
+        // Update the read information for each read user
+        readUsers.forEach((r) => {
+            if (r.name !== name.textContent.trim().normalize('NFC')) {
+                updateTimeForReadUser(r, readInfoElement);
+            }
+        });
+    }
+});
+
+const updateTimeForReadUser = (r, readInfoElement) => {
+    // Initial timestamp from the read user
+    let startTime = r.time;
+    
+    // Update time every second
+    const interval = setInterval(() => {
+        const currentTime = new Date();
+        const timeDifference = (currentTime - new Date(startTime)) / 1000; // Time difference in seconds
+        
+        // Check if the time difference exceeds 1 minute (60 seconds)
+        if (timeDifference > 60) {
+            clearInterval(interval); // Stop the interval if more than 1 minute has passed
+        }
+
+        // Update the displayed time for the read user
+        readInfoElement.innerHTML = `
+            <div style="font-size: 0.9rem; text-align: left;">
+                ${r.name} at ${formatTimestamp(r.time)}
+            </div>`;
+    }, 1000); // Update every second
+};
 function openReadedMessage(dataId) {
     // Get the read info div based on the data-id (used as read-info-${dataId})
     var infoDiv = document.querySelector(`#read-info-${dataId}`);
@@ -740,10 +826,10 @@ function openReadedMessage(dataId) {
         // Check if the read info is visible and toggle it
         if (infoDiv.style.display === "none" || infoDiv.style.display === "") {
             infoDiv.style.display = "block";  // Show the read info
-            toggleBtn.innerHTML = `<i class="bi bi-x-lg"></i> Hide Readers`;  // Change button text
+            toggleBtn.innerHTML = `<i class="bi bi-x-lg"></i> Hide here`;  // Change button text
         } else {
             infoDiv.style.display = "none";  // Hide the read info
-            toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Show Readers`;  // Change button text
+            toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Last seen`;  // Change button text
         }
     }
 }
@@ -757,20 +843,36 @@ function openReadedMessage(dataId) {
 chat_window.addEventListener("scroll", () => {
     const visibleMessages = [];
     const messages = document.querySelectorAll(".message"); // Class of each message div
+    const Dates = document.querySelectorAll(".Date"); // Class of each date div
+    const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
 
+    // Iterate through Dates to check if they are in view
+    Dates.forEach((dateElem) => {
+        const rectDate = dateElem.getBoundingClientRect();
+
+        // If the bottom of the date element is at or above the top of the head tag
+        if (rectDate.bottom <= rectheadTag.top) {
+            // console.log(dateElem.innerHTML); // Log the date when it reaches the top
+            headTag.innerHTML = dateElem.innerHTML; // Set the head tag's content to the current date element
+        }
+    });
+
+    // Iterate through messages to find visible ones (if needed)
     messages.forEach((message) => {
         const rect = message.getBoundingClientRect();
         if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-            visibleMessages.push(message.dataset.id); // Assuming each message has a unique `data-id` attribute
+            const messageId = message.getAttribute('data-id');
+            if (messageId) {
+                visibleMessages.push(messageId);  // Add the data-id of visible messages
+            }
         }
     });
 
     // Emit the IDs of visible messages to the server
     if (visibleMessages.length > 0) {
-        socket.emit("markMessagesRead", { messageIds: visibleMessages , username : currentUser.username });
+        socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
     }
 });
-
 
 // _______________reply____________________
 
