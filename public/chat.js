@@ -286,6 +286,7 @@ socket.on("joined", (data) => {
                 RoomId: <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
                 Admin : <em class='text-warning'>${data.room.admin}</em>
             </button>
+            <input type="hidden" id="roomIDVal" value="${data.room.roomName}"/>
             <a href="whatsapp://send?text=${href}/join/${data.room.roomName}" data-action="share/whatsapp/share" 
                 class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
                 target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
@@ -543,29 +544,30 @@ const copyId = (id) => {
 };
 //=================================================================
 // Function to add messages to the chat UI
-socket.on("restoreMessages", (messages) => {
-    // console.log("Restoring messages:", messages);
+socket.on("restoreMessages", (data) => {
+    // if (!Array.isArray(messages,prepend)) {
+    //     console.error("Invalid messages received:", messages);
+    //     return;
+    // }
 
-    if (!Array.isArray(messages)) {
-        console.error("Invalid messages received:", messages);
-        return;
-    }
+    // Reverse messages to display last to first
+    //const reversedMessages = messages.slice().reverse();
 
-    messages.forEach((message, index) => {
+    data.messages.forEach((message, index) => {
         try {
             if (!message || !message.timestamp || !message.sender || !message.message) {
                 throw new Error(`Missing required fields in message at index ${index}`);
             }
-
-            addMessageToChatUI(message);
+            // Prepend reversed messages to the chat UI
+            addMessageToChatUI(message,data.prepend);
         } catch (error) {
             console.error("Error adding message to chat UI:", { error, message, index });
         }
     });
+
     setTimeout(() => {
-        scrollToUnread();
+        // scrollToUnread(); // Scroll to the first unread message
     }, 500); // Adjust delay time if necessary
-    
 });
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
@@ -673,19 +675,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let lastMessageDate = null;
 let headTagVal = null;
+let lastProcessedDate = null;
+let ProcessedDate = null;
 
-function addMessageToChatUI(data , prepend=false) {
+function addMessageToChatUI(data, prepend = false) {
+    let contentToAdd = "";
+    let dateToAdd = "";
+    let unreadToAdd = "";
+
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
     const fontSize = savedSettings?.fontSize || "16px";
     const borderRad = savedSettings?.borderRad || "5px";
     const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
-    const ownMessage = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC')
+    const ownMessage = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC');
 
     const style = ownMessage
-        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize}; border-radius : ${borderRad};`
-        : `background-color:#333;color:white;font-size:${fontSize}; border-radius : ${borderRad};`;
+        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius:${borderRad};`
+        : `background-color:#333;color:white;font-size:${fontSize};border-radius:${borderRad};`;
     const divStyle = ownMessage
         ? `display:flex;justify-content:flex-end;`
         : `display:flex;justify-content:flex-start;`;
@@ -697,88 +705,80 @@ function addMessageToChatUI(data , prepend=false) {
         month: "short",
         day: "numeric",
     });
-    // Check if we need to add a date tag
-    if (lastMessageDate !== messageDateString) {
-        
-         headTagVal=`
-            <div dir="auto" class="Date message" style="color: ${chatWindowFgColor}; font-size:${fontSize}; border-radius: ${borderRad}; text-align: center; border: 1px solid #232323; margin: 10px 0; font-weight: bold;">
+
+    // Date tag
+    if (messageDateString !== lastMessageDate) {
+        dateToAdd = `
+            <div dir="auto" class="Date message" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
                 ${messageDateString}
             </div>`;
-        output.innerHTML +=  headTagVal;
-
         lastMessageDate = messageDateString;
     }
 
-    // Check if we need to add a date tag
+    // "Unread Messages" tag
     if (data.readLine) {
-        output.innerHTML +=
-        `
-            <div class="message unread" style="color: ${chatWindowFgColor}; font-size:${fontSize}; border-radius: ${borderRad}; text-align: center; border: 1px solid #232323; margin: 10px 0; font-weight: bold;">
+        unreadToAdd = `
+            <div class="message unread" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
                 Unread Messages
-            </div>` 
-        lastMessageDate = messageDateString;
+            </div>`;
     }
 
-    // Main message box with "read details" bubble
-    const readInfoHTML =
-    `
-        <div class="read-info" id="read-info-${data.id}" style="color: #000000; font-size:${fontSize}; border-radius: ${borderRad}; display: none; position: absolute; top: -30px; left: -30px; right: 0; background-color: #fff;  padding: 8px;  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); text-align: left; z-index: 10; width: 150px; display: none;">
-            ${ data.readUsers
-                ? 
-                data.readUsers
-                .map(
-                    (r) =>
-                       r.name !== name.textContent.trim().normalize('NFC')?
-                        `<div style="font-size: 0.9rem; text-align: left;">
-                            ${r.name} at ${formatTimestamp(r.time)}
-                        </div>`
-                        :""
-                )
-                .join(""): ""}
-        </div>`
-        ;
+    // Main message content
+    const readInfoHTML = data.readUsers
+        ? data.readUsers
+              .map((r) => {
+                  return r.name !== name.textContent.trim().normalize('NFC')
+                      ? `<div style="font-size:0.9rem;text-align:left;">${r.name} at ${formatTimestamp(r.time)}</div>`
+                      : "";
+              })
+              .join("")
+        : "";
 
-    let messageHTML = `
-    <div id="${data.id}"  style="${divStyle}">
-        <div style="${style}"  class="message mess p-2 mr-1 m-2 col-md-6">
-            <h6 style="font-style: italic; text-align: end;">${data.handle}</h6>
+    contentToAdd += `
+    <div id="${data.id}" style="${divStyle}">
+        <div style="${style}" class="message mess p-2 mr-1 m-2 col-md-6">
+            <h6 style="font-style:italic;text-align:end;">${data.handle}</h6>
             <div dir="auto">${data.message}</div>
             ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" loading="lazy" />` : ""}
-                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
-                    <div style="text-align: left;">
-                        ${new Intl.DateTimeFormat("en-US", {
-                            hour: "numeric",
-                            minute: "numeric",
-                        }).format(messageDate)}
-                        </div>
-                        ${ownMessage ?
-                        ` 
-                        <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor: pointer; text-align: right; font-size: 0.8rem; color: ${fgColor}; border: none; background: none;">
-                            <i class="bi bi-arrow-90deg-up"></i> Last seen
-                        </button>
-                        ${readInfoHTML}`
-                        : ""}
-                    </div>
-                </div>   
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
+                <div style="text-align:left;">
+                    ${new Intl.DateTimeFormat("en-US", {
+                        hour: "numeric",
+                        minute: "numeric",
+                    }).format(messageDate)}
+                </div>
+                ${
+                    ownMessage
+                        ? `
+                <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor:pointer;text-align:right;font-size:0.8rem;color:${fgColor};border:none;background:none;">
+                    <i class="bi bi-arrow-90deg-up"></i> Last seen
+                </button>
+                <div class="read-info" id="read-info-${data.id}" style="color:#000000;font-size:${fontSize};border-radius:${borderRad};display:none;position:absolute;top:-30px;left:-30px;right:0;background-color:#fff;padding:8px;box-shadow:0 4px 8px rgba(0, 0, 0, 0.2);text-align:left;z-index:10;width:150px;">
+                    ${readInfoHTML}
+                </div>`
+                        : ""
+                }
             </div>
         </div>
     </div>
-        <div data-id="${data.id}" class="message"></div>
-                        `;
+            <div data-id="${data.id}" date-id="${messageDate}" class="message"></div>
 
+    `;
 
+    // Insert content into chat UI
+    if (prepend) {
+        if (dateToAdd) output.insertAdjacentHTML("afterbegin", dateToAdd);
+        if (unreadToAdd) output.insertAdjacentHTML("afterbegin", unreadToAdd);
+        output.insertAdjacentHTML("afterbegin", contentToAdd);
+    } else {
+        if (dateToAdd) output.insertAdjacentHTML("beforeend", dateToAdd);
+        if (unreadToAdd) output.insertAdjacentHTML("beforeend", unreadToAdd);
+        output.insertAdjacentHTML("beforeend", contentToAdd);
+    }
 
     // Reset file input and image
     $("file-input").val("");
     image = "";
-    if (prepend) {
-        output.insertAdjacentHTML("afterbegin", messageHTML); // Prepend for older/unread messages
-    } else {
-        output.insertAdjacentHTML("beforeend", messageHTML); // Append for new messages
-    }
-    showUp(); // Show "scroll up" button if needed
-    // scroll(); // Scroll to the bottom to show the latest message
-    // scrollToUnread()
 }
 // Example usage within your socket event
 socket.on("readMessageUpdate", ({ id, readUsers }) => {
@@ -839,7 +839,15 @@ function openReadedMessage(dataId) {
 // ========================================================================================
 
 // readed messages ===========================================================
-
+const sentMessagesDates=[];
+// Function to format the message date as 'YYYY-MM-DD'
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');  // Months are 0-based
+    const day = String(date.getDate()-1).padStart(2, '0');  // Ensure two digits for day
+    return `${year}-${month}-${day}`;
+}
 chat_window.addEventListener("scroll", () => {
     const visibleMessages = [];
     const messages = document.querySelectorAll(".message"); // Class of each message div
@@ -856,7 +864,7 @@ chat_window.addEventListener("scroll", () => {
             headTag.innerHTML = dateElem.innerHTML; // Set the head tag's content to the current date element
         }
     });
-
+    
     // Iterate through messages to find visible ones (if needed)
     messages.forEach((message) => {
         const rect = message.getBoundingClientRect();
@@ -864,7 +872,20 @@ chat_window.addEventListener("scroll", () => {
             const messageId = message.getAttribute('data-id');
             if (messageId) {
                 visibleMessages.push(messageId);  // Add the data-id of visible messages
+        //     }
+        // // Check if the message is near the top of the viewport
+        // if (rect.bottom <= rectheadTag.top) {
+            const messageDate = formatDate(message.getAttribute('date-id'));
+            
+            // Only send a request if the date is unique and hasn't been sent already
+            if (messageDate && !sentMessagesDates.includes(messageDate)) {
+                sentMessagesDates.push(messageDate);  // Store the sent date to prevent duplicates
+                console.log(sentMessagesDates)
+                const roomID = document.getElementById('roomIDVal').value
+                // Emit the request for older messages to the server
+                socket.emit("requestOlderMessages", {roomName : roomID, date: messageDate });
             }
+        }
         }
     });
 
@@ -872,8 +893,8 @@ chat_window.addEventListener("scroll", () => {
     if (visibleMessages.length > 0) {
         socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
     }
+      
 });
-
 // _______________reply____________________
 
 

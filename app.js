@@ -489,84 +489,162 @@ io.on("connection", (socket) => {
     // });
     socket.on("joinRoom", async ({ roomName, username }) => {
         try {
-            const user = await User.findOne({ username: username });
-
+            const user = await User.findOne({ username });
             console.log(`User ${username} is trying to join room ${roomName}`);
-            
-            // Ensure room exists
+    
+            // Ensure the room exists
             const room = await Room.findOne({ roomName });
-            console.log("Room existence check:", room);
-            if (!room) {
-                console.error(`Room "${roomName}" does not exist.`);
-                throw new Error(`Room "${roomName}" does not exist`);
+            if (!room) throw new Error(`Room "${roomName}" does not exist`);
+    
+            await addUserToRoom(username, roomName);
+            socket.join(roomName);
+    
+            console.log(`Fetching all unread messages for room: ${roomName}`);
+            const unreadMessages = await getUnreadMessages(roomName, username);
+    
+            // Emit unread messages first
+            if (unreadMessages.length > 0) {
+                socket.emit("restoreMessages", { messages: unreadMessages, prepend: false });
             }
     
-            // Add user to the room
-            console.log(`Adding user ${username} to room ${roomName}`);
-            await addUserToRoom(username, roomName);
-            console.log("User successfully added to the room");
+            // After unread messages, fetch today's messages
+            const todayMessages = await getMessagesByDate(roomName, new Date());
+            if (todayMessages.length > 0) {
+                socket.emit("restoreMessages", { messages: todayMessages, prepend: false });
+            } else {
+                socket.emit("noMoreMessages", { message: "No more messages for today." });
+            }
     
-            // Join the socket room
-            console.log(`Socket ${socket.id} joining room ${roomName}`);
-            socket.join(roomName);
-            console.log(`Socket ${socket.id} joined room ${roomName}`);
+            // Emit user settings
+            socket.emit("applySettings", user.settings);
     
-            // Fetch messages and resolve sender details
-            console.log("Fetching messages for room:", roomName);
-            const rawMessages = await Message.find({ roomID: roomName }).sort({ timestamp: 1 }).lean();
-
-            let firstUnreadFound = false;
-            
-            const messages = await Promise.all(
-                rawMessages.map(async (msg) => {
-                    const isUnread = !msg.read || !msg.read.some((r) => r.username === username);
-            
-                    const readLine = isUnread && !firstUnreadFound ? (firstUnreadFound = true) : false;
-                    console.log(readLine)
-                    const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
-                    const readUsers = await Promise.all(
-                        (msg.read || []).map(async (readEntry) => {
-                            const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
-                            return {
-                                name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
-                                time: readEntry.time, // Keep the time from the read entry
-                            };
-                        })
-                    );
-                    
-                    return {
-                        ...msg,
-                        sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
-                        handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
-                        readUsers, // Array of objects with name and time
-                        readLine,
-                    };
-                    
-                    
-                  
-                })
-            );
-            
-            
-            socket.emit("applySettings", user.settings); // Send settings to client
-    
-            // console.log("Messages fetched with user details:", messages);
-    
-            // Emit messages to the user
-            console.log("Emitting restoreMessages event");
-            socket.emit("restoreMessages", messages);
-    
-            // Notify others in the room of the new user
-            console.log(`Notifying others in ${roomName} about new user ${username}`);
+            // Notify others
             socket.broadcast.to(roomName).emit("userJoined", { username, roomName });
-
+    
             socket.emit("joined", { room });
+    
+            // Handle older message requests on scroll
+            socket.on("requestOlderMessages", async ({ date }) => {
+                try {
+                    const olderMessages = await getMessagesByDate(roomName, new Date(date));
+                    if (olderMessages.length > 0) {
+                        socket.emit("restoreMessages", { messages: olderMessages, prepend: true });
+                    } else {
+                        socket.emit("noMoreMessages", { message: "No more older messages." });
+                    }
+                } catch (err) {
+                    console.error("Error fetching older messages:", err);
+                    socket.emit("error", { message: "Failed to load older messages." });
+                }
+            });
     
         } catch (error) {
             console.error("Error joining room:", error);
             socket.emit("error", { message: error.message });
         }
     });
+    
+    // Create an in-memory object to track the last fetched date for each room (or user)
+    // Handle older message requests on scroll
+    socket.on("requestOlderMessages", async ({ roomName, date }) => {
+        try {
+            // Debugging: Log the incoming data to ensure it's correct
+            console.log("Received request for older messages:", { roomName, date });
+    
+            // Ensure the date is in the expected format
+            const formattedDate = new Date(date);
+            console.log("Formatted date:", formattedDate);
+    
+            // Call the function to fetch older messages
+            const olderMessages = await getMessagesByDate(roomName, formattedDate , -1);
+            console.log("Fetched older messages:", olderMessages);
+    
+            // If there are older messages, emit them back to the client
+            if (olderMessages.length > 0) {
+                console.log("Sending older messages to the client.");
+                socket.emit("restoreMessages", { messages: olderMessages, prepend: true });
+            } else {
+                console.log("No older messages found.");
+                socket.emit("noMoreMessages", { message: "No more older messages." });
+            }
+        } catch (err) {
+            // Log the error if something goes wrong
+            console.error("Error fetching older messages:", err);
+            socket.emit("error", { message: "Failed to load older messages." });
+        }
+    });
+    
+    
+    // Helper function to process each message
+    async function processMessage(msg) {
+        const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
+        const readUsers = await Promise.all(
+            (msg.read || []).map(async (readEntry) => {
+                const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
+                return {
+                    name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
+                    time: readEntry.time,
+                };
+            })
+        );
+    
+        return {
+            ...msg,
+            sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+            handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+            readUsers,
+            readLine: false, // Mark unread messages with a readLine
+        };
+    }
+    
+    // Helper function to get all unread messages
+    async function getUnreadMessages(roomName, username) {
+        const rawMessages = await Message.find({ roomID: roomName }).sort({ timestamp: 1 }).lean();
+    
+        // Filter unread messages for the user
+        const unreadMessages = rawMessages.filter((msg) => {
+            const isUnread = !msg.read || !msg.read.some((r) => r.username === username);
+            return isUnread;
+        });
+    
+        // Process and return unread messages
+        return await Promise.all(unreadMessages.map((msg) => processMessage(msg)));
+    }
+    
+    // Helper function to group messages by date
+    async function getMessagesByDate(roomName, date ,  reverse= 1) {
+        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+    
+        const rawMessages = await Message.find({
+            roomID: roomName,
+            timestamp: { $gte: startOfDay, $lte: endOfDay },
+        }).sort({ timestamp: reverse }).lean();
+    
+        return await Promise.all(rawMessages.map((msg) => processMessage(msg)));
+    }
+    
+    // Process a single message (convert sender and read users to human-readable form)
+    async function processMessage(msg) {
+        const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
+        const readUsers = await Promise.all(
+            (msg.read || []).map(async (readEntry) => {
+                const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
+                return {
+                    name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
+                    time: readEntry.time,
+                };
+            })
+        );
+    
+        return {
+            ...msg,
+            sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+            handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+            readUsers,
+            readLine: false, // Mark unread messages with a readLine
+        };
+    }
     
     
     
@@ -615,7 +693,7 @@ io.on("connection", (socket) => {
     socket.on("markMessagesRead", async ({ messageIds, username }) => {
         try {
             const timestamp = new Date();
-            console.log(messageIds)
+            // console.log(messageIds)
             // Update the `read` array for each message
             const updatedMessages = await Promise.all(
                 messageIds.map(async (messageId) => {
