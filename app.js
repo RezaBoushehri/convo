@@ -504,7 +504,7 @@ io.on("connection", (socket) => {
     
             // Emit unread messages first
             if (unreadMessages.length > 0) {
-                socket.emit("restoreMessages", { messages: unreadMessages, prepend: false });
+                socket.emit("restoreMessages", { messages: unreadMessages, prepend: true });
             }
     
             // After unread messages, fetch today's messages
@@ -594,35 +594,53 @@ io.on("connection", (socket) => {
             handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
             readUsers,
             readLine: false, // Mark unread messages with a readLine
+            dateLine:false,
         };
     }
     
     // Helper function to get all unread messages
+// Helper function to get all unread messages
     async function getUnreadMessages(roomName, username) {
-        const rawMessages = await Message.find({ roomID: roomName }).sort({ timestamp: 1 }).lean();
-    
+        const rawMessages = await Message.find({ roomID: roomName }).sort({ timestamp: -1 }).lean();
+
         // Filter unread messages for the user
         const unreadMessages = rawMessages.filter((msg) => {
             const isUnread = !msg.read || !msg.read.some((r) => r.username === username);
             return isUnread;
         });
-    
-        // Process and return unread messages
-        return await Promise.all(unreadMessages.map((msg) => processMessage(msg)));
+
+        // Process unread messages
+        const processedMessages = await Promise.all(unreadMessages.map((msg) => processMessage(msg)));
+
+        // If there are any unread messages, set readLine:true for the last one
+        if (processedMessages.length > 0) {
+            processedMessages[0].readLine = true; // Set readLine to true for the last message
+        }
+
+        return processedMessages;
     }
-    
+
     // Helper function to group messages by date
-    async function getMessagesByDate(roomName, date ,  reverse= 1) {
-        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
-    
-        const rawMessages = await Message.find({
-            roomID: roomName,
-            timestamp: { $gte: startOfDay, $lte: endOfDay },
-        }).sort({ timestamp: reverse }).lean();
-    
-        return await Promise.all(rawMessages.map((msg) => processMessage(msg)));
+// Helper function to group messages by date
+async function getMessagesByDate(roomName, date , reverse = 1) {
+    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+
+    const rawMessages = await Message.find({
+        roomID: roomName,
+        timestamp: { $gte: startOfDay, $lte: endOfDay },
+    }).sort({ timestamp: reverse }).lean();
+
+    const processedMessages = await Promise.all(rawMessages.map((msg) => processMessage(msg)));
+
+    // If there are messages, set readLine:true for the last one
+    if (processedMessages.length > 0) {
+        processedMessages[0].dateLine = true; // Set readLine to true for the last message
     }
+
+    return processedMessages;
+}
+
     
     // Process a single message (convert sender and read users to human-readable form)
     async function processMessage(msg) {

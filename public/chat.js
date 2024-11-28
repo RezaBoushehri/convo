@@ -566,7 +566,7 @@ socket.on("restoreMessages", (data) => {
     });
 
     setTimeout(() => {
-        // scrollToUnread(); // Scroll to the first unread message
+        scrollToUnread(); // Scroll to the first unread message
     }, 500); // Adjust delay time if necessary
 });
 // -----------------setting----------------
@@ -580,6 +580,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     document.getElementById("chat-window").style.backgroundColor = chatWindowBgColor
     document.getElementById("chat-window").style.color = chatWindowFgColor
+    document.getElementById("editable-message-text").style.backgroundColor = bgColor
+    document.getElementById("editable-message-text").style.color = fgColor
+    document.getElementById("editable-message-text").style.borderRadius = borderRad
     headTag.style.fontSize = fontSize+"px"
     headTag.style.color = chatWindowFgColor
     headTag.style.borderRadius = borderRad
@@ -707,12 +710,11 @@ function addMessageToChatUI(data, prepend = false) {
     });
 
     // Date tag
-    if (messageDateString !== lastMessageDate) {
+    if (data.dateLine) {
         dateToAdd = `
             <div dir="auto" class="Date message" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
                 ${messageDateString}
             </div>`;
-        lastMessageDate = messageDateString;
     }
 
     // "Unread Messages" tag
