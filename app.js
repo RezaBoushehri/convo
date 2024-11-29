@@ -676,12 +676,17 @@ async function getMessagesByDate(roomName, date , reverse = 1) {
             if (!currentUser || !currentUser.roomID) {
                 throw new Error("User not found or not part of a room.");
             }
-
+            // Get the next sequence value from the counter collection
+            const counter = await Room.findOneAndUpdate(
+                { roomID: currentUser.roomID },  // Find the counter for this room
+                { $inc: { seq: 1 } },  // Increment the sequence number
+                { new: true, upsert: true }  // Create if it doesn't exist
+            );
             const clean = DOMPurify.sanitize(message);
             // Create and save the message
             const newMessage = new Message({
                 id: uuidv4(),
-                roomID: currentUser.roomID,
+                id: `${currentUser.roomID}-${counter.seq}`,  // ID format: roomID-auto-increment number
                 sender: username,
                 message : clean,
                 file: image || null,

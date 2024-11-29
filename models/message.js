@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const messageSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true }, // Unique message ID
     roomID: { type: String, required: true }, // The room in which the message was sent
+    seq: { type: Number, default: 0 },
     sender: { type: String, required: true }, // Sender's username
     quote: { type: String, default: null }, // Message content
     read: [

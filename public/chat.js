@@ -1,8 +1,8 @@
 
 // const socket = io.connect(window.location.hostname),
 const production = false;
-const href = production ? window.location.hostname : "172.16.28.166:4000",
-    socket = io.connect('https://172.16.28.166:4000', {
+const href = production ? window.location.hostname : "localhost:4000",
+    socket = io.connect('https://localhost:4000', {
         transports: ['polling', "websocket"],
         secure: true,
         withCredentials: false, // Ensures cookies are sent along with requests
@@ -740,8 +740,19 @@ function addMessageToChatUI(data, prepend = false) {
     <div id="${data.id}" style="${divStyle}">
         <div style="${style}" class="message mess p-2 mr-1 m-2 col-md-6">
             <h6 style="font-style:italic;text-align:end;">${data.handle}</h6>
+            ${data.file ? `<!-- Thumbnail Image -->
+                        <img class="img-fluid rounded mb-2" src="${data.file}" loading="lazy" alt="Image" onclick="openImage('${data.file}')">
+
+                        <!-- Modal for Enlarged Image -->
+                        <div id="imageModal" class="imageModal">
+                        <span class="close" onclick="closeModal()">&times;</span>
+                        <img id="modalImage" class="imageModal-content" src="" alt="Enlarged Image">
+                        <div class="imageModal-caption">
+                            <a id="downloadLink" href="#" download="image.jpg" class="download-btn">Download</a>
+                        </div>
+                        </div>
+                        ` : ""}
             <div dir="auto">${data.message}</div>
-            ${data.file ? `<img class="img-fluid rounded mb-2" src="${data.file}" loading="lazy" />` : ""}
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
                 <div style="text-align:left;">
                     ${new Intl.DateTimeFormat("en-US", {
@@ -836,7 +847,34 @@ function openReadedMessage(dataId) {
     }
 }
 
-
+// Function to open the image in a modal
+function openImage(imageSrc) {
+    const modal = document.getElementById("imageModal");
+    const modalImg = document.getElementById("modalImage");
+    const downloadLink = document.getElementById("downloadLink");
+  
+    // Set the source of the modal image and the download link
+    modalImg.src = imageSrc;
+    downloadLink.href = imageSrc; // This will allow the image to be downloaded
+  
+    // Display the modal
+    modal.style.display = "block";
+  }
+  
+  // Function to close the modal
+  function closeModal() {
+    const modal = document.getElementById("imageModal");
+    modal.style.display = "none";
+  }
+  
+  // Close the modal when clicking outside the image
+  window.onclick = function(event) {
+    const modal = document.getElementById("imageModal");
+    if (event.target === modal) {
+      modal.style.display = "none";
+    }
+  }
+  
 
 // ========================================================================================
 
