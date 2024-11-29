@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 const messageSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true }, // Unique message ID
     roomID: { type: String, required: true }, // The room in which the message was sent
-    seq: { type: Number, default: 0 },
     sender: { type: String, required: true }, // Sender's username
     quote: { type: String, default: null }, // Message content
     read: [
@@ -11,7 +10,8 @@ const messageSchema = new mongoose.Schema({
             username: { type: String, required: true },
             time: { type: Date, required: true },
         },
-    ],    message: { type: String, required: true }, // Message content
+    ], 
+    message: { type: String, required: true }, // Message content
     file: { type: String, default: null }, // Optional file URL or path
     timestamp: { type: Date, default: Date.now }, // Timestamp of the message
 });

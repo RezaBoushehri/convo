@@ -104,7 +104,7 @@ const joinRoom = () => {
     }
     document.querySelector("#roomID").textContent= roomID
     socket.emit("joinRoom", { 
-        roomName: roomID,
+        roomID: roomID,
         username: currentUser.username
     });
 
@@ -166,7 +166,7 @@ button.addEventListener("click", () => {
     };
 
     
-    if (!data.message || !data.username) {
+    if (!data.message && !data.username && !data.image) {
         alert.innerHTML = "Room ID, sender, and message cannot be empty";
         return;
     }
@@ -273,7 +273,7 @@ socket.on("joined", (data) => {
     console.log("User joined room:", data);
 
     // Ensure required fields exist
-    if (!data.room || !data.room.roomName || !data.room.admin) {
+    if (!data.room || !data.room.roomID || !data.room.admin) {
         console.error("Invalid data received in 'joined' event:", data);
         return;
     }
@@ -282,12 +282,12 @@ socket.on("joined", (data) => {
     document.querySelector("#roomInfo").innerHTML = `
         <div>
             <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
-                title="Copy <b>Room-id</b>" data-placement="left" onclick='copyId("${data.room.roomName}")' id='tooltip'>
+                title="Copy <b>Room-id</b>" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
                 RoomId: <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
                 Admin : <em class='text-warning'>${data.room.admin}</em>
             </button>
-            <input type="hidden" id="roomIDVal" value="${data.room.roomName}"/>
-            <a href="whatsapp://send?text=${href}/join/${data.room.roomName}" data-action="share/whatsapp/share" 
+            <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
+            <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
                 class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
                 target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
                 <i class='fa fa-whatsapp'></i>
@@ -923,7 +923,7 @@ chat_window.addEventListener("scroll", () => {
                 console.log(sentMessagesDates)
                 const roomID = document.getElementById('roomIDVal').value
                 // Emit the request for older messages to the server
-                socket.emit("requestOlderMessages", {roomName : roomID, date: messageDate });
+                socket.emit("requestOlderMessages", {roomID : roomID, date: messageDate });
             }
         }
         }

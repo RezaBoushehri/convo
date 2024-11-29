@@ -147,7 +147,7 @@ app.get("/join/:id", middleware.isLoggedIn, (req, res) => {
     const roomID = req.params.id;
 
     // Check if the room exists in the `rooms` array or object
-    const roomExists = rooms.find((room) => room.roomName === roomID);
+    const roomExists = rooms.find((room) => room.roomID === roomID);
 
     if (roomExists) {
         // Render the room and provide the room ID
@@ -291,7 +291,7 @@ server.listen(port, '0.0.0.0', () => console.log(`Listening on ${port}`));
 
 
 // Function to add the user to the room (this should be added to your user management logic)
-const addUserToRoom = async (username, roomName) => {
+const addUserToRoom = async (username, roomID) => {
     try {
         // Find the user from the in-memory user list or database
         const user = await User.findByUsername(username);        
@@ -299,18 +299,18 @@ const addUserToRoom = async (username, roomName) => {
             // Update the user's roomID in the database
             await User.findOneAndUpdate(
                 { username: username },   // Filter by socketID
-                { $set: { roomID: roomName } },  // Set the roomID
+                { $set: { roomID: roomID } },  // Set the roomID
                 { new: true }              // Return the updated document
             );
 
             // Update the room's members array in the database
             await Room.findOneAndUpdate(
-                { roomName: roomName },       // Find the room by its name
+                { roomID: roomID },       // Find the room by its name
                 { $addToSet: { members: username } }, // Add the username to the members array (avoid duplicates)
                 { new: true }                // Return the updated room document
             );
 
-            console.log(`User with username: ${username} added to room: ${roomName}`);
+            console.log(`User with username: ${username} added to room: ${roomID}`);
         } else {
             console.error("User not found when adding to room");
         }
@@ -319,9 +319,9 @@ const addUserToRoom = async (username, roomName) => {
     }
 };
 
-// const removeUserFromRoom = async (socketId, roomName) => {
+// const removeUserFromRoom = async (socketId, roomID) => {
 //     try {
-//         const room = await Room.findOne({ roomName: roomName });
+//         const room = await Room.findOne({ roomID: roomID });
 
 //         if (!room) {
 //             throw new Error('Room does not exist');
@@ -335,7 +335,7 @@ const addUserToRoom = async (username, roomName) => {
 
 //         room.members.splice(userIndex, 1); // Remove the user
 //         await room.save();
-//         console.log(`User with socketId ${socketId} removed from room ${roomName}`);
+//         console.log(`User with socketId ${socketId} removed from room ${roomID}`);
 //     } catch (error) {
 //         console.error('Error:', error.message);
 //     }
@@ -343,8 +343,8 @@ const addUserToRoom = async (username, roomName) => {
 
 
 // // Socket Configuration
-// const roomExists = (roomName) => {
-//     const index = rooms.findIndex((room) => room === roomName);
+// const roomExists = (roomID) => {
+//     const index = rooms.findIndex((room) => room === roomID);
 //     return index === -1 ? false : true;
 // };
 
@@ -372,7 +372,7 @@ io.on("connection", (socket) => {
     const socketId = socket.id;
     let currentUsername ;
     console.log(`Socket connected: ${socketId}`);
-    let roomName ; // Make sure you're getting socketId properly
+    let roomID ; // Make sure you're getting socketId properly
     
     socket.on("userLoggedIn", async (data) => {
         const { username } = data;
@@ -401,15 +401,15 @@ io.on("connection", (socket) => {
     });
     
     socket.on("createRoom", async ({ handle, roomID }) => {
-        roomName = roomID;
+        roomID = roomID;
     
         // Ensure room name uniqueness
-        while (await Room.findOne({ roomName })) {
-            roomName = `${roomID}-${Math.floor(Math.random() * 1000)}`; // Generate a unique name
+        while (await Room.findOne({ roomID })) {
+            roomID = `${roomID}-${Math.floor(Math.random() * 1000)}`; // Generate a unique name
         }
     
         const room = new Room({
-            roomName,
+            roomID,
             admin: handle.trim(),
             members: [], // Initialize the members array
         });
@@ -418,13 +418,13 @@ io.on("connection", (socket) => {
     
         const data = { handle: handle, room: room };
     
-        socket.join(room.roomName); // Add the socket to the room
+        socket.join(room.roomID); // Add the socket to the room
         
         // Add the user to the room
-        addUserToRoom(currentUsername, roomName);
+        addUserToRoom(currentUsername, roomID);
         
         socket.emit("joined", data); // Notify the user of successful join
-        socket.broadcast.to(room.roomName).emit("newconnection", data); // Broadcast to other users
+        socket.broadcast.to(room.roomID).emit("newconnection", data); // Broadcast to other users
     });
     
     
@@ -432,7 +432,7 @@ io.on("connection", (socket) => {
     // socket.on("joinRoom", async ({ roomID }) => {
     //     try {
     //         // Check if the room exists
-    //         const roomExists = await Room.findOne({ roomName: roomID });
+    //         const roomExists = await Room.findOne({ roomID: roomID });
             
     //         if (roomExists) {
     //             // Join the socket to the room
@@ -456,51 +456,51 @@ io.on("connection", (socket) => {
     //     }
     // });
 
-    // socket.on('joinRoom', async ({ roomName , username }) => {
+    // socket.on('joinRoom', async ({ roomID , username }) => {
     //     try {
-    //         if (typeof roomName !== 'string') {
-    //             throw new Error("Invalid roomName type. Expected a string.");
+    //         if (typeof roomID !== 'string') {
+    //             throw new Error("Invalid roomID type. Expected a string.");
     //         }
     
-    //         console.log(`Adding user with USERNAME: ${username} to room: ${roomName}`);
+    //         console.log(`Adding user with USERNAME: ${username} to room: ${roomID}`);
     
     //         // Check if the room exists
-    //         const room = await Room.findOne({ roomName });
+    //         const room = await Room.findOne({ roomID });
     
     //         if (!room) {
     //             throw new Error("Room does not exist");
     //         }
     
     //         // Add the user to the room
-    //         addUserToRoom(username, roomName);
+    //         addUserToRoom(username, roomID);
     
     //         // Join the socket.io room
-    //         socket.join(roomName);
+    //         socket.join(roomID);
     
-    //         console.log(`User ${username} successfully joined room ${roomName}`);
+    //         console.log(`User ${username} successfully joined room ${roomID}`);
     
     //         socket.emit("joined", { room });
-    //         socket.broadcast.to(roomName).emit("userJoined", { userId: username, roomName });
+    //         socket.broadcast.to(roomID).emit("userJoined", { userId: username, roomID });
     
     //     } catch (error) {
     //         console.error("Error joining room:", error.message);
     //         socket.emit("error", { message: error.message });
     //     }
     // });
-    socket.on("joinRoom", async ({ roomName, username }) => {
+    socket.on("joinRoom", async ({ roomID, username }) => {
         try {
             const user = await User.findOne({ username });
-            console.log(`User ${username} is trying to join room ${roomName}`);
+            console.log(`User ${username} is trying to join room ${roomID}`);
     
             // Ensure the room exists
-            const room = await Room.findOne({ roomName });
-            if (!room) throw new Error(`Room "${roomName}" does not exist`);
+            const room = await Room.findOne({ roomID });
+            if (!room) throw new Error(`Room "${roomID}" does not exist`);
     
-            await addUserToRoom(username, roomName);
-            socket.join(roomName);
+            await addUserToRoom(username, roomID);
+            socket.join(roomID);
     
-            console.log(`Fetching all unread messages for room: ${roomName}`);
-            const unreadMessages = await getUnreadMessages(roomName, username);
+            console.log(`Fetching all unread messages for room: ${roomID}`);
+            const unreadMessages = await getUnreadMessages(roomID, username);
     
             // Emit unread messages first
             if (unreadMessages.length > 0) {
@@ -508,7 +508,7 @@ io.on("connection", (socket) => {
             }
     
             // After unread messages, fetch today's messages
-            const todayMessages = await getMessagesByDate(roomName, new Date());
+            const todayMessages = await getMessagesByDate(roomID, new Date());
             if (todayMessages.length > 0) {
                 socket.emit("restoreMessages", { messages: todayMessages, prepend: false });
             } else {
@@ -519,14 +519,14 @@ io.on("connection", (socket) => {
             socket.emit("applySettings", user.settings);
     
             // Notify others
-            socket.broadcast.to(roomName).emit("userJoined", { username, roomName });
+            socket.broadcast.to(roomID).emit("userJoined", { username, roomID });
     
             socket.emit("joined", { room });
     
             // Handle older message requests on scroll
             socket.on("requestOlderMessages", async ({ date }) => {
                 try {
-                    const olderMessages = await getMessagesByDate(roomName, new Date(date));
+                    const olderMessages = await getMessagesByDate(roomID, new Date(date));
                     if (olderMessages.length > 0) {
                         socket.emit("restoreMessages", { messages: olderMessages, prepend: true });
                     } else {
@@ -546,17 +546,17 @@ io.on("connection", (socket) => {
     
     // Create an in-memory object to track the last fetched date for each room (or user)
     // Handle older message requests on scroll
-    socket.on("requestOlderMessages", async ({ roomName, date }) => {
+    socket.on("requestOlderMessages", async ({ roomID, date }) => {
         try {
             // Debugging: Log the incoming data to ensure it's correct
-            console.log("Received request for older messages:", { roomName, date });
+            console.log("Received request for older messages:", { roomID, date });
     
             // Ensure the date is in the expected format
             const formattedDate = new Date(date);
             console.log("Formatted date:", formattedDate);
     
             // Call the function to fetch older messages
-            const olderMessages = await getMessagesByDate(roomName, formattedDate , -1);
+            const olderMessages = await getMessagesByDate(roomID, formattedDate , -1);
             console.log("Fetched older messages:", olderMessages);
     
             // If there are older messages, emit them back to the client
@@ -600,8 +600,8 @@ io.on("connection", (socket) => {
     
     // Helper function to get all unread messages
 // Helper function to get all unread messages
-    async function getUnreadMessages(roomName, username) {
-        const rawMessages = await Message.find({ roomID: roomName }).sort({ timestamp: -1 }).lean();
+    async function getUnreadMessages(roomID, username) {
+        const rawMessages = await Message.find({ roomID: roomID }).sort({ timestamp: -1 }).lean();
 
         // Filter unread messages for the user
         const unreadMessages = rawMessages.filter((msg) => {
@@ -622,12 +622,12 @@ io.on("connection", (socket) => {
 
     // Helper function to group messages by date
 // Helper function to group messages by date
-async function getMessagesByDate(roomName, date , reverse = 1) {
+async function getMessagesByDate(roomID, date , reverse = 1) {
     const startOfDay = new Date(date.setHours(0, 0, 0, 0));
     const endOfDay = new Date(date.setHours(23, 59, 59, 999));
 
     const rawMessages = await Message.find({
-        roomID: roomName,
+        roomID: roomID,
         timestamp: { $gte: startOfDay, $lte: endOfDay },
     }).sort({ timestamp: reverse }).lean();
 
@@ -684,11 +684,13 @@ async function getMessagesByDate(roomName, date , reverse = 1) {
             );
             const clean = DOMPurify.sanitize(message);
             // Create and save the message
+            // if (!message || !username || !image) {
+
             const newMessage = new Message({
-                id: uuidv4(),
-                id: `${currentUser.roomID}-${counter.seq}`,  // ID format: roomID-auto-increment number
+                id: `${currentUser.roomID}-${counter.seq||0}`,  // ID format: roomID-auto-increment number
+                roomID : currentUser.roomID,
                 sender: username,
-                message : clean,
+                message : clean || image ? " ":null,
                 file: image || null,
                 read: [],
                 timestamp,
@@ -707,6 +709,7 @@ async function getMessagesByDate(roomName, date , reverse = 1) {
             io.in(currentUser.roomID).emit("chat", enrichedMessage);
     
             console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
+        // }
         } catch (error) {
             console.error("Error in chat:", error.message);
             socket.emit("chat", { error: "Failed to send message." });
@@ -784,7 +787,7 @@ async function getMessagesByDate(roomName, date , reverse = 1) {
     socket.on("info", async () => {
         const currentUser = await User.findOne({ socketID: socket.id });
         if (currentUser) {
-            const room = await Room.findOne({ roomName: currentUser.roomID });
+            const room = await Room.findOne({ roomID: currentUser.roomID });
             const users = await User.find({ roomID: currentUser.roomID });
             const messages = await Message.find({ roomID: currentUser.roomID }).sort({ timestamp: 1 });
 
@@ -846,7 +849,7 @@ async function getMessagesByDate(roomName, date , reverse = 1) {
             }
     
             // Find the room
-            const room = await Room.findOne({ roomName: roomID });
+            const room = await Room.findOne({ roomID: roomID });
             if (!room) {
                 socket.emit("error", { error: `Room "${roomID}" does not exist` });
                 return;
@@ -914,8 +917,8 @@ async function getMessagesByDate(roomName, date , reverse = 1) {
         console.log(getUsers());  // Check if the user list is correct
 
         console.log("Socket error:", error);
-        if(roomName){
-            console.log(`Adding user with socketId: ${socketId} to room: ${roomName}`);
+        if(roomID){
+            console.log(`Adding user with socketId: ${socketId} to room: ${roomID}`);
         }
         if (typeof user !== 'undefined' && user !== null) {
             console.log(user.username); // Log specific fields
