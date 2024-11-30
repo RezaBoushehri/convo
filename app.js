@@ -493,7 +493,7 @@ io.on("connection", (socket) => {
             console.log(`User ${username} is trying to join room ${roomID}`);
     
             // Ensure the room exists
-            const room = await Room.findOne({ roomID });
+            const room = await Room.findOne({ roomID:roomID });
             if (!room) throw new Error(`Room "${roomID}" does not exist`);
     
             await addUserToRoom(username, roomID);
@@ -501,20 +501,36 @@ io.on("connection", (socket) => {
     
             console.log(`Fetching all unread messages for room: ${roomID}`);
             const unreadMessages = await getUnreadMessages(roomID, username);
-    
-            // Emit unread messages first
+            // Process each message
+
+            console.log("unreadMessage :",unreadMessages);
+
+                // Emit unread messages first
             if (unreadMessages.length > 0) {
                 socket.emit("restoreMessages", { messages: unreadMessages, prepend: true });
-            }
-    
-            // After unread messages, fetch today's messages
-            const todayMessages = await getMessagesByDate(roomID, new Date());
-            if (todayMessages.length > 0) {
-                socket.emit("restoreMessages", { messages: todayMessages, prepend: false });
             } else {
-                socket.emit("noMoreMessages", { message: "No more messages for today." });
+                try {
+                    console.log("No unread messages. Fetching the last 20 messages.");
+                    
+                    // Fetch the last 20 messages for the room
+                    const lastMessages = await getMessagesByLimit(roomID, 20);
+                     // Process each message
+                    const processedMessages = await Promise.all(
+                        lastMessages.map(async (msg) => await processMessage(msg))
+                    );
+                    if (processedMessages.length > 0) {
+                        console.log("Fetched last 20 messages:", processedMessages);
+                        socket.emit("restoreMessages", { messages: processedMessages, prepend: true });
+                    } else {
+                        console.log("No messages found for the room.");
+                        socket.emit("noMoreMessages", { message: "No messages available." });
+                    }
+                } catch (err) {
+                    console.error("Error fetching last 20 messages:", err);
+                    socket.emit("error", { message: "Failed to load messages." });
+                }
             }
-    
+
             // Emit user settings
             socket.emit("applySettings", user.settings);
     
@@ -523,20 +539,7 @@ io.on("connection", (socket) => {
     
             socket.emit("joined", { room });
     
-            // Handle older message requests on scroll
-            socket.on("requestOlderMessages", async ({ date }) => {
-                try {
-                    const olderMessages = await getMessagesByDate(roomID, new Date(date));
-                    if (olderMessages.length > 0) {
-                        socket.emit("restoreMessages", { messages: olderMessages, prepend: true });
-                    } else {
-                        socket.emit("noMoreMessages", { message: "No more older messages." });
-                    }
-                } catch (err) {
-                    console.error("Error fetching older messages:", err);
-                    socket.emit("error", { message: "Failed to load older messages." });
-                }
-            });
+          
     
         } catch (error) {
             console.error("Error joining room:", error);
@@ -545,24 +548,31 @@ io.on("connection", (socket) => {
     });
     
     // Create an in-memory object to track the last fetched date for each room (or user)
-    // Handle older message requests on scroll
-    socket.on("requestOlderMessages", async ({ roomID, date }) => {
+    socket.on("requestOlderMessages", async ({ roomID, counter }) => {
         try {
             // Debugging: Log the incoming data to ensure it's correct
-            console.log("Received request for older messages:", { roomID, date });
+            console.log("Received request for older messages:", { roomID, counter });
+            
+            // Adjust counter to fetch the previous batch of messages
+            const startingID = counter;
+            console.log("Starting ID for fetch:", startingID);
     
-            // Ensure the date is in the expected format
-            const formattedDate = new Date(date);
-            console.log("Formatted date:", formattedDate);
+            // Calculate the limit dynamically based on the counter value
+            const limit = (counter < 20) ? counter-1 : 20; // Use counter if it's less than 20, otherwise limit to 20
     
-            // Call the function to fetch older messages
-            const olderMessages = await getMessagesByDate(roomID, formattedDate , -1);
-            console.log("Fetched older messages:", olderMessages);
+            // Fetch the older messages using the starting ID and dynamic limit
+            const olderMessages = await getMessagesByID(startingID, limit); // Function to fetch messages
     
-            // If there are older messages, emit them back to the client
+            console.log(olderMessages);
+            // If there are older messages, process and send them back to the client
             if (olderMessages.length > 0) {
-                console.log("Sending older messages to the client.");
-                socket.emit("restoreMessages", { messages: olderMessages, prepend: true });
+                // Process each message
+                const processedMessages = await Promise.all(
+                    olderMessages.map(async (msg) => await processMessage(msg))
+                );
+    
+                console.log("Sending older messages.");
+                socket.emit("restoreMessages", { messages: processedMessages, prepend: true });
             } else {
                 console.log("No older messages found.");
                 socket.emit("noMoreMessages", { message: "No more older messages." });
@@ -573,30 +583,58 @@ io.on("connection", (socket) => {
             socket.emit("error", { message: "Failed to load older messages." });
         }
     });
+async function getMessagesByID(startingID, limit) {
+    const [room, currentCounter] = startingID.split("-");
+    const counter = parseInt(currentCounter, 10); // Convert to integer
     
-    
-    // Helper function to process each message
-    async function processMessage(msg) {
-        const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
-        const readUsers = await Promise.all(
-            (msg.read || []).map(async (readEntry) => {
-                const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
-                return {
-                    name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
-                    time: readEntry.time,
-                };
-            })
-        );
-    
-        return {
-            ...msg,
-            sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
-            handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
-            readUsers,
-            readLine: false, // Mark unread messages with a readLine
-            dateLine:false,
-        };
+    if (isNaN(counter)) {
+        throw new Error("Invalid startingID format: counter is not a number.");
     }
+
+    console.log("Fetching messages older than counter =", counter, "for room =", room);
+
+    // Query the database for messages with IDs numerically less than the given counter
+    return await Message.find({
+        roomID: room,
+        // Extract the numeric part of the 'id' to compare with 'counter'
+        id: { $lt: `${room}-${counter}` }, // The id format should still be 'room-counter'
+    })
+    .sort({ timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
+    .limit(limit || 20) // Limit the result to 20 messages, or the specified limit
+    .lean(); // Use lean() to get plain JavaScript objects
+}
+
+
+
+async function getMessagesByLimit(roomID, limit) {
+    return await Message.find({ roomID }) // Filter by room ID
+        .sort({ timestamp: -1 }) // Sort by creation date in descending order
+        .limit(limit) // Limit to the specified number
+        .lean();
+}
+
+// Helper function to process each message
+async function processMessage(msg) {
+    const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
+    const readUsers = await Promise.all(
+        (msg.read || []).map(async (readEntry) => {
+            const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
+            return {
+                name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
+                time: readEntry.time,
+            };
+        })
+    );
+
+    return {
+        ...msg,
+        sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+        handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+        readUsers
+      
+    };
+}
+
     
     // Helper function to get all unread messages
 // Helper function to get all unread messages
@@ -614,7 +652,7 @@ io.on("connection", (socket) => {
 
         // If there are any unread messages, set readLine:true for the last one
         if (processedMessages.length > 0) {
-            processedMessages[0].readLine = true; // Set readLine to true for the last message
+            processedMessages[processedMessages.length - 1].readLine = true; // Set readLine to true for the last message
         }
 
         return processedMessages;
@@ -690,7 +728,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 id: `${currentUser.roomID}-${counter.seq||0}`,  // ID format: roomID-auto-increment number
                 roomID : currentUser.roomID,
                 sender: username,
-                message : clean || image ? " ":null,
+                message : clean ? clean : image ? " ":null,
                 file: image || null,
                 read: [],
                 timestamp,
