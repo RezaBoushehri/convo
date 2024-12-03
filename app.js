@@ -400,16 +400,31 @@ io.on("connection", (socket) => {
         }
     });
     
-    socket.on("createRoom", async ({ handle, roomID }) => {
-        roomID = roomID;
-    
+    socket.on("createRoom", async ({ handle, roomName }) => {
+        roomName = roomName;
+        function generateRoomID() {
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            let roomID = "";
+            for (let i = 0; i < 10; i++) { // Generate a 10-character ID
+                roomID += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+            }
+            // Append a timestamp to ensure uniqueness
+            roomID += Date.now().toString(36); // Convert timestamp to base 36
+            return roomID;
+        }
+        
+        // Usage example:
+        const uniqueRoomID = generateRoomID();
+        console.log("Unique Room ID:", uniqueRoomID);
+        
         // Ensure room name uniqueness
-        while (await Room.findOne({ roomID })) {
-            roomID = `${roomID}-${Math.floor(Math.random() * 1000)}`; // Generate a unique name
+        while (await Room.findOne({ roomID : uniqueRoomID })) {
+            roomID = `${uniqueRoomID}-${Math.floor(Math.random() * 1000)}`; // Generate a unique name
         }
     
         const room = new Room({
-            roomID,
+            roomID : uniqueRoomID,
+            roomName : roomName,
             admin: handle.trim(),
             members: [], // Initialize the members array
         });
@@ -421,7 +436,7 @@ io.on("connection", (socket) => {
         socket.join(room.roomID); // Add the socket to the room
         
         // Add the user to the room
-        addUserToRoom(currentUsername, roomID);
+        addUserToRoom(currentUsername, uniqueRoomID);
         
         socket.emit("joined", data); // Notify the user of successful join
         socket.broadcast.to(room.roomID).emit("newconnection", data); // Broadcast to other users
@@ -723,9 +738,9 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             const clean = DOMPurify.sanitize(message);
             // Create and save the message
             // if (!message || !username || !image) {
-
+            const updatedCounter= 1000000+ (counter.seq||0)
             const newMessage = new Message({
-                id: `${currentUser.roomID}-${counter.seq||0}`,  // ID format: roomID-auto-increment number
+                id: `${currentUser.roomID}-${updatedCounter}`,  // ID format: roomID-auto-increment number
                 roomID : currentUser.roomID,
                 sender: username,
                 message : clean ? clean : image ? " ":null,

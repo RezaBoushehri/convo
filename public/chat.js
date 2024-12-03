@@ -91,7 +91,7 @@ const createRoom = () => {
 
     socket.emit("createRoom", { 
         handle: currentUser.username,  // Assuming `name.textContent` contains the user's name
-        roomID: roomID
+        roomName: roomID
     });
 };
 
@@ -284,8 +284,8 @@ socket.on("joined", (data) => {
     document.querySelector("#roomInfo").innerHTML = `
         <div>
             <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
-                title="Copy <b>Room-id</b>" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
-                RoomId: <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
+                title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
+                Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
                 Admin : <em class='text-warning'>${data.room.admin}</em>
             </button>
             <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
@@ -469,7 +469,7 @@ const showUp = () => {
 const scrollDown = () => {
         chat_window.scrollTo({
             top: chat_window.scrollHeight, // Scroll to the bottom
-            behavior: "smooth",            // Smooth scrolling
+            behavior: "auto",            // Smooth scrolling
         }); 
 };
 
@@ -500,7 +500,7 @@ const scroll = () => {
 };
 
 const scrollToUnread = () => {
-    var unreadMarker = document.querySelector(".message.unread");
+    var unreadMarker = document.querySelector(".unread");
     if (unreadMarker) {
         const rect = unreadMarker.getBoundingClientRect();
         console.log("Unread marker position:", rect);
@@ -509,7 +509,10 @@ const scrollToUnread = () => {
             block: "center",
         });
     }else{
-        scrollDown() 
+        unreadMarker.scrollIntoView({
+            top: chat_window.scrollHeight, // Scroll to the bottom
+            behavior: "auto",
+        });
     }
     
 };
@@ -549,6 +552,8 @@ const copyId = (id) => {
 let lastSeenDate = [];
 
 socket.on("restoreMessages", (data) => {
+    const roomID = document.getElementById('joinRoomName').value
+
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
     const fontSize = savedSettings?.fontSize || "16px";
@@ -570,25 +575,26 @@ socket.on("restoreMessages", (data) => {
             }
             // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
             // console.log(message)
+            const isLastMessage = index === data.messages.length - 1;
             // Prepend reversed messages to the chat UI
-            addMessageToChatUI(message,data.prepend);
+            addMessageToChatUI(message,data.prepend , isLastMessage);
         } catch (error) {
             console.error("Error adding message to chat UI:", { error, message, index });
         }
     });
+    
     if (output.innerHTML==""&& data.messages && data.messages.length < 20) {
-        var roomIDElement = document.getElementById('joinRoomName');
         
-        if (roomIDElement) {
-            const roomID = roomIDElement.value;
+        if (roomID) {
     
             // Ensure there are messages in the DOM before trying to access them
-            const messages = document.querySelectorAll(".message"); // Class of each message div
+            const messages = document.querySelectorAll(".messageRead"); // Class of each message div
             
             if (messages.length > 0) {
-                const messageId = messages[1].getAttribute('data-id');
+                let messageId = messages[0].getAttribute('data-id');
                 
                 if (messageId) {
+                    messageId = roomID +"-"+ messageId.split('-')[1]
                     // Emit the request for older messages to the server
                     socket.emit("requestOlderMessages", { roomID: roomID, counter: messageId });
                 } else {
@@ -606,13 +612,13 @@ socket.on("restoreMessages", (data) => {
     // Initialize a variable to store the last seen date to compare
 
         // Get all the message elements
-        const messages = document.querySelectorAll(".message");
+        const messages = document.querySelectorAll(".messageRead");
 
         // Iterate through all messages
         messages.forEach((message) => {
             const messageId = message.getAttribute("data-id");
             const messageDate = new Date(message.getAttribute("date-id")); // Convert date-id to Date object
-
+            // console.log('date-id',messageDate)
             // Format the message's date to a Persian locale string
             const messageDateString = messageDate.toLocaleDateString("fa-IR", {
                 year: "numeric",
@@ -623,20 +629,51 @@ socket.on("restoreMessages", (data) => {
             // If the message date is different from the last seen date, add a date header
             if (messageId && messageDateString && !lastSeenDate.includes(messageDateString)) {
                 // Create a new date header
+               
                 const dateToAdd = `
-                    <div dir="auto" class="Date" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
+                    <div dir="auto" data-date="${messageDate}" class="Date" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
                         ${messageDateString}
                     </div>`;
 
                 // Insert the date header before the current message
                 message.insertAdjacentHTML('beforebegin', dateToAdd);
+                const dateTag = document.querySelectorAll(".Date");
 
+                if (dateTag.length > 0) { // Ensure there's at least one 'Date' element
+                    let dateLoaded = dateTag.getAttribute("data-date"); // Safely access the attribute
+                    console.log(dateLoaded); // Log the loaded date
+                } else {
+                    console.warn("No 'Date' elements found in the DOM.");
+                }
+                
+                if(dateTag.innerHTML === messageDateString)  {
+                    dateTag.remove(); // Remove the element if the condition is true                }
+                }else{
+                    console.log(dateTag.innerHTML)
+                    console.log("AAAAAAAA")
+                    console.log(messageDateString)
+                }
                 // Update the last seen date to the current message's date
                 lastSeenDate.push(messageDateString);
             }
+            console.log(lastSeenDate)
         });
-
-
+        const visibleMessages =[]
+        messages.forEach((message) => {
+            const rect = message.getBoundingClientRect();
+            const messageId = message.getAttribute('data-id');
+            messageId = roomID +"-"+ messageId.split('-')[1]
+            // Check if the message is in the viewport (visible)
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+                if (messageId && !visibleMessages.includes(messageId)) {
+                    visibleMessages.push(messageId);  // Add the data-id of visible messages
+                }
+            }
+        });
+    
+        if (visibleMessages.length > 0) {
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+        }
 
   
 });
@@ -752,12 +789,14 @@ let headTagVal = null;
 let lastProcessedDate = null;
 let ProcessedDate = null;
 const messagesCreated=[]
-function addMessageToChatUI(data, prepend = false) {
+function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     if(messagesCreated.includes(data.id)) return
     let contentToAdd = "";
     let dateToAdd = "";
     let unreadToAdd = "";
     messagesCreated.push(data.id)
+    let messageId = data.id
+    messageId = (data.id).split("-")[1];
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
     const fontSize = savedSettings?.fontSize || "16px";
@@ -810,9 +849,9 @@ function addMessageToChatUI(data, prepend = false) {
         : "";
 
     contentToAdd += `
-    <div data-id="${data.id}" date-id="${messageDate}" class="message"></div>
+    <div data-id="Message-${messageId}" date-id="${messageDate}" class="messageRead"></div>
 
-    <div id="${data.id}" style="${divStyle}">
+    <div id="Message-${messageId}" style="${divStyle}">
         <div style="${style}" class="message mess p-2 mr-1 m-2 col-md-6">
             <h6 style="font-style:italic;text-align:end;">${data.handle}</h6>
             ${data.file ? `<!-- Thumbnail Image -->
@@ -851,10 +890,14 @@ function addMessageToChatUI(data, prepend = false) {
     </div>
 
     `;
+    let firstMessgae = `
+        <div data-id="Message-${messageId}" class="firstMessgae"></div>
 
+    ` 
     // Insert content into chat UI
     if (prepend) {
         output.insertAdjacentHTML("afterbegin", contentToAdd);
+        if (isLastMessage) output.insertAdjacentHTML("afterbegin", firstMessgae);
         if (dateToAdd) output.insertAdjacentHTML("afterbegin", dateToAdd);
         if (unreadToAdd) output.insertAdjacentHTML("afterbegin", unreadToAdd);
     } else {
@@ -866,9 +909,9 @@ function addMessageToChatUI(data, prepend = false) {
     // Reset file input and image
     $("file-input").val("");
     image = "";
-    setTimeout(() => {
-        scrollToUnread(); // Scroll to the first unread message
-    }, 500); // Adjust delay time if necessary
+    // setTimeout(() => {
+    //     scrollDown(); // Scroll to the first unread message
+    // }, 500); // Adjust delay time if necessary
 }
 // Example usage within your socket event
 socket.on("readMessageUpdate", ({ id, readUsers }) => {
@@ -966,9 +1009,11 @@ function formatDate(dateString) {
 }
 chat_window.addEventListener("scroll", () => {
     const visibleMessages = [];
-    const messages = document.querySelectorAll(".message"); // Class of each message div
+    const messages = document.querySelectorAll(".messageRead"); // Class of each message div
+    const firstMessage = document.querySelectorAll(".firstMessgae")[0]; // Class of each message div
     const Dates = document.querySelectorAll(".Date"); // Class of each date div
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
+    const roomID = document.getElementById('roomIDVal').value;
 
     // Iterate through Dates to check if they are in view
     Dates.forEach((dateElem) => {
@@ -981,32 +1026,41 @@ chat_window.addEventListener("scroll", () => {
         }
     });
     
+        let firstMessageId = firstMessage.getAttribute('data-id');
+        firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+        const threshold = 100; // Proximity in pixels to the top of the viewport
+
+        if (firstMessage.getBoundingClientRect().top >= -threshold && 
+            firstMessage.getBoundingClientRect().bottom <= window.innerHeight + threshold) {
+                        // Check if the message has not been sent before and it's the first message of the day
+                if (!sentMessagesId.includes(firstMessageId)) {
+                    const isSmallerThanAll = sentMessagesId.every((id) => {
+                        return firstMessageId < id; // Compare lexicographically (string comparison)
+                    });
+                    
+                    // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+                    if (isSmallerThanAll) {
+                        
+                        console.log(firstMessageId)
+    
+                        sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+                        // Emit the request for older messages to the server
+                        socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
+                    }
+                }
+            
+            }
+    
     // Iterate through messages to find visible ones (if needed)
     messages.forEach((message) => {
         const rect = message.getBoundingClientRect();
-        const messageId = message.getAttribute('data-id');
+        let messageId = message.getAttribute('data-id');
+        messageId = roomID +"-"+ messageId.split('-')[1]
         // Check if the message is in the viewport (visible)
         if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
             if (messageId && !visibleMessages.includes(messageId)) {
                 visibleMessages.push(messageId);  // Add the data-id of visible messages
             }
-
-            // Check if the message has not been sent before and it's the first message of the day
-            if (!sentMessagesId.includes(messageId)) {
-                const isSmallerThanAll = sentMessagesId.every((id) => {
-                    return messageId < id; // Compare lexicographically (string comparison)
-                });
-                
-                // If the messageId is smaller than all the sent messages' IDs, request older messages
-                if (isSmallerThanAll) {
-                    console.log(messageId)
-                    sentMessagesId.push(messageId);  // Store the sent date to prevent duplicates
-                    const roomID = document.getElementById('roomIDVal').value;
-                    // Emit the request for older messages to the server
-                    socket.emit("requestOlderMessages", { roomID: roomID, counter: "it-3" });
-                }
-            }
-        
         }
     });
 
