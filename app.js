@@ -151,7 +151,7 @@ app.get("/join/:id", middleware.isLoggedIn, (req, res) => {
 
     if (roomExists) {
         // Render the room and provide the room ID
-        res.render("index", { roomid: roomID });
+        res.render("index", { roomID : roomID });
     } else {
         // If the room does not exist, redirect or send an error
         res.status(404).json({ error: "Room not found" });
@@ -723,7 +723,8 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         try {
             const { username, message, image } = data;
             const timestamp = new Date();
-    
+            if(!username) throw new Error("User not found or not part of a room.");
+            if (!message  && !image)                 throw new Error("no message.");
             // Validate the user
             const currentUser = await User.findOne({ username });
             if (!currentUser || !currentUser.roomID) {
@@ -737,7 +738,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             );
             const clean = DOMPurify.sanitize(message);
             // Create and save the message
-            // if (!message || !username || !image) {
             const updatedCounter= 1000000+ (counter.seq||0)
             const newMessage = new Message({
                 id: `${currentUser.roomID}-${updatedCounter}`,  // ID format: roomID-auto-increment number
@@ -774,6 +774,8 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             const timestamp = new Date();
             // console.log(messageIds)
             // Update the `read` array for each message
+            const user = await User.findOne({ username });
+            if(user){
             const updatedMessages = await Promise.all(
                 messageIds.map(async (messageId) => {
                     await Message.updateOne(
@@ -799,6 +801,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                     return { id: messageId, readUsers };
                 })
             );
+            
     
             // Emit the updated read data to the room or all clients
             updatedMessages
@@ -806,7 +809,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 .forEach((msg) => {
                     socket.broadcast.emit("readMessageUpdate", { id: msg.id, readUsers: msg.readUsers });
                 });
-    
+            }
         } catch (error) {
             console.error("Error in markMessagesRead:", error.message);
         }

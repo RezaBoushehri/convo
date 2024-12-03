@@ -151,12 +151,12 @@ const leaveRoom = () => {
 //=================================================================
 //emit chat event (send message)
 button.addEventListener("click", () => {
-    let text = message.innerHTML.trim();
+    let text = message.innerText.trim();
 
     // Replace block elements (e.g., paragraphs, divs, etc.) with newlines
-    text = text.replace(/<\/?p>/g, '\n');  // Replace <p> and </p> with newline
-    text = text.replace(/<\/?div>/g, '\n');  // Replace <div> and </div> with newline
-    text = text.replace(/<br\s*\/?>/g, '\n');  // Replace <br> tags with newline
+    // text = text.replace(/<\/?p>/g, '\n');  // Replace <p> and </p> with newline
+    // text = text.replace(/<\/?div>/g, '\n');  // Replace <div> and </div> with newline
+    // text = text.replace(/<br\s*\/?>/g, '\n');  // Replace <br> tags with newline
 
     const data = {
         username: currentUser.username,
@@ -469,7 +469,7 @@ const showUp = () => {
 const scrollDown = () => {
         chat_window.scrollTo({
             top: chat_window.scrollHeight, // Scroll to the bottom
-            behavior: "auto",            // Smooth scrolling
+            behavior: "smooth",            // Smooth scrolling
         }); 
 };
 
@@ -500,19 +500,22 @@ const scroll = () => {
 };
 
 const scrollToUnread = () => {
+    if (!hasScrolledDown) { // Check if the scroll down hasn't already been triggered
+
     var unreadMarker = document.querySelector(".unread");
     if (unreadMarker) {
         const rect = unreadMarker.getBoundingClientRect();
         console.log("Unread marker position:", rect);
         unreadMarker.scrollIntoView({
-            behavior: "smooth",
+            behavior: "auto",
             block: "center",
         });
     }else{
-        unreadMarker.scrollIntoView({
+        chat_window.scrollTo({
             top: chat_window.scrollHeight, // Scroll to the bottom
-            behavior: "auto",
-        });
+            behavior: "auto",            // Smooth scrolling
+        });     }
+        hasScrolledDown = true; // Set flag to true after scrolling down
     }
     
 };
@@ -549,9 +552,14 @@ const copyId = (id) => {
 };
 //=================================================================
 // Function to add messages to the chat UI
-let lastSeenDate = [];
 
 socket.on("restoreMessages", (data) => {
+    chat_window.scrollTo({
+        top: 2, // Scroll to the bottom
+        behavior: "auto",            // Smooth scrolling
+    });
+    let lastSeenDate = [];
+
     const roomID = document.getElementById('joinRoomName').value
 
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
@@ -594,6 +602,7 @@ socket.on("restoreMessages", (data) => {
                 let messageId = messages[0].getAttribute('data-id');
                 
                 if (messageId) {
+                    
                     messageId = roomID +"-"+ messageId.split('-')[1]
                     // Emit the request for older messages to the server
                     socket.emit("requestOlderMessages", { roomID: roomID, counter: messageId });
@@ -606,13 +615,11 @@ socket.on("restoreMessages", (data) => {
         } else {
             console.error("Element with id 'roomIDVal' not found.");
         }
-    } else {
-        console.error("Data messages are null or not less than 20.");
-    }
+    } 
     // Initialize a variable to store the last seen date to compare
 
         // Get all the message elements
-        const messages = document.querySelectorAll(".messageRead");
+        const messages = document.querySelectorAll(".messageElm");
 
         // Iterate through all messages
         messages.forEach((message) => {
@@ -627,56 +634,31 @@ socket.on("restoreMessages", (data) => {
             });
 
             // If the message date is different from the last seen date, add a date header
-            if (messageId && messageDateString && !lastSeenDate.includes(messageDateString)) {
+            if ( messageDateString && !lastSeenDate.includes(messageDateString)) {
                 // Create a new date header
-               
+
                 const dateToAdd = `
-                    <div dir="auto" data-date="${messageDate}" class="Date" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
+                    <div dir="auto" data-date="${messageDateString}" class="Date" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
                         ${messageDateString}
                     </div>`;
 
+                        const duplicateDate = document.querySelector(`.Date[data-date="${messageDateString}"]`);
+                        // console.log(duplicateDate)
+                        if (duplicateDate) duplicateDate.remove();
+                    
+        
                 // Insert the date header before the current message
                 message.insertAdjacentHTML('beforebegin', dateToAdd);
-                const dateTag = document.querySelectorAll(".Date");
 
-                if (dateTag.length > 0) { // Ensure there's at least one 'Date' element
-                    let dateLoaded = dateTag.getAttribute("data-date"); // Safely access the attribute
-                    console.log(dateLoaded); // Log the loaded date
-                } else {
-                    console.warn("No 'Date' elements found in the DOM.");
-                }
-                
-                if(dateTag.innerHTML === messageDateString)  {
-                    dateTag.remove(); // Remove the element if the condition is true                }
-                }else{
-                    console.log(dateTag.innerHTML)
-                    console.log("AAAAAAAA")
-                    console.log(messageDateString)
-                }
                 // Update the last seen date to the current message's date
                 lastSeenDate.push(messageDateString);
             }
-            console.log(lastSeenDate)
         });
-        const visibleMessages =[]
-        messages.forEach((message) => {
-            const rect = message.getBoundingClientRect();
-            const messageId = message.getAttribute('data-id');
-            messageId = roomID +"-"+ messageId.split('-')[1]
-            // Check if the message is in the viewport (visible)
-            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                if (messageId && !visibleMessages.includes(messageId)) {
-                    visibleMessages.push(messageId);  // Add the data-id of visible messages
-                }
-            }
-        });
-    
-        if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
-        }
 
-  
-});
+        setTimeout(() => {
+            scrollToUnread(); // Scroll to the first unread message
+        },100); // Adjust delay time if necessary
+        });
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
@@ -849,9 +831,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         : "";
 
     contentToAdd += `
-    <div data-id="Message-${messageId}" date-id="${messageDate}" class="messageRead"></div>
-
-    <div id="Message-${messageId}" style="${divStyle}">
+    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}">
         <div style="${style}" class="message mess p-2 mr-1 m-2 col-md-6">
             <h6 style="font-style:italic;text-align:end;">${data.handle}</h6>
             ${data.file ? `<!-- Thumbnail Image -->
@@ -888,6 +868,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
             </div>
         </div>
     </div>
+    <div data-id="Message-${messageId}"  class="messageRead"></div>
 
     `;
     let firstMessgae = `
@@ -904,14 +885,15 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         if (dateToAdd) output.insertAdjacentHTML("beforeend", dateToAdd);
         if (unreadToAdd) output.insertAdjacentHTML("beforeend", unreadToAdd);
         output.insertAdjacentHTML("beforeend", contentToAdd);
+            setTimeout(() => {
+                scrollDown(); // Scroll to the first unread message
+            }, 500); // Adjust delay time if necessary
     }
 
     // Reset file input and image
     $("file-input").val("");
     image = "";
-    // setTimeout(() => {
-    //     scrollDown(); // Scroll to the first unread message
-    // }, 500); // Adjust delay time if necessary
+
 }
 // Example usage within your socket event
 socket.on("readMessageUpdate", ({ id, readUsers }) => {
@@ -1028,7 +1010,7 @@ chat_window.addEventListener("scroll", () => {
     
         let firstMessageId = firstMessage.getAttribute('data-id');
         firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-        const threshold = 100; // Proximity in pixels to the top of the viewport
+        const threshold = 50; // Proximity in pixels to the top of the viewport
 
         if (firstMessage.getBoundingClientRect().top >= -threshold && 
             firstMessage.getBoundingClientRect().bottom <= window.innerHeight + threshold) {

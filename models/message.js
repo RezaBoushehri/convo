@@ -11,7 +11,7 @@ const messageSchema = new mongoose.Schema({
             time: { type: Date, required: true },
         },
     ], 
-    message: { type: String, required: true }, // Message content
+    message: { type: String, default:null }, // Message content
     file: { type: String, default: null }, // Optional file URL or path
     timestamp: { type: Date, default: Date.now }, // Timestamp of the message
 });
