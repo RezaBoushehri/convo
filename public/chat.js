@@ -635,18 +635,22 @@ socket.on("restoreMessages", (data) => {
 
             // If the message date is different from the last seen date, add a date header
             if ( messageDateString && !lastSeenDate.includes(messageDateString)) {
+                
                 // Create a new date header
 
                 const dateToAdd = `
-                    <div dir="auto" data-date="${messageDateString}" class="Date" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
-                        ${messageDateString}
-                    </div>`;
+                <div dir="auto" data-date="${messageDateString}" class="Date" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: ${chatWindowFgColor};">
+                    <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+                    ${messageDateString}
+                    <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+                </div>`;
 
-                        const duplicateDate = document.querySelector(`.Date[data-date="${messageDateString}"]`);
-                        // console.log(duplicateDate)
-                        if (duplicateDate) duplicateDate.remove();
-                    
-        
+
+                const duplicateDate = document.querySelector(`.Date[data-date="${messageDateString}"]`);
+                // console.log(duplicateDate)
+                if (duplicateDate) duplicateDate.remove();
+            
+
                 // Insert the date header before the current message
                 message.insertAdjacentHTML('beforebegin', dateToAdd);
 
@@ -805,16 +809,20 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     // Date tag
     if (data.dateLine) {
         dateToAdd = `
-            <div dir="auto" class="Date message" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
-                ${messageDateString}
-            </div>`;
-    }
+            <div dir="auto" data-date="${messageDateString}" class="Date" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: ${chatWindowFgColor};">
+                <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+                    ${messageDateString}
+                <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+            </div>`; 
+               }
 
     // "Unread Messages" tag
     if (data.readLine) {
         unreadToAdd = `
-            <div class="unread" style="color:${chatWindowFgColor};font-size:${fontSize};border-radius:${borderRad};text-align:center;border:1px solid #232323;margin:10px 0;font-weight:bold;">
-                Unread Messages
+            <div class="unread" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: ${chatWindowFgColor};">
+                <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+                    Unread Messages
+                <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
             </div>`;
             console.log(unreadToAdd)
     }
