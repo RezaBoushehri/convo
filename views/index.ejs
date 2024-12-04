@@ -87,7 +87,7 @@
                 </div>
             </div>
             <!-- ------------------ -->
-            <div class="col-md-12 my-2" style="padding-left: 0 !important;display: flex; justify-content: space-between;">
+            <div class="col-md-12 my-2 messageInputDiv" >
                 <div 
                 id="editable-message-text" 
                 class="form-control allow-selection flexible-div col-md-12" 
@@ -131,8 +131,11 @@
                 </script>
             
                 <div class="button-container">
-                    <div class="">
-                        <button class="form-control align-center btn btn-outline-danger file-button col-md-6">
+                    <div class="align-center" style="
+                    display: inline-flex;    justify-content: space-between;
+
+                ">
+                        <button class=" btn btn-outline-danger file-button col-md-6">
                             <input type="file" accept="image/*" id="file-input">
                             <label class="input-label" for="file-input"><i class="fa fa-camera"></i></label>
                             </button>

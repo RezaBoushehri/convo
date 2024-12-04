@@ -51,7 +51,13 @@ body {
     font-size: 3vmin;
     /* max-width: fit-content; */
 }
+.messageInputDiv{
+    align-items: center;
+    padding-left: 0 !important;
+    display: flex;
+    justify-content: space-between;
 
+}
 #editable-message-text {
     color: #666; /* Grey color for placeholder text */
 }
@@ -75,10 +81,11 @@ body {
     box-sizing: border-box; /* To ensure padding does not affect overall size */
 }
 .button-container {
-    position: absolute;
     right: 0;
-    top: -1px;
-    width: 100px;
+    /* top: -1px; */
+    justify-content: space-between;
+
+    /* width: 100px; */
 }
 .btnPosition {
     /* position: absolute;
@@ -303,9 +310,8 @@ footer .fa {
   }
   .read-info {
     opacity: 0; /* Start fully transparent */
-    position: absolute;
+    position: relative;
     top: -25px;
-    left: -124px;
     color: #000000;
     right: 0;
     background-color: #fff;
@@ -315,6 +321,7 @@ footer .fa {
     z-index: 10;
     max-width: 200px;
     min-width: 100px;
+    max-height: fit-content;
     transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
     visibility: hidden; /* Hide initially without display:none for smooth transitions */
 }
@@ -337,7 +344,6 @@ footer .fa {
     z-index: 10;
     border-radius: 10px;
     z-index: 999;
-    max-width: 300px;
     overflow: hidden;
     transition: opacity 0.3s ease, transform 0.3s ease;
 }
@@ -400,4 +406,13 @@ footer .fa {
 .reactBtn.visible {
     opacity: 1; /* Fully visible */
     visibility: visible; /* Make visible for the transition */
+}
+.reactionMemEmoji{
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 10px;
+    cursor: default;
+}
+.reactionMemEmoji span:hover{
+    border: 1px #007bb5
 }

@@ -29,7 +29,7 @@ const href = production ? window.location.hostname : "172.16.28.166:4000",
         useWebWorker: true,
         fileType: "image/jpeg",
     };
-const roomID = document.querySelector("#roomID").textContent.trim();
+const roomID = document.querySelector("#roomID").textContent.trim()
 if (roomID != "") {
     socket.emit("joinRoom",({ 
         roomID: roomID,
@@ -41,7 +41,7 @@ if (roomID != "") {
 // Your emojiDiv string
 function emoji(messageId){
 const emojiDiv = `
-<div id="emoji-${messageId}"  class="stickerPicker col-md-6">
+<div id="emoji-${messageId}"  class="stickerPicker col-md-4">
     <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})">
         <div id="emojiGrid">
         <!-- Emoji Grid -->
@@ -616,13 +616,14 @@ const copyId = (id) => {
 // Function to add messages to the chat UI
 
 socket.on("restoreMessages", (data) => {
+    const roomID = document.querySelector("#roomID").textContent.trim()
+
     chat_window.scrollTo({
         top: 2, // Scroll to the bottom
         behavior: "auto",            // Smooth scrolling
     });
     let lastSeenDate = [];
 
-    const roomID = document.getElementById('joinRoomName').value
 
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
@@ -653,7 +654,7 @@ socket.on("restoreMessages", (data) => {
         }
     });
     
-    if (output.innerHTML==""||(data.messages && data.messages.length < 20)) {
+    if (output.innerHTML==""|| data.messages.length < 20) {
         
         if (roomID) {
     
@@ -886,17 +887,17 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
                     New Messages
                 <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
             </div>`;
-            console.log(unreadToAdd)
+            // console.log(unreadToAdd)
     }
 
     // Main message content
     const reactionMember = data.readUsers
     ? data.readUsers
           .map((r) => {
-                   return `<div style="font-size:0.9rem;text-align:left;">
-                       ${r.reaction ? `<span> ${r.reaction}</spn>`
+                   return `
+                       ${r.reaction ? `<span class='reactionMemEmoji' user-id="${r.username}"> ${r.reaction}</spn>`
                         : ""}
-                     </div>`
+                     `
                   
           })
           .join("")
@@ -906,15 +907,14 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     const readInfoHTML = data.readUsers
     ? data.readUsers
           .map((r) => {
-            if(r.name === name.textContent.trim().normalize('NFC')&& r.reaction !== null){
-              return`<div style="font-size:0.9rem;text-align:left;">
+            if(r.name === name.textContent.trim().normalize('NFC')&& r.reaction !== ""){
+              return`<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
                        ${"you"} ${r.reaction}
                      </div>
                      <hr>`
             }else if(r.name !== name.textContent.trim().normalize('NFC')){
-                return`<div style="font-size:0.9rem;text-align:left;">
-                ${r.name} at ${formatTimestamp(r.time)}
-                ${r.reaction}
+                return`<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
+                ${r.name} at ${formatTimestamp(r.time)} ${r.reaction}
               </div>
               <hr>`
             }
@@ -922,6 +922,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
           .join("")
     : "";
         const emojiDiv = `
+        ${emoji(messageId)}
         <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
         <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
         </button>
@@ -929,14 +930,19 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
 
     contentToAdd += `
     <div style="${divStyle}">
-            ${emoji(messageId)}
     </div>
     <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)">
         ${ownMessage?`
-            <div>
+            
+            <div class="read-info"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
+                ${readInfoHTML}
+            </div>
+            
+            <div reactionMessage="${messageId}">
             ${reactionMember}
             </div>`
             :''}
+             
         <div style="${style}" class="message mess p-2 mr-1 m-2 col-md-6">
             <h6 style="font-style:italic;text-align:end;">${data.handle}</h6>
             ${data.file ? `<!-- Thumbnail Image -->
@@ -957,11 +963,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
                     ? `
             <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor:pointer;text-align:right;font-size:0.8rem;color:${fgColor};border:none;background:none;">
                 <i class="bi bi-arrow-90deg-up"></i> Last seen
-            </button>
-            
-            <div class="read-info" id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
-            ${readInfoHTML}
-            </div>`
+            </button>`
             : ''}
            
         <div style="text-align:left;">
@@ -972,16 +974,15 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         </div>
         </div>
         </div>
-         ${!ownMessage?`
-            <div>
-            ${reactionMember}
-           
-            </div>`
+        <div reactionMessage = "${messageId}">
+         ${!ownMessage?
+            reactionMember
             :''}
         </div>
-
-        <div data-id="Message-${messageId}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false) class="messageRead">${emojiDiv}</div>
-        
+        </div>
+        <div   style="${divStyle}">
+        <div data-id="Message-${messageId}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)" class="messageRead" >${emojiDiv}</div>
+        </div>
 
     `;
     let firstMessgae = `
@@ -1043,8 +1044,8 @@ function addStickerReaction(reaction,messageId) {
     const roomID = document.getElementById('roomID').textContent.trim()
     const message = roomID +"-"+ messageId
     
-    console.log("Sticker selected:", reaction);
-    console.log("message selected:", message);
+    // console.log("Sticker selected:", reaction);
+    // console.log("message selected:", message);
     // Here, emit the reaction to the server or update the UI accordingly
     socket.emit("addReaction", { username: currentUser.username, messageId: message, reaction:reaction });
     toggleStickerPicker(messageId);  // Close the sticker picker after selection
@@ -1067,6 +1068,62 @@ function filterEmojis(messageId) {
         }
     }
 }
+socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
+    const readInfoElement = document.querySelector(`#read-info-${messageId}`);
+    let spiltedId = messageId.split('-')[1]
+    const memberReaction = document.querySelector(`[reactionmessage="${spiltedId}"]`);
+    if (readInfoElement) {
+        // Update the read information for each read user
+        const seenUser = readInfoElement.querySelector(`[user-id='${username}']`);
+        if(username !== currentUser.username){
+        let updateUserReact = seenUser.innerHTML.split(' ')[0]
+        let updateTimeReact = seenUser.innerHTML.split(' ')[2]
+        seenUser.innerHTML= `${updateUserReact} at ${updateTimeReact} ${reaction}`
+        }else{
+            let updateUserReact = seenUser.innerHTML.split(" ")[0]
+            // let updateTimeReact = seenUser.innerHTML.split(' ')[2]
+            seenUser.innerHTML= `${updateUserReact}  ${reaction}`
+
+        }
+    }
+    if (memberReaction) {
+        const userRect = memberReaction.querySelector(`[user-id='${username}']`);
+    
+        // Debug: Check if the element exists and its current state
+        if (userRect) {
+            // console.log(`User reaction found for username: ${username}`);
+            // console.log(`Before update: ${userRect.innerHTML}`);
+    
+            // Update the reaction
+            userRect.innerHTML = reaction;
+    
+            // Debug: After updating
+            // console.log(`After update: ${userRect.innerHTML}`);
+        } else {
+            // console.log(`No existing reaction found for username: ${username}. Creating a new one.`);
+    
+            // Create a new reaction element
+            const newUserRect = document.createElement('span');
+            newUserRect.setAttribute('user-id', username);
+            newUserRect.classList.add('reactionMemEmoji');
+            newUserRect.innerHTML = `
+                ${reaction}
+            `;
+    
+            // Append the new reaction
+            memberReaction.appendChild(newUserRect);
+    
+            // Debug: Log the newly created element
+            // console.log(`New reaction created for username: ${username}`);
+            // console.log(`HTML of new element: ${newUserRect.outerHTML}`);
+        }
+    } else {
+        // Debug: Member reaction container is not found
+        console.log(`Member reaction container not found. Reaction message ID: ${spiltedId}`);
+    }
+    
+
+});
 // --------------------------------------------
 // read-info panel
 // Example usage within your socket event
@@ -1099,7 +1156,7 @@ const updateTimeForReadUser = (r, readInfoElement) => {
 
         // Update the displayed time for the read user
         readInfoElement.innerHTML = `
-            <div style="font-size: 0.9rem; text-align: left;">
+            <div user-id='${r.username}' style="font-size: 0.9rem; text-align: left;">
                 ${r.name} at ${formatTimestamp(r.time)}
             </div>`;
     }, 1000); // Update every second

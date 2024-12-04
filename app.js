@@ -688,6 +688,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             (msg.read || []).map(async (readEntry) => {
                 const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
                 return {
+                    username: readEntry.username,
                     name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
                     reaction: readEntry.reaction ? readEntry.reaction :'' ,
                     time: readEntry.time,
