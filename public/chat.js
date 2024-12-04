@@ -31,11 +31,72 @@ const href = production ? window.location.hostname : "172.16.28.166:4000",
     };
 const roomID = document.querySelector("#roomID").textContent.trim();
 if (roomID != "") {
-    socket.emit("joinRoom", {
-        handle: name.textContent,
-        room: roomID,
-    });
+    socket.emit("joinRoom",({ 
+        roomID: roomID,
+        username: currentUser.username
+        })
+    );
 }
+
+// Your emojiDiv string
+function emoji(messageId){
+const emojiDiv = `
+<div id="emoji-${messageId}"  class="stickerPicker col-md-6">
+    <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})">
+        <div id="emojiGrid">
+        <!-- Emoji Grid -->
+
+        <div id="emojiContainer" class="g-3">
+            <span onclick="addStickerReaction('😊',${messageId})">😊</span>
+            <span onclick="addStickerReaction('😂',${messageId})">😂</span>
+            <span onclick="addStickerReaction('❤️',${messageId})">❤️</span>
+            <span onclick="addStickerReaction('👍',${messageId})">👍</span>
+            <span onclick="addStickerReaction('👎',${messageId})">👎</span>
+            <span onclick="addStickerReaction('🗿',${messageId})">🗿</span>
+            <span onclick="addStickerReaction('🎉',${messageId})">🎉</span>
+            <span onclick="addStickerReaction('🔥',${messageId})">🔥</span>
+            <span onclick="addStickerReaction('🎈',${messageId})">🎈</span>
+            <span onclick="addStickerReaction('💯',${messageId})">💯</span>
+            <span onclick="addStickerReaction('😎',${messageId})">😎</span>
+            <span onclick="addStickerReaction('😍',${messageId})">😍</span>
+            <span onclick="addStickerReaction('😭',${messageId})">😭</span>
+            <span onclick="addStickerReaction('😢',${messageId})">😢</span>
+            <span onclick="addStickerReaction('😜',${messageId})">😜</span>
+            <span onclick="addStickerReaction('💀',${messageId})">💀</span>
+            <span onclick="addStickerReaction('🤔',${messageId})">🤔</span>
+            <span onclick="addStickerReaction('👀',${messageId})">👀</span>
+            <span onclick="addStickerReaction('🤩',${messageId})">🤩</span>
+            <span onclick="addStickerReaction('🤗',${messageId})">🤗</span>
+            <span onclick="addStickerReaction('🥺',${messageId})">🥺</span>
+            <span onclick="addStickerReaction('👏',${messageId})">👏</span>
+            <span onclick="addStickerReaction('😤',${messageId})">😤</span>
+            <span onclick="addStickerReaction('🥳',${messageId})">🥳</span>
+            <span onclick="addStickerReaction('👑',${messageId})">👑</span>
+            <span onclick="addStickerReaction('🧨',${messageId})">🧨</span>
+            <span onclick="addStickerReaction('🧡',${messageId})">🧡</span>
+            <span onclick="addStickerReaction('💙',${messageId})">💙</span>
+            <span onclick="addStickerReaction('💚',${messageId})">💚</span>
+            <span onclick="addStickerReaction('💛',${messageId})">💛</span>
+            <span onclick="addStickerReaction('🤯',${messageId})">🤯</span>
+            <span onclick="addStickerReaction('😋',${messageId})">😋</span>
+            <span onclick="addStickerReaction('😇',${messageId})">😇</span>
+        </div>
+    </div>
+</div>
+
+`;
+// Create a container element to hold the emojiDiv content
+// const emojiContainer = document.getElementById('div');
+// emojiContainer.innerHTML = emojiDiv;
+return emojiDiv
+}
+
+
+
+// Now, parse the emojiContainer to replace the emoji characters with Twemoji images
+// twemoji.parse(emojiContainer);
+
+
 // const editableDiv = document.getElementById("editable-message-text");
 
 message.addEventListener("input", function () {
@@ -105,10 +166,11 @@ const joinRoom = () => {
         console.log(roomID)
     }
     document.querySelector("#roomID").textContent= roomID
-    socket.emit("joinRoom", { 
+    socket.emit("joinRoom",({ 
         roomID: roomID,
         username: currentUser.username
-    });
+        })
+    );
 
     // // Optionally, listen for errors from the server
     // socket.on("error", (data) => {
@@ -591,7 +653,7 @@ socket.on("restoreMessages", (data) => {
         }
     });
     
-    if (output.innerHTML==""&& data.messages && data.messages.length < 20) {
+    if (output.innerHTML==""||(data.messages && data.messages.length < 20)) {
         
         if (roomID) {
     
@@ -821,25 +883,60 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         unreadToAdd = `
             <div class="unread" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: ${chatWindowFgColor};">
                 <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
-                    Unread Messages
+                    New Messages
                 <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
             </div>`;
             console.log(unreadToAdd)
     }
 
     // Main message content
+    const reactionMember = data.readUsers
+    ? data.readUsers
+          .map((r) => {
+                   return `<div style="font-size:0.9rem;text-align:left;">
+                       ${r.reaction ? `<span> ${r.reaction}</spn>`
+                        : ""}
+                     </div>`
+                  
+          })
+          .join("")
+    : "";
+    // console.log(reactionMember)
+    // Main message content
     const readInfoHTML = data.readUsers
-        ? data.readUsers
-              .map((r) => {
-                  return r.name !== name.textContent.trim().normalize('NFC')
-                      ? `<div style="font-size:0.9rem;text-align:left;">${r.name} at ${formatTimestamp(r.time)}</div>`
-                      : "";
-              })
-              .join("")
-        : "";
+    ? data.readUsers
+          .map((r) => {
+            if(r.name === name.textContent.trim().normalize('NFC')&& r.reaction !== null){
+              return`<div style="font-size:0.9rem;text-align:left;">
+                       ${"you"} ${r.reaction}
+                     </div>
+                     <hr>`
+            }else if(r.name !== name.textContent.trim().normalize('NFC')){
+                return`<div style="font-size:0.9rem;text-align:left;">
+                ${r.name} at ${formatTimestamp(r.time)}
+                ${r.reaction}
+              </div>
+              <hr>`
+            }
+          })
+          .join("")
+    : "";
+        const emojiDiv = `
+        <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
+        <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
+        </button>
+        `
 
     contentToAdd += `
-    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}">
+    <div style="${divStyle}">
+            ${emoji(messageId)}
+    </div>
+    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)">
+        ${ownMessage?`
+            <div>
+            ${reactionMember}
+            </div>`
+            :''}
         <div style="${style}" class="message mess p-2 mr-1 m-2 col-md-6">
             <h6 style="font-style:italic;text-align:end;">${data.handle}</h6>
             ${data.file ? `<!-- Thumbnail Image -->
@@ -856,27 +953,35 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
                         ` : ""}
             <div dir="auto">${data.message}</div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
-                <div style="text-align:left;">
-                    ${new Intl.DateTimeFormat("en-US", {
-                        hour: "numeric",
-                        minute: "numeric",
-                    }).format(messageDate)}
-                </div>
-                ${
-                    ownMessage
-                        ? `
-                <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor:pointer;text-align:right;font-size:0.8rem;color:${fgColor};border:none;background:none;">
-                    <i class="bi bi-arrow-90deg-up"></i> Last seen
-                </button>
-                <div class="read-info" id="read-info-${data.id}" style="color:#000000;font-size:${fontSize};border-radius:${borderRad};display:none;position:absolute;top:-25px;left:-124px;right:0;background-color:#fff;padding:8px;box-shadow:0 4px 8px rgba(0, 0, 0, 0.2);text-align:left;z-index:10;width:150px;">
-                    ${readInfoHTML}
-                </div>`
-                        : ""
-                }
-            </div>
+            ${ownMessage
+                    ? `
+            <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor:pointer;text-align:right;font-size:0.8rem;color:${fgColor};border:none;background:none;">
+                <i class="bi bi-arrow-90deg-up"></i> Last seen
+            </button>
+            
+            <div class="read-info" id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
+            ${readInfoHTML}
+            </div>`
+            : ''}
+           
+        <div style="text-align:left;">
+        ${new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            minute: "numeric",
+        }).format(messageDate)}
         </div>
-    </div>
-    <div data-id="Message-${messageId}"  class="messageRead"></div>
+        </div>
+        </div>
+         ${!ownMessage?`
+            <div>
+            ${reactionMember}
+           
+            </div>`
+            :''}
+        </div>
+
+        <div data-id="Message-${messageId}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false) class="messageRead">${emojiDiv}</div>
+        
 
     `;
     let firstMessgae = `
@@ -903,6 +1008,67 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     image = "";
 
 }
+
+// JavaScript function to toggle the visibility of the react button
+function toggleReactBtnVisibility(messageId, show) {
+    const reactBtn = document.getElementById(`reactBtn-${messageId}`);
+    
+    // Toggle the 'visible' class depending on whether the mouse is over or out
+    if (show) {
+        reactBtn.classList.add('visible');
+    } else {
+        reactBtn.classList.remove('visible');
+    }
+}
+
+// Function to toggle the sticker picker (this is just an example)
+function toggleStickerPicker(messageId) {
+    console.log("Sticker picker toggled for message ID:", messageId);
+    // Implement logic for showing/hiding sticker picker
+}
+// Function to toggle the emoji picker visibility
+function toggleStickerPicker(messageId) {
+    const stickerPicker = document.getElementById(`emoji-${messageId}`);
+    if (stickerPicker.classList.contains("show")) {
+        stickerPicker.classList.remove("show");
+        stickerPicker.classList.add("hide");
+    } else {
+        stickerPicker.classList.remove("hide");
+        stickerPicker.classList.add("show");
+    }
+}
+
+// Function to add sticker reaction
+function addStickerReaction(reaction,messageId) {
+    const roomID = document.getElementById('roomID').textContent.trim()
+    const message = roomID +"-"+ messageId
+    
+    console.log("Sticker selected:", reaction);
+    console.log("message selected:", message);
+    // Here, emit the reaction to the server or update the UI accordingly
+    socket.emit("addReaction", { username: currentUser.username, messageId: message, reaction:reaction });
+    toggleStickerPicker(messageId);  // Close the sticker picker after selection
+}
+
+// Filter function to search emojis
+function filterEmojis(messageId) {
+    const searchQuery = document.getElementById("emojiSearch").value.toLowerCase();
+    const emojiContainer = document.getElementById("emojiContainer");
+    const emojis = emojiContainer.getElementsByTagName("span");
+
+    for (let i = 0; i < emojis.length; i++) {
+        const emoji = emojis[i];
+        const emojiText = emoji.textContent || emoji.innerText;
+
+        if (emojiText.toLowerCase().includes(searchQuery)) {
+            emoji.style.display = "inline-block"; // Show emoji
+        } else {
+            emoji.style.display = "none"; // Hide emoji
+        }
+    }
+}
+// --------------------------------------------
+// read-info panel
 // Example usage within your socket event
 socket.on("readMessageUpdate", ({ id, readUsers }) => {
     const readInfoElement = document.querySelector(`#read-info-${id}`);
@@ -947,16 +1113,55 @@ function openReadedMessage(dataId) {
 
     if (infoDiv && toggleBtn) {
         // Check if the read info is visible and toggle it
-        if (infoDiv.style.display === "none" || infoDiv.style.display === "") {
-            infoDiv.style.display = "block";  // Show the read info
+        if (!infoDiv.classList.contains("visible")) {
+            infoDiv.classList.add("visible");  // Show the read info
             toggleBtn.innerHTML = `<i class="bi bi-x-lg"></i> Hide here`;  // Change button text
+            console.log('show')
+            
         } else {
-            infoDiv.style.display = "none";  // Hide the read info
+            infoDiv.classList.remove("visible"); // Hide the currently visible panel
             toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Last seen`;  // Change button text
+            console.log('hide')
         }
     }
 }
+document.addEventListener("click",()=> {
+    var infoDiv = document.querySelectorAll(`.read-info`);
+    var emojiDiv = document.querySelectorAll(`.stickerPicker`);
+    if (infoDiv) {
+        var toggleBtn = document.querySelectorAll(`.read-toggle`);
 
+         // Get the read-toggle button based on the data-id attribute (correct selector)
+        if (!event.target.closest(".read-toggle")) {
+            infoDiv.forEach((panel) => {
+                if (panel.classList.contains("visible")) {
+                    panel.classList.remove("visible"); // Hide the currently visible panel
+                } 
+            });
+            
+            toggleBtn.forEach((toggleBtn) => {
+                toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Last seen`;  // Change button text
+            })
+        }
+        
+    }
+    if (emojiDiv) {
+
+         // Get the read-toggle button based on the data-id attribute (correct selector)
+        if (!event.target.closest(".reactBtn")) {
+            if (!event.target.closest(".stickerPicker")) {
+                emojiDiv.forEach((panel) => {
+                    if (panel.classList.contains("show")) {
+                        panel.classList.remove("show"); // Hide the currently visible panel
+                        panel.classList.add("hide"); // Hide the currently visible panel
+                    } 
+                });
+            }    
+
+        }
+        
+    }
+})
 // Function to open the image in a modal
 function openImage(imageSrc) {
     const modal = document.getElementById("imageModal");

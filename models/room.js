@@ -6,6 +6,7 @@ const roomSchema = new mongoose.Schema({
     seq: { type: Number, default: 0 },
     admin: { type: String, required: true }, // Admin of the room
     members: [{ type: String }], // Array of member IDs
+    setting: [{ type: String }], // Array of member IDs
     createdAt: { type: Date, default: Date.now }, // Room creation timestamp
 });
 

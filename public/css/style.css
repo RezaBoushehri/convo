@@ -301,4 +301,103 @@ footer .fa {
     font-weight: bold;
     cursor: pointer;
   }
-  
+  .read-info {
+    opacity: 0; /* Start fully transparent */
+    position: absolute;
+    top: -25px;
+    left: -124px;
+    color: #000000;
+    right: 0;
+    background-color: #fff;
+    padding: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    text-align: left;
+    z-index: 10;
+    max-width: 200px;
+    min-width: 100px;
+    transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
+    visibility: hidden; /* Hide initially without display:none for smooth transitions */
+}
+
+.read-info.visible {
+    opacity: 1; /* Fully visible */
+    visibility: visible; /* Make visible for the transition */
+}
+/* General styling for the emoji picker */
+.stickerPicker {
+    /* position: absolute; */
+    margin: 5px;
+    /* top: -25px;
+    left: -124px; */
+    background-color: #fff;
+    padding: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: none; /* Initially hidden */
+    text-align: left;
+    z-index: 10;
+    border-radius: 10px;
+    z-index: 999;
+    max-width: 300px;
+    overflow: hidden;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Animation for showing the emoji picker */
+.stickerPicker.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.stickerPicker.hide {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+/* Container for emojis */
+#emojiContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    animation: emojiFadeIn 1s ease;
+}
+
+/* Hover effects for individual emojis */
+#emojiContainer span {
+    font-size: 24px;
+    cursor: pointer;
+    transition: transform 0.3s ease, scale 0.2s ease;
+}
+
+#emojiContainer span:hover {
+    transform: scale(1.2);
+}
+
+/* Keyframe animation for emoji fade-in */
+@keyframes emojiFadeIn {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+.reactBtn {
+    opacity: 0; /* Start fully transparent */
+    /* position: absolute; */
+    /* right: 10rem; */
+    color: #000000;
+    background-color: #fff;
+    padding: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    text-align: left;
+    z-index: 10;
+    max-width: 200px;
+    min-width: 10px;
+  transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
+  visibility: hidden; /* Hide initially without display:none for smooth transitions */
+}
+.reactBtn.visible {
+    opacity: 1; /* Fully visible */
+    visibility: visible; /* Make visible for the transition */
+}

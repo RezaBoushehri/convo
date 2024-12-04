@@ -8,6 +8,7 @@ const messageSchema = new mongoose.Schema({
     read: [
         {
             username: { type: String, required: true },
+            reaction: { type: String , default:null},
             time: { type: Date, required: true },
         },
     ], 

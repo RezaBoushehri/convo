@@ -140,23 +140,29 @@ app.use(function (req, res, next) {
 
 // Routes
 app.get("/", middleware.isLoggedIn, (req, res) => {
-    res.render("index", { roomid: "" });
+    res.render("index", { roomID: "" });
 });
 
-app.get("/join/:id", middleware.isLoggedIn, (req, res) => {
+app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
     const roomID = req.params.id;
 
-    // Check if the room exists in the `rooms` array or object
-    const roomExists = rooms.find((room) => room.roomID === roomID);
+    try {
+        // Find the room using Mongoose's Model.findOne() method
+        const roomExists = await Room.findOne({ roomID: roomID });
 
-    if (roomExists) {
-        // Render the room and provide the room ID
-        res.render("index", { roomID : roomID });
-    } else {
-        // If the room does not exist, redirect or send an error
-        res.status(404).json({ error: "Room not found" });
+        if (roomExists) {
+            // Render the room and provide the room ID
+            res.render("index", { roomID: roomID });
+        } else {
+            // If the room does not exist, redirect or send an error
+            res.status(404).json({ error: "Room not found" });
+        }
+    } catch (err) {
+        console.error("Error fetching room:", err);
+        res.status(500).json({ error: "Internal server error" });
     }
 });
+
 // Login/Registration Routes (Passport Auth)
 app.get("/login", (req, res) => {
     res.render("login");
@@ -518,7 +524,7 @@ io.on("connection", (socket) => {
             const unreadMessages = await getUnreadMessages(roomID, username);
             // Process each message
 
-            console.log("unreadMessage :",unreadMessages);
+            // console.log("unreadMessage :",unreadMessages);
 
                 // Emit unread messages first
             if (unreadMessages.length > 0) {
@@ -534,7 +540,7 @@ io.on("connection", (socket) => {
                         lastMessages.map(async (msg) => await processMessage(msg))
                     );
                     if (processedMessages.length > 0) {
-                        console.log("Fetched last 20 messages:", processedMessages);
+                        // console.log("Fetched last 20 messages:", processedMessages);
                         socket.emit("restoreMessages", { messages: processedMessages, prepend: true });
                     } else {
                         console.log("No messages found for the room.");
@@ -570,7 +576,7 @@ io.on("connection", (socket) => {
             
             // Adjust counter to fetch the previous batch of messages
             const startingID = counter;
-            console.log("Starting ID for fetch:", startingID);
+            // console.log("Starting ID for fetch:", startingID);
     
             // Calculate the limit dynamically based on the counter value
             const limit = (counter < 20) ? counter-1 : 20; // Use counter if it's less than 20, otherwise limit to 20
@@ -578,7 +584,7 @@ io.on("connection", (socket) => {
             // Fetch the older messages using the starting ID and dynamic limit
             const olderMessages = await getMessagesByID(startingID, limit); // Function to fetch messages
     
-            console.log(olderMessages);
+            // console.log(olderMessages);
             // If there are older messages, process and send them back to the client
             if (olderMessages.length > 0) {
                 // Process each message
@@ -629,26 +635,6 @@ async function getMessagesByLimit(roomID, limit) {
 }
 
 // Helper function to process each message
-async function processMessage(msg) {
-    const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
-    const readUsers = await Promise.all(
-        (msg.read || []).map(async (readEntry) => {
-            const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
-            return {
-                name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
-                time: readEntry.time,
-            };
-        })
-    );
-
-    return {
-        ...msg,
-        sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
-        handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
-        readUsers
-      
-    };
-}
 
     
     // Helper function to get all unread messages
@@ -703,7 +689,9 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
                 return {
                     name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
+                    reaction: readEntry.reaction ? readEntry.reaction :'' ,
                     time: readEntry.time,
+
                 };
             })
         );
@@ -766,6 +754,39 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         } catch (error) {
             console.error("Error in chat:", error.message);
             socket.emit("chat", { error: "Failed to send message." });
+        }
+    });
+    socket.on("addReaction", async ({ username, messageId, reaction }) => {
+        try {
+            const time = new Date();
+    
+            // Find the message by its ID
+            const message = await Message.findOne({ id: messageId });
+            if (!message) throw new Error("Message not found");
+    
+            // Check if the user already has a reaction in the `read` array
+            const userReaction = message.read.find(r => r.username === username);
+    
+            if (userReaction) {
+                // If the user already has a reaction, update it
+                userReaction.reaction = reaction;
+            } else {
+                // If the user doesn't have a reaction, add a new entry to the `read` array
+                message.read.push({
+                    username: username,
+                    time: time,
+                    reaction: reaction
+                });
+            }
+    
+            // Save the updated message
+            await message.save();
+    
+            // Emit the updated message to the room
+            io.to(message.roomID).emit("reactionAdded", { messageId, username, time, reaction });
+        } catch (error) {
+            console.error("Error adding reaction:", error);
+            socket.emit("error", { message: "Failed to add reaction." });
         }
     });
     
