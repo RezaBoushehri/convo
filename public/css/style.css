@@ -52,7 +52,7 @@ body {
 }
 .messageInputDiv{
     align-items: center;
-    padding-left: 0 !important;
+    /* padding-left: 0 !important; */
     display: flex;
     justify-content: space-between;
 
@@ -351,7 +351,7 @@ footer .fa {
     z-index: 10;
     border-radius: 10px;
     z-index: 999;
-    overflow: hidden;
+    /* overflow: hidden; */
     transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
@@ -372,6 +372,8 @@ footer .fa {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    overflow-x: scroll;
+    scrollbar-width: none;
     animation: emojiFadeIn 1s ease;
     justify-content: space-between;
 }
