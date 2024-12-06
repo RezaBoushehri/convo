@@ -45,9 +45,8 @@ body {
 
 .mess {
     word-wrap: break-word;
-    font-size: x-small;
     max-width: max-content;
-    min-width: 15vw;
+    min-width: 5vw;
     font-size: 3vmin;
     /* max-width: fit-content; */
 }
@@ -194,7 +193,10 @@ footer .fa {
     position: absolute;
     z-index: -1;
 }
+.dropdown-menu{
+    position: relative;
 
+}
 .dropdown-item {
     color: white;
     transition: .3s ease-in-out;
@@ -235,7 +237,10 @@ footer .fa {
     border: 1px solid #ddd;
     border-radius: 5px;
 }
-
+.messageElm{
+    /* justify-content: space-between; */
+    align-items: baseline;
+}
 
 .close-btn {
     position: absolute;
@@ -303,8 +308,8 @@ footer .fa {
     position: absolute;
     top: 10px;
     right: 25px;
-    color: white;
-    font-size: 40px;
+    /* color: white; */
+    /* font-size: 40px; */
     font-weight: bold;
     cursor: pointer;
   }
@@ -321,9 +326,11 @@ footer .fa {
     z-index: 10;
     max-width: 200px;
     min-width: 100px;
-    max-height: fit-content;
+    max-height: 98px;
     transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
     visibility: hidden; /* Hide initially without display:none for smooth transitions */
+    overflow: scroll;
+    scrollbar-width: none;
 }
 
 .read-info.visible {
@@ -332,7 +339,7 @@ footer .fa {
 }
 /* General styling for the emoji picker */
 .stickerPicker {
-    /* position: absolute; */
+    position: relative;
     margin: 5px;
     /* top: -25px;
     left: -124px; */
@@ -366,6 +373,7 @@ footer .fa {
     flex-wrap: wrap;
     gap: 10px;
     animation: emojiFadeIn 1s ease;
+    justify-content: space-between;
 }
 
 /* Hover effects for individual emojis */
@@ -373,6 +381,7 @@ footer .fa {
     font-size: 24px;
     cursor: pointer;
     transition: transform 0.3s ease, scale 0.2s ease;
+
 }
 
 #emojiContainer span:hover {
@@ -392,27 +401,66 @@ footer .fa {
     opacity: 0; /* Start fully transparent */
     /* position: absolute; */
     /* right: 10rem; */
-    color: #000000;
+    color: #ccc;
     background-color: #fff;
-    padding: 8px;
+    padding: 10px;
+
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     text-align: left;
     z-index: 10;
     max-width: 200px;
     min-width: 10px;
-  transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
-  visibility: hidden; /* Hide initially without display:none for smooth transitions */
+    transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
+    visibility: hidden; /* Hide initially without display:none for smooth transitions */
+}
+.reactBtn:hover{
+    color: #ccc;
+    padding: 10px;
+    background-color: #fff;
+    box-shadow: 0px 0px 0px 0px;
+    border: 3px solid #007bb5 !important;
+
+
 }
 .reactBtn.visible {
     opacity: 1; /* Fully visible */
     visibility: visible; /* Make visible for the transition */
 }
 .reactionMemEmoji{
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); */
+    border: 3px solid #ccc;
+    background-color: #ffffff !important;
     border-radius: 10px;
     padding: 10px;
     cursor: default;
+
 }
-.reactionMemEmoji span:hover{
-    border: 1px #007bb5
+.ownReaction:hover {
+    border: 3px solid #007bb5 !important;
+}
+
+.footerMessage{
+    display: flex;
+    align-items: center;
+}
+.ownReaction{
+    border: 3px solid #a8c7fa !important;
+    background-color: #ceddf6 !important;
+}
+
+/* Animation for hover effect on emojis */
+@keyframes bounce {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0); }
+}
+
+.emoji {
+    font-size: 32px;
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
+}
+
+.emoji:hover {
+    animation: bounce 0.5s ease infinite;
 }

@@ -37,61 +37,82 @@ if (roomID != "") {
         })
     );
 }
+{/* <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})"> */}
 
-// Your emojiDiv string
-function emoji(messageId){
-const emojiDiv = `
-<div id="emoji-${messageId}"  class="stickerPicker col-md-4">
-    <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})">
+function emoji(messageId) {
+    const emojiDiv = `
+    <div id="emoji-${messageId}" class="stickerPicker col-md-4">
         <div id="emojiGrid">
-        <!-- Emoji Grid -->
-
-        <div id="emojiContainer" class="g-3">
-            <span onclick="addStickerReaction('😊',${messageId})">😊</span>
-            <span onclick="addStickerReaction('😂',${messageId})">😂</span>
-            <span onclick="addStickerReaction('❤️',${messageId})">❤️</span>
-            <span onclick="addStickerReaction('👍',${messageId})">👍</span>
-            <span onclick="addStickerReaction('👎',${messageId})">👎</span>
-            <span onclick="addStickerReaction('🗿',${messageId})">🗿</span>
-            <span onclick="addStickerReaction('🎉',${messageId})">🎉</span>
-            <span onclick="addStickerReaction('🔥',${messageId})">🔥</span>
-            <span onclick="addStickerReaction('🎈',${messageId})">🎈</span>
-            <span onclick="addStickerReaction('💯',${messageId})">💯</span>
-            <span onclick="addStickerReaction('😎',${messageId})">😎</span>
-            <span onclick="addStickerReaction('😍',${messageId})">😍</span>
-            <span onclick="addStickerReaction('😭',${messageId})">😭</span>
-            <span onclick="addStickerReaction('😢',${messageId})">😢</span>
-            <span onclick="addStickerReaction('😜',${messageId})">😜</span>
-            <span onclick="addStickerReaction('💀',${messageId})">💀</span>
-            <span onclick="addStickerReaction('🤔',${messageId})">🤔</span>
-            <span onclick="addStickerReaction('👀',${messageId})">👀</span>
-            <span onclick="addStickerReaction('🤩',${messageId})">🤩</span>
-            <span onclick="addStickerReaction('🤗',${messageId})">🤗</span>
-            <span onclick="addStickerReaction('🥺',${messageId})">🥺</span>
-            <span onclick="addStickerReaction('👏',${messageId})">👏</span>
-            <span onclick="addStickerReaction('😤',${messageId})">😤</span>
-            <span onclick="addStickerReaction('🥳',${messageId})">🥳</span>
-            <span onclick="addStickerReaction('👑',${messageId})">👑</span>
-            <span onclick="addStickerReaction('🧨',${messageId})">🧨</span>
-            <span onclick="addStickerReaction('🧡',${messageId})">🧡</span>
-            <span onclick="addStickerReaction('💙',${messageId})">💙</span>
-            <span onclick="addStickerReaction('💚',${messageId})">💚</span>
-            <span onclick="addStickerReaction('💛',${messageId})">💛</span>
-            <span onclick="addStickerReaction('🤯',${messageId})">🤯</span>
-            <span onclick="addStickerReaction('😋',${messageId})">😋</span>
-            <span onclick="addStickerReaction('😇',${messageId})">😇</span>
+            <div id="emojiContainer" class="g-3">
+                <!-- Emoji spans that will be rendered by Twemoji -->
+                <span onclick="addStickerReaction('😂', ${messageId})" class="emoji">😂</span>
+                <span onclick="addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
+                <span onclick="addStickerReaction('👎', ${messageId})" class="emoji">👎</span>
+                <span onclick="addStickerReaction('❤️', ${messageId})" class="emoji">\u2764\uFE0F</span>
+                <span onclick="addStickerReaction('😊', ${messageId})" class="emoji">😊</span>
+                <span onclick="addStickerReaction('👌', ${messageId})" class="emoji">👌</span>
+                <span onclick="addStickerReaction('🗿', ${messageId})" class="emoji">🗿</span>
+                <span onclick="addStickerReaction('🎉', ${messageId})" class="emoji">🎉</span>
+                <span onclick="addStickerReaction('🔥', ${messageId})" class="emoji">🔥</span>
+                <span onclick="addStickerReaction('🎈', ${messageId})" class="emoji">🎈</span>
+                <span onclick="addStickerReaction('💯', ${messageId})" class="emoji">💯</span>
+                <span onclick="addStickerReaction('😎', ${messageId})" class="emoji">😎</span>
+                <span onclick="addStickerReaction('😍', ${messageId})" class="emoji">😍</span>
+                <span onclick="addStickerReaction('😭', ${messageId})" class="emoji">😭</span>
+                <span onclick="addStickerReaction('😢', ${messageId})" class="emoji">😢</span>
+                <span onclick="addStickerReaction('😜', ${messageId})" class="emoji">😜</span>
+                <span onclick="addStickerReaction('💀', ${messageId})" class="emoji">💀</span>
+                <span onclick="addStickerReaction('🤔', ${messageId})" class="emoji">🤔</span>
+                <span onclick="addStickerReaction('👀', ${messageId})" class="emoji">👀</span>
+                <span onclick="addStickerReaction('🤩', ${messageId})" class="emoji">🤩</span>
+                <span onclick="addStickerReaction('😎', ${messageId})" class="emoji">😎</span>
+                <span onclick="addStickerReaction('🤗', ${messageId})" class="emoji">🤗</span>
+                <span onclick="addStickerReaction('🥺', ${messageId})" class="emoji">🥺</span>
+                <span onclick="addStickerReaction('😱', ${messageId})" class="emoji">😱</span>
+                <span onclick="addStickerReaction('👏', ${messageId})" class="emoji">👏</span>
+                <span onclick="addStickerReaction('😒', ${messageId})" class="emoji">😒</span>
+                <span onclick="addStickerReaction('😤', ${messageId})" class="emoji">😤</span>
+                <span onclick="addStickerReaction('😪', ${messageId})" class="emoji">😪</span>
+                <span onclick="addStickerReaction('🥳', ${messageId})" class="emoji">🥳</span>
+                <span onclick="addStickerReaction('🤨', ${messageId})" class="emoji">🤨</span>
+                <span onclick="addStickerReaction('🤐', ${messageId})" class="emoji">🤐</span>
+                <span onclick="addStickerReaction('😮', ${messageId})" class="emoji">😮</span>
+                <span onclick="addStickerReaction('🥱', ${messageId})" class="emoji">🥱</span>
+                <span onclick="addStickerReaction('🤯', ${messageId})" class="emoji">🤯</span>
+                <span onclick="addStickerReaction('😋', ${messageId})" class="emoji">😋</span>
+                <span onclick="addStickerReaction('😇', ${messageId})" class="emoji">😇</span>
+                <span onclick="addStickerReaction('👆', ${messageId})" class="emoji">👆</span>
+                <span onclick="addStickerReaction('✌', ${messageId})" class="emoji">✌</span>
+                <span onclick="addStickerReaction('🙏', ${messageId})" class="emoji">🙏</span>
+                <span onclick="addStickerReaction('💅', ${messageId})" class="emoji">💅</span>
+                <span onclick="addStickerReaction('💪', ${messageId})" class="emoji">💪</span>
+                <span onclick="addStickerReaction('🖐', ${messageId})" class="emoji">🖐</span>
+                <span onclick="addStickerReaction('🤝', ${messageId})" class="emoji">🤝</span>
+                <span onclick="addStickerReaction('✍', ${messageId})" class="emoji">✍</span>
+                <span onclick="addStickerReaction('🤡', ${messageId})" class="emoji">🤡</span>
+                <span onclick="addStickerReaction('😡', ${messageId})" class="emoji">😡</span>
+                <span onclick="addStickerReaction('😰', ${messageId})" class="emoji">😰</span>
+                <span onclick="addStickerReaction('🥶', ${messageId})" class="emoji">🥶</span>
+                <span onclick="addStickerReaction('🥵', ${messageId})" class="emoji">🥵</span>
+                <span onclick="addStickerReaction('👑', ${messageId})" class="emoji">👑</span>
+                <span onclick="addStickerReaction('🧨', ${messageId})" class="emoji">🧨</span>
+                <span onclick="addStickerReaction('🤍', ${messageId})" class="emoji">🤍</span>
+                <span onclick="addStickerReaction('🧡', ${messageId})" class="emoji">🧡</span>
+                <span onclick="addStickerReaction('💙', ${messageId})" class="emoji">💙</span>
+                <span onclick="addStickerReaction('🤷‍♂️', ${messageId})" class="emoji">🤷‍♂️</span>
+                <span onclick="addStickerReaction('⚡', ${messageId})" class="emoji">⚡</span>
+                <span onclick="addStickerReaction('❌', ${messageId})" class="emoji">❌</span>
+                <span onclick="addStickerReaction('✅', ${messageId})" class="emoji">✅</span>
+            </div>
         </div>
     </div>
-</div>
-
-`;
-// Create a container element to hold the emojiDiv content
-// const emojiContainer = document.getElementById('div');
-// emojiContainer.innerHTML = emojiDiv;
-return emojiDiv
+    `;
+    return emojiDiv;
 }
-
-
+// Call Twemoji to render the emojis after the DOM is ready
+function renderEmojis() {
+    twemoji.parse(document.body);  // This will replace all emojis with Twemoji images
+}
 
 // Now, parse the emojiContainer to replace the emoji characters with Twemoji images
 // twemoji.parse(emojiContainer);
@@ -728,6 +749,7 @@ socket.on("restoreMessages", (data) => {
         });
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
+    renderEmojis()
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
     const fontSize = savedSettings?.fontSize || "16px";
@@ -893,15 +915,14 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     // Main message content
     const reactionMember = data.readUsers
     ? data.readUsers
-          .map((r) => {
-                   return `
-                       ${r.reaction ? `<span class='reactionMemEmoji' user-id="${r.username}"> ${r.reaction}</spn>`
-                        : ""}
-                     `
-                  
-          })
-          .join("")
+        .map((r) => {
+          return r.reaction
+            ? `<span class='${r.username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' ${r.username == currentUser.username ? `onClick="addStickerReaction('',${messageId})"`:''} user-id="${r.username}">${r.reaction}</span>`
+            : "";
+        })
+        .join("")
     : "";
+  
     // console.log(reactionMember)
     // Main message content
     const readInfoHTML = data.readUsers
@@ -936,10 +957,6 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
             
             <div class="read-info"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
                 ${readInfoHTML}
-            </div>
-            
-            <div reactionMessage="${messageId}">
-            ${reactionMember}
             </div>`
             :''}
              
@@ -974,14 +991,22 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         </div>
         </div>
         </div>
-        <div reactionMessage = "${messageId}">
-         ${!ownMessage?
-            reactionMember
-            :''}
-        </div>
         </div>
         <div   style="${divStyle}">
-        <div data-id="Message-${messageId}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)" class="messageRead" >${emojiDiv}</div>
+        <div data-id="Message-${messageId}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)" class="messageRead footerMessage" >
+        
+        ${ ownMessage ? `
+            ${emojiDiv} 
+            <div class="mx-2" reactionMessage = "${messageId}">
+                ${reactionMember}
+            </div>`:
+        `
+            <div class="mx-2" reactionMessage = "${messageId}">
+                ${reactionMember}
+            </div>
+          ${emojiDiv}`
+        }
+        </div>
         </div>
 
     `;
@@ -1075,14 +1100,23 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
     if (readInfoElement) {
         // Update the read information for each read user
         const seenUser = readInfoElement.querySelector(`[user-id='${username}']`);
-        if(username !== currentUser.username){
-        let updateUserReact = seenUser.innerHTML.split(' ')[0]
-        let updateTimeReact = seenUser.innerHTML.split(' ')[2]
-        seenUser.innerHTML= `${updateUserReact} at ${updateTimeReact} ${reaction}`
-        }else{
-            let updateUserReact = seenUser.innerHTML.split(" ")[0]
+        if(seenUser){
+            if(username !== currentUser.username){
+            let updateUserReact = seenUser.innerHTML.split(' ')[0]
+            let updateTimeReact = seenUser.innerHTML.split(' ')[2]
+            seenUser.innerHTML= `${updateUserReact} at ${updateTimeReact} ${reaction}`
+            }else{
+                // let updateTimeReact = seenUser.innerHTML.split(' ')[2]
+                seenUser.innerHTML = `You ${reaction}`
+
+            }
+        }
+        else{
             // let updateTimeReact = seenUser.innerHTML.split(' ')[2]
-            seenUser.innerHTML= `${updateUserReact}  ${reaction}`
+            readInfoElement.innerHTML += `<div user-id="${username}" style="font-size:0.9rem;text-align:left;">
+            You ${reaction}
+            </div>
+            <hr>`
 
         }
     }
@@ -1090,28 +1124,23 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
         const userRect = memberReaction.querySelector(`[user-id='${username}']`);
     
         // Debug: Check if the element exists and its current state
-        if (userRect) {
+        if(userRect) {
             // console.log(`User reaction found for username: ${username}`);
             // console.log(`Before update: ${userRect.innerHTML}`);
-    
+            if(reaction!==''){
             // Update the reaction
             userRect.innerHTML = reaction;
-    
+            }else{
+                userRect.remove()
+            }
             // Debug: After updating
             // console.log(`After update: ${userRect.innerHTML}`);
         } else {
             // console.log(`No existing reaction found for username: ${username}. Creating a new one.`);
-    
+            // userRect.innerHTML = `<span class='${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' user-id="${username}">${reaction}</span>`;
+
             // Create a new reaction element
-            const newUserRect = document.createElement('span');
-            newUserRect.setAttribute('user-id', username);
-            newUserRect.classList.add('reactionMemEmoji');
-            newUserRect.innerHTML = `
-                ${reaction}
-            `;
-    
-            // Append the new reaction
-            memberReaction.appendChild(newUserRect);
+          memberReaction.innerHTML += `<span class='${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' ${username == currentUser.username ? `onClick="addStickerReaction('',${spiltedId})"`:''} user-id="${username}">${reaction}</span>`
     
             // Debug: Log the newly created element
             // console.log(`New reaction created for username: ${username}`);

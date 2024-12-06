@@ -775,7 +775,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 // If the user doesn't have a reaction, add a new entry to the `read` array
                 message.read.push({
                     username: username,
-                    time: time,
                     reaction: reaction
                 });
             }
