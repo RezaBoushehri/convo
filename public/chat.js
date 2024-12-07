@@ -1,8 +1,8 @@
 
 // const socket = io.connect(window.location.hostname),
 const production = false;
-const href = production ? window.location.hostname : "172.16.28.166:4000",
-    socket = io.connect('https://172.16.28.166:4000', {
+const href = production ? window.location.hostname : "localhost",
+    socket = io.connect(`https://${href}:4000`, {
         transports: ['polling', "websocket"],
         secure: true,
         withCredentials: false, // Ensures cookies are sent along with requests
@@ -13,7 +13,7 @@ const href = production ? window.location.hostname : "172.16.28.166:4000",
     button = document.getElementById("button"),
     feedback = document.getElementById("feedback"),
     name = document.getElementById("dropdownMenuButton"),
-    alert = document.getElementById("alert"),
+    alertTag = document.getElementById("alert"),
     chat_window = document.getElementById("chat-window"),
     joinRoomName = document.getElementById("joinRoomName"),
     fileInput = document.getElementById("file-input"),
@@ -27,7 +27,7 @@ const href = production ? window.location.hostname : "172.16.28.166:4000",
         maxSizeMB: 0.3,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
-        fileType: "image/jpeg",
+        fileType: "",
     };
 const roomID = document.querySelector("#roomID").textContent.trim()
 if (roomID != "") {
@@ -38,7 +38,25 @@ if (roomID != "") {
     );
 }
 {/* <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})"> */}
-
+function alerting(message,type='success'){
+    $("#alert")
+    .html(
+        `<div class='alert alert-${type}' role='alert'>
+          ${message}
+        </div>`,
+    )
+    .hide();
+$("#alert").slideDown(500);
+    window.setTimeout(function () {
+        $(".alert")
+            .fadeTo(500, 0)
+            .slideUp(500, function () {
+                $(this).remove();
+            });
+    }, 3000);
+    return;
+    
+}
 function emoji(messageId) {
     const emojiDiv = `
     <div id="emoji-${messageId}" class="stickerPicker col-md-4">
@@ -127,32 +145,196 @@ message.addEventListener("input", function () {
 
 document.getElementById('username').value = ''
 let image = "";
+let fileData ;
 $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 
 //=================================================================
 //input image
+$("#file-input").on("change", async (e) => {
+    output.innerHTML+=`
+    <div id="upload-container"style="
+    justify-content: flex-end;
+    display: flex;
+    ">
+        <progress id="upload-progress" value="0" max="100" style="width: 100%; height: 20px;"></progress>
+        <span id="upload-status">0% uploaded</span>
+    </div>
 
-$("#file-input").on("change", (e) => {
+    `;
     button.disabled = true;
     fileInput.disabled = true;
-    const file = e.originalEvent.target.files[0];
-    if (file) {
-        if (file.type != "image/gif") {
-            options.fileType = file.type;
-            imageCompression(file, options)
-                .then((compressedFile) => {
-                    console.log(compressedFile);
-                    setImage(compressedFile);
-                    message.focus();
-                })
-                .catch((error) => console.log(error));
-        } else {
-            setImage(file);
-        }
+
+    const file = e.target.files[0]; // Use e.target for modern jQuery
+    const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
+
+    if (!file) {
+        alerting("No file selected.", 'warning');
+        button.disabled = false;
+        fileInput.disabled = false;
+        return;
     }
-    button.disabled = false;
-    fileInput.disabled = false;
+
+    if (file.size > maxSize) {
+        alerting("The file is too large. Maximum size allowed is 10 MB.", 'warning');
+        button.disabled = false;
+        fileInput.disabled = false;
+        return;
+    }
+
+    try {
+        let processedFile;
+        // Send the file to the server with progress updates
+        const formData = new FormData();
+        formData.append("file", file);
+        // Reset progress bar
+        $("#upload-progress").val(0);
+        $("#upload-status").text("0% uploaded");
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/upload", true);
+    
+        // Monitor progress
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = (e.loaded / e.total) * 100;
+                // Emit progress to the server
+                socket.emit("uploadProgress", { progress: percent });
+            }
+        };
+       
+        const fileType = file.type;
+        if (fileType.startsWith("image/") && fileType !== "image/gif") {
+            // Handle image compression
+            options.fileType = fileType;
+            const compressedFile = await imageCompression(file, options);
+            console.log("Compressed image:", compressedFile);
+            processedFile = await setImage(compressedFile);
+        } else if (fileType === "application/pdf" || fileType.startsWith("video/") || fileType === "application/x-msdownload" || fileType === "image/gif") {
+            // Handle PDF, video, EXE, or GIF files
+            console.log(`${fileType} file selected:`, file);
+            processedFile = await setFile(file);
+        } else {
+            alerting("Unsupported file type. Please select an image, PDF, video, or EXE file.", 'warning');
+            return;
+        }
+
+        // Simulating upload progress (you can replace this with your actual upload logic)
+        const fakeProgressUpload = new Promise((resolve, reject) => {
+            let progress = 0;
+            const interval = setInterval(() => {
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    resolve();
+                } else {
+                    progress += 10;  // Increase progress (simulate upload)
+                    $("#upload-progress").val(progress);
+                    $("#upload-status").text(`${progress}% uploaded`);
+                }
+            }, 1000);  // Update every second (1 second)
+        });
+
+        await fakeProgressUpload;
+
+        // After upload completes
+        console.log("Processed file data:", processedFile);
+
+        // Example: Use `processedFile` to send to the server or further process
+        // Example AJAX call:
+        // $.post("/upload", processedFile, (response) => console.log(response));
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                console.log("File uploaded successfully");
+                alerting("Upload complete.", "success");
+            } else {
+                alerting("Failed to upload the file.", "danger");
+            }
+        };
+        xhr.send(formData);
+    } catch (error) {
+        console.error("Error processing file:", error);
+        alerting("An error occurred while processing the file.", 'danger');
+    } finally {
+
+       
+
+     
+        $("#upload-progress").hide();
+        button.disabled = false;
+        fileInput.disabled = false;
+    }
 });
+const setImage = (file) => {
+    const reader = new FileReader();
+    return new Promise((resolve, reject) => {
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const base64File = event.target.result; // The base64-encoded file content
+            fileData = {
+                fileData: base64File,
+                fileType: file.type,
+                fileName: file.name,
+            };
+            console.log("Image processed:", fileData);
+            resolve(fileData);
+        };
+        reader.onerror = (error) => {
+            console.error("Error reading image file:", error);
+            reject(error);
+        };
+    });
+};
+// const setImage = (file) => {
+//     const reader = new FileReader();
+//     reader.readAsDataURL(file);
+//     reader.onload = (event) => {
+//         image = event.target.result;
+//         console.log(image)
+//     };
+// };
+const setFile = (file) => {
+    const reader = new FileReader();
+    return new Promise((resolve, reject) => {
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const base64File = event.target.result; // The base64-encoded file content
+            fileData = {
+                fileData: base64File,
+                fileType: file.type,
+                fileName: file.name,
+            };
+            console.log("File processed:", fileData);
+            resolve(fileData);
+        };
+        reader.onerror = (error) => {
+            console.error("Error reading file:", error);
+            reject(error);
+        };
+    });
+};
+
+
+// $("#file-input").on("change", (e) => {
+//     button.disabled = true;
+//     fileInput.disabled = true;
+//     const file = e.originalEvent.target.files[0];
+//     if (file) {
+//         if (file.type != "image/gif") {
+//             options.fileType = file.type;
+//             imageCompression(file, options)
+//                 .then((compressedFile) => {
+//                     console.log(compressedFile);
+//                     setImage(compressedFile);
+//                     message.focus();
+//                 })
+//                 .catch((error) => console.log(error));
+//         } else {
+//             setImage(file);
+//         }
+//     }
+//     button.disabled = false;
+//     fileInput.disabled = false;
+// });
+
+
 
 //=================================================================
 //Emit Create, Join and Leave room events
@@ -166,7 +348,7 @@ const createRoom = () => {
     const roomID = createRoomName.value.trim();
     
     if (!roomID) {
-        alert.innerHTML=("Please enter a room ID.");  // Validation: Ensure the room ID is not empty
+        alerting("Please enter a room ID.",'danger');  // Validation: Ensure the room ID is not empty
         return;
     }
     document.querySelector("#roomID").textContent= roomID
@@ -181,7 +363,7 @@ const joinRoom = () => {
     const roomID = document.getElementById('joinRoomName').value.trim();  // Ensure this matches the actual input field ID
     
     if (!roomID) {
-        alert.innerHTML=("Please enter a room ID.");  // Validation: Ensure the room ID is not empty
+        alerting("Please enter a room ID.",'danger');  // Validation: Ensure the room ID is not empty
         return;
     }else{
         console.log(roomID)
@@ -234,7 +416,7 @@ const leaveRoom = () => {
 //=================================================================
 //emit chat event (send message)
 button.addEventListener("click", () => {
-    let text = message.innerText.trim();
+    let text = message.innerHTML.trim();
 
     // Replace block elements (e.g., paragraphs, divs, etc.) with newlines
     // text = text.replace(/<\/?p>/g, '\n');  // Replace <p> and </p> with newline
@@ -246,13 +428,28 @@ button.addEventListener("click", () => {
         handle: name.textContent,
         roomID: roomID,
         message: text,
+        files: fileData || null,
         date: new Date(),
-        image: image || null,
     };
+    console.log(data)
 
     
-    if (!data.message && !data.username && !data.image) {
-        alert.innerHTML = "Room ID, sender, and message cannot be empty";
+    if (!data.message && !data.username && !data.files) {
+        $("#alert")
+                .html(
+                    `<div class='alert alert-danger' role='alert'>
+                       Room ID, sender, and message cannot be empty
+                    </div>`,
+                )
+                .hide();
+        $("#alert").slideDown(500);
+            window.setTimeout(function () {
+                $(".alert")
+                    .fadeTo(500, 0)
+                    .slideUp(500, function () {
+                        $(this).remove();
+                    });
+        }, 3000);
         return;
     }
     // Display "sending" message in UI
@@ -266,12 +463,12 @@ button.addEventListener("click", () => {
 
     // Clear input fields
     message.innerHTML = "";
-    image = "";
+    fileData = "";
 
     // Add listener for server acknowledgment
     socket.on("chat", (response) => {
         if (response.error) {
-            alert(response.error);
+            alerting(response.error,'danger');
             document.getElementById("sending-placeholder").remove(); // Remove placeholder if there's an error
             return;
         }
@@ -604,13 +801,7 @@ const scrollToUnread = () => {
 };
 
 
-const setImage = (file) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-        image = event.target.result;
-    };
-};
+
 const copyId = (id) => {
     var $temp = $("<input>");
     $("body").append($temp);
@@ -672,6 +863,7 @@ socket.on("restoreMessages", (data) => {
             addMessageToChatUI(message,data.prepend , isLastMessage);
         } catch (error) {
             console.error("Error adding message to chat UI:", { error, message, index });
+            
         }
     });
     
@@ -811,7 +1003,7 @@ document.getElementById("saveSettings").addEventListener("click", () => {
     // Optionally save settings to the server
     socket.emit("saveSettings", userSettings , currentUser.username);
 
-    alert("Settings saved successfully!");
+    alerting("Settings saved successfully!");
     document.getElementById("settingsPanel").style.display = "none"; // Close panel
     window.location.reload(); // This will refresh the page and reset the UI
 
@@ -962,18 +1154,47 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
              
         <div style="${style}" class="message mess p-2 mr-1 m-2 col-md-6">
             <h6 style="font-style:italic;text-align:end;">${data.handle}</h6>
-            ${data.file ? `<!-- Thumbnail Image -->
-                        <img class="img-fluid rounded mb-2" src="${data.file}" loading="lazy" alt="Image" onclick="openImage('${data.file}')">
-
-                        <!-- Modal for Enlarged Image -->
-                        <div id="imageModal" class="imageModal">
+            ${data.file && data.file!==null ? data.file.map(file => `
+                <!-- Thumbnail Display -->
+                ${file.fileType.startsWith("image/") ? `
+                    <!-- Thumbnail Image -->
+                    <img class="img-fluid rounded mb-2" src="${file.file}" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
+                    
+                    <!-- Modal for Enlarged Image -->
+                    <div id="imageModal" class="imageModal">
                         <span class="close" onclick="closeModal()">&times;</span>
-                        <img id="modalImage" class="imageModal-content" src="" alt="Enlarged Image">
+                        <img id="modalImage" class="imageModal-content" src="${file.file}" alt="Enlarged Image">
                         <div class="imageModal-caption">
-                            <a id="downloadLink" href="#" download="image.jpg" class="download-btn">Download</a>
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="download-btn">Download</a>
                         </div>
-                        </div>
-                        ` : ""}
+                    </div>
+                ` : file.fileType === "application/pdf" ? `
+                    <!-- PDF Display -->
+                    <iframe class="pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
+                    <div class="file-actions">
+                        <a id="downloadLink" href="${file.file}" download="${file.fileName || 'document.pdf'}" class="download-btn">Download PDF</a>
+                    </div>
+                ` : file.fileType.startsWith("video/") ? `
+                    <!-- Video Display -->
+                    <video class="video-preview" controls>
+                        <source src="${file.file}" type="${file.fileType}">
+                        Your browser does not support the video tag.
+                    </video>
+                    <div class="file-actions">
+                        <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="download-btn">Download Video</a>
+                    </div>
+                ` : `
+                    <!-- Generic File Display -->
+                    <div class="file-info">
+                        <p>File: ${file.fileName || 'Unknown File'}</p>
+                    </div>
+                    <div class="file-actions">
+                        <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="download-btn">Download File</a>
+                    </div>
+                `}
+            `).join('') : ""}
+            
+            
             <div dir="auto">${data.message}</div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
             ${ownMessage
@@ -992,8 +1213,8 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         </div>
         </div>
         </div>
-        <div   style="${divStyle}">
-        <div data-id="Message-${messageId}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)" class="messageRead footerMessage" >
+        <div class="messageRead" data-id="Message-${messageId}"  style="${divStyle}">
+        <div  style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)" class=" footerMessage" >
         
         ${ ownMessage ? `
             ${emojiDiv} 
@@ -1341,6 +1562,7 @@ chat_window.addEventListener("scroll", () => {
         if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
             if (messageId && !visibleMessages.includes(messageId)) {
                 visibleMessages.push(messageId);  // Add the data-id of visible messages
+                // console.log(messageId)
             }
         }
     });

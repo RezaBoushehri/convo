@@ -136,13 +136,13 @@ footer {
 }
 
 footer .fa {
-    padding: .7rem;
+    padding: 5px;
     font-size: 1.2rem;
     margin-left: .8vw;
     margin-right: .8vw;
     text-align: center;
     text-decoration: none;
-    border-radius: 50%;
+    border-radius: 10px;
     color: white;
 }
 
@@ -167,6 +167,11 @@ footer .fa {
 
 .fa-linkedin:hover {
     background: #007bb5;
+    color: white;
+    transition: .4s ease-in-out;
+}
+.fa-envelope:hover {
+    background: #dc3545;
     color: white;
     transition: .4s ease-in-out;
 }

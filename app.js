@@ -710,10 +710,31 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("chat", async (data) => {
         try {
-            const { username, message, image } = data;
+            const { username, message, files } = data;
+            let fileDetails = null;
+
+            if (files !== null && files !== undefined) {
+                // Ensure files is an array (whether single file or array of files)
+                const filesArray = Array.isArray(files) ? files : [files];
+            
+                // Conditionally map over the files if there are any
+                fileDetails = filesArray.length > 0
+                    ? filesArray.map(file => ({
+                        file: file.fileData,  // Assuming fileData contains base64 data or a URL
+                        fileType: file.fileType,
+                        fileName: file.fileName || null,  // Default to null if fileName is not present
+                    }))
+                    : null;  // If no files, return null
+            
+                console.log(fileDetails);
+            }else{
+                
+                console.log("erorr : ",files);
+            }
+            
             const timestamp = new Date();
             if(!username) throw new Error("User not found or not part of a room.");
-            if (!message  && !image)                 throw new Error("no message.");
+            if (!message  && !files)                 throw new Error("no message.");
             // Validate the user
             const currentUser = await User.findOne({ username });
             if (!currentUser || !currentUser.roomID) {
@@ -730,14 +751,14 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             const updatedCounter= 1000000+ (counter.seq||0)
             const newMessage = new Message({
                 id: `${currentUser.roomID}-${updatedCounter}`,  // ID format: roomID-auto-increment number
-                roomID : currentUser.roomID,
+                roomID: currentUser.roomID,
                 sender: username,
-                message : clean ? clean : image ? " ":null,
-                file: image || null,
+                message: clean ? clean : null,
+                file: fileDetails, // Map over the uploaded files to structure them correctly
                 read: [],
                 timestamp,
             });
-    
+            console.log("message : ",newMessage.file)
             await newMessage.save();
     
             // Enrich the message with sender details
@@ -757,6 +778,17 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             socket.emit("chat", { error: "Failed to send message." });
         }
     });
+
+    // Listen for upload progress from clients
+    socket.on("uploadProgress", (data) => {
+        const { progress } = data;
+        console.log(`Upload Progress: ${progress}%`);
+
+        // Broadcast the progress to the room (optional)
+        io.emit("uploadProgress", { progress });
+    });
+
+    
     socket.on("addReaction", async ({ username, messageId, reaction }) => {
         try {
             const time = new Date();

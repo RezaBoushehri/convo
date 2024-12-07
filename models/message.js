@@ -13,7 +13,13 @@ const messageSchema = new mongoose.Schema({
         },
     ], 
     message: { type: String, default:null }, // Message content
-    file: { type: String, default: null }, // Optional file URL or path
+    file: [
+        {
+            file: { type: String, required: true },
+            fileType: { type: String , required: true},
+            fileName: { type: String , default:null },
+        },
+    ], // Optional file URL or path
     timestamp: { type: Date, default: Date.now }, // Timestamp of the message
 });
 
