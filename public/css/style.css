@@ -49,9 +49,13 @@ body {
     min-width: 5vw;
     font-size: 3vmin;
     border: 1px solid var(--user-bg-color);
+    box-shadow: inset 0px 0px 2px 0px #ccc;
+
     /* max-width: fit-content; */
 }
 .messageInputDiv{
+    position: relative;
+    bottom: 10px;
     align-items: center;
     /* padding-left: 0 !important; */
     display: flex;
@@ -61,9 +65,12 @@ body {
 }
 #editable-message-text {
     color: #666; /* Grey color for placeholder text */
+    border: none;
+
 }
 
 #editable-message-text:not(.editing):empty::before {
+    border: none;
     content: attr(aria-placeholder);
     color: #999; /* Light grey for placeholder */
 }
@@ -85,7 +92,10 @@ body {
     right: 0;
     /* top: -1px; */
     justify-content: space-between;
-
+    display: flex
+;
+    justify-content: space-between;
+    width: 93px;
     /* width: 100px; */
 }
 .btnPosition {
@@ -495,7 +505,7 @@ footer .fa {
     visibility: visible;
     bottom: -1px;
     right: -10px;
-    border: 10px solid transparent;
+    border: 12px solid transparent;
     border-bottom: 10px solid var(--user-bg-color);
   }
 
@@ -541,14 +551,134 @@ footer .fa {
   }
 
 
-  #messageMenu {
+#messageMenu {
     display: none; /* Hidden by default */
     position: absolute;
     background-color: var(--user-chat-bg-color);
     color: var(--user-chat-fg-color);
     border-radius: var(--user-border-radius);
-    border: 1px solid var(--user-bg-color);
+    border: 2px solid var(--user-bg-color);
     box-shadow: 1px 4px 8px rgba(0, 0, 0, 0.2);
     padding: 10px;
-    z-index: 100;
+    z-index: 9999;
+    max-width: 200px;
+
+}
+
+#messageMenu button{
+    color: var(--user-chat-fg-color);
+    background-color: var(--user-chat-bg-color);
+    padding: 10px;
+    border-radius: var(--user-border-radius);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    text-align: left;
+    z-index: 10;
+    max-width: 200px;
+    min-width: 10px;
+    margin-top: 2px;
+    transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
+}
+#messageMenu button:hover{
+    color: var(--user-fg-color);
+    background-color: var(--user-bg-color);
+    border: 3px solid #007bb5 !important;
+
+}
+.type{
+    color: var(--user-fg-color);
+    background-color: var(--user-bg-color);
+}
+
+#down {
+    position: fixed;
+    bottom: 20dvh;
+
+    background-color: var(--user-bg-color);
+    color: var(--user-fg-color);
+    border: none;
+    padding: 10px 15px;
+    border-radius: var(--user-border-radius);
+    cursor: pointer;
+    display: none; /* Hidden by default */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+    transition: opacity 0.3s ease-in-out;
+}
+#down:hover {
+    background-color: transparent;
+    border: 2px solid var(--user-bg-color);
+    color: var(--user-bg-color);
+    padding: 8px 13px;
+    
+}
+.read-toggle{
+    font-size: larger;
+}
+#replyBox {
+    border-radius: var(--user-border-radius);
+    color: var(--user-fg-color);
+    background: var(--user-bg-color);
+    opacity: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    backdrop-filter: blur(5px);
+    font-size: 0.9rem;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out, transform 0.3s ease-out; /* Transition for move up/down */
+    position: relative; /* Allows top positioning */
+}
+
+#replyBox.show {
+    position: relative;
+    bottom: 10px;
+    max-height: 500px; /* Set a max-height when visible */
+    opacity: 1;
+    transform: translateY(0); /* Reset vertical position */
+    align-items: stretch;
+}
+
+#replyBox.hide {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(100%); /* Move the box down */
+}
+
+
+#replyBox h6 {
+    margin: 0;
+    font-style: italic;
+    font-size: 14px;
+    text-align: start;
+}
+
+#replyBox div {
+    flex: 1;
+    margin-left: 10px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.form-inline{
+    margin-left: 30vw !important;
+    border-radius: 100vw;
+
+    background-color: var(--user-chat-bg-color);
+    margin-right: 30vw !important; 
+}
+/* Apply margin-left and margin-right for large screens */
+@media (min-width: 768px) {
+    .form-inline {
+        margin-left: 30vw !important;
+        margin-right: 30vw !important;
+    }
+}
+
+/* Reset margins for mobile devices */
+@media (max-width: 767px) {
+    .form-inline {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
 }

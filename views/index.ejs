@@ -71,25 +71,22 @@
             </div>
 
             <div id="messageMenu" >
-                Context Menu Content
+                <div class="messageMenuHeader"></div>
+                <div class="messageMenubody"></div>
             </div>
             <input id="username" type="hidden" value="<%= currentUser.username.trim() %>">
             <div id="feedback" class='p-3'></div>
             <button id="up" class="btn btn-warning m-2 text-white" onclick="scrollUp()"></i></button>
-
+            <button id="down" class="btn m-2" style="display: none; font-size: larger; " onclick="scrollDown()"><strong><i class="bi bi-arrow-down"></i></strong></button>
+            
         </div>
-        <div class='form-inline row' style='display:none'>
+        <div class='form-inline row m-5' style='display:none'>
                 <!-- reply -->
-
-            <div id="replyBox" class="reply-preview p-2 border" style="display: none;">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <strong id="replyHandle"></strong>
-                        <div id="replyMessage" class="text-muted"></div>
+                <div id="replyBox" class="mx-3 message hide " style=" align-items: center; justify-content: space-between; padding: 10px;  backdrop-filter: blur(5px);">
+                    <h6 style="margin: 0; font-style: italic; font-size: 14px; text-align: start;"></h6>
+                    <div style="flex: 1; margin-left: 10px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; " id="replyMessageContent">
                     </div>
-                    <button onclick="clearReply()" class="btn btn-sm btn-danger">X</button>
                 </div>
-            </div>
             <!-- ------------------ -->
             <div class="col-md-12 my-2 messageInputDiv" >
                 <div 
@@ -102,6 +99,7 @@
                 aria-label="Message" 
                 aria-placeholder="message ..."
                 autocomplete="off">
+                <div class="xMessageInput"></div>
                 </div>
             
                 <script>
@@ -134,19 +132,14 @@
                     setPlaceholder();
                 </script>
             
-                <div class="button-container">
-                    <div class="align-center" style="
-                    display: inline-flex;    justify-content: space-between;
-
-                ">
-                        <button class=" btn btn-outline-danger file-button col-md-6">
+                <div class="button-container g-3">
+                        <button class=" btn btn-outline-danger file-button ">
                             <input type="file" accept="" id="file-input">
                             <label class="input-label" for="file-input"><i class="fa fa-camera"></i></label>
-                            </button>
-                            <button class="btn btn-outline-primary send-button  col-md-6" type="submit" id="button">
+                        </button>
+                        <button class="btn btn-outline-primary send-button  " type="submit" id="button">
                                 <i class="fa fa-paper-plane"></i>
                         </button>
-                    </div>
                 </div>
             </div>
         </div>

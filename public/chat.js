@@ -417,29 +417,51 @@ const leaveRoom = () => {
 //=================================================================
 //emit chat event (send message)
 button.addEventListener("click", () => {
-    let text = message.innerHTML.trim();
-
-    // Replace block elements (e.g., paragraphs, divs, etc.) with newlines
+    const replyBox = document.getElementById('replyBox')
+    let quote = replyBox.getAttribute('reply-id') || null;
+    
+    let text = message.innerText;
+    // // Replace block elements (e.g., paragraphs, divs, etc.) with newlines
     // text = text.replace(/<\/?p>/g, '\n');  // Replace <p> and </p> with newline
     // text = text.replace(/<\/?div>/g, '\n');  // Replace <div> and </div> with newline
     // text = text.replace(/<br\s*\/?>/g, '\n');  // Replace <br> tags with newline
-
+    // // text = text.textContent;
+    console.log(text)
+    if(text == 'message ...'){
+        $("#alert")
+        .html(
+            `<div class='alert alert-danger' role='alert'>
+            message cannot be empty
+            </div>`,
+        )
+        .hide();
+    $("#alert").slideDown(500);
+    window.setTimeout(function () {
+        $(".alert")
+            .fadeTo(500, 0)
+            .slideUp(500, function () {
+                $(this).remove();
+            });
+    }, 3000);
+    return;
+    }
     const data = {
         username: currentUser.username,
         handle: name.textContent,
         roomID: roomID,
-        message: text,
+        quote:quote,
+        message: text ,
         files: fileData || null,
         date: new Date(),
     };
     console.log(data)
 
     
-    if (!data.message && !data.username && !data.files) {
+    if ((!data.message && !data.files) || !data.username ) {
         $("#alert")
                 .html(
                     `<div class='alert alert-danger' role='alert'>
-                       Room ID, sender, and message cannot be empty
+                       message cannot be empty
                     </div>`,
                 )
                 .hide();
@@ -588,7 +610,6 @@ socket.on("joined", (data) => {
     
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
-    messageMenu()
 });
 
 //=================================================================
@@ -656,7 +677,9 @@ socket.on("chat", (data) => {
     // showUp();
     // scroll();
     addMessageToChatUI(data)
-    scrollDown()
+    // $("#down").show(); // Show scroll-up button
+    messageMenu()
+
 });
 
 //=================================================================
@@ -668,7 +691,7 @@ socket.on("typing", (data) => {
         // Add a typing indicator if one doesn't already exist
         if (!$(`#typing-${username}`).length) {
             $("#feedback").append(
-                `<p id="typing-${username}" class="badge badge-info p-2 ml-2 type">
+                `<p id="typing-${username}" class="badge p-2 ml-2 type">
                     <em>${name} is typing ....</em>
                 </p>`
             );
@@ -749,6 +772,10 @@ const showUp = () => {
 
 // Scroll to the bottom of the chat window just once
 const scrollDown = () => {
+
+        // $("#down").show(); // Optionally show the scroll-down button
+        $("#down").fadeOut(); // hide scroll-up button
+  
         chat_window.scrollTo({
             top: chat_window.scrollHeight, // Scroll to the bottom
             behavior: "smooth",            // Smooth scrolling
@@ -799,7 +826,7 @@ const scrollToUnread = () => {
         });     }
         hasScrolledDown = true; // Set flag to true after scrolling down
     }
-    
+    $("#down").fadeOut(); // Show scroll-up button
 };
 
 
@@ -867,6 +894,7 @@ socket.on("restoreMessages", (data) => {
             console.error("Error adding message to chat UI:", { error, message, index });
             
         }
+
     });
     
     if (output.innerHTML==""|| data.messages.length < 20) {
@@ -940,7 +968,8 @@ socket.on("restoreMessages", (data) => {
         setTimeout(() => {
             scrollToUnread(); // Scroll to the first unread message
         },100); // Adjust delay time if necessary
-        });
+        messageMenu()
+    });
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
     // renderEmojis()
@@ -962,8 +991,13 @@ document.addEventListener("DOMContentLoaded", () => {
     headTag.style.border = `1px solid ${chatWindowFgColor}`
 
     if (savedSettings) {
-        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
+        document.documentElement.style.setProperty("--user-fg-color", savedSettings.fgColor);
+        document.documentElement.style.setProperty("--user-chat-bg-color", savedSettings.chatWindowBgColor);
+        document.documentElement.style.setProperty("--user-chat-fg-color", savedSettings.chatWindowFgColor);
+        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+        document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
     }
 });
 document.getElementById("settingsButton").addEventListener("click", () => {
@@ -1014,6 +1048,7 @@ socket.on("applySettings", (settings) => {
 
     localStorage.setItem("userSettings", JSON.stringify(settings));
     document.documentElement.style.setProperty("--user-bg-color", settings.bgColor);
+    document.documentElement.style.setProperty("--user-fg-color", settings.fgColor);
     document.documentElement.style.setProperty("--user-chat-bg-color", settings.chatWindowBgColor);
     document.documentElement.style.setProperty("--user-chat-fg-color", settings.chatWindowFgColor);
     document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
@@ -1047,8 +1082,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
 
     if (savedSettings) {
-        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
+        document.documentElement.style.setProperty("--user-fg-color", savedSettings.fgColor);
+        document.documentElement.style.setProperty("--user-chat-bg-color", savedSettings.chatWindowBgColor);
+        document.documentElement.style.setProperty("--user-chat-fg-color", savedSettings.chatWindowFgColor);
+        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+        document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
     }
 });
 
@@ -1077,7 +1117,15 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     const ownMessage = data.sender === currentUser.username;
-
+    data.message = data.message
+    .replace(/\n/g, '<br>') // Replace newlines with <br>
+    .replace(
+        /((https?:\/\/|www\.)[^\s<]+)/g, // Match URLs (starting with http, https, or www)
+        (url) => {
+            const href = url.startsWith('http') ? url : `https://${url}`; // Ensure href starts with http(s)
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        }
+    );
     const style = ownMessage
         ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius:${borderRad};`
         : `background-color:#333;color:white;font-size:${fontSize};border-radius:${borderRad};`;
@@ -1210,9 +1258,10 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
             ${ownMessage
                     ? `
-            <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor:pointer;text-align:right;font-size:0.8rem;color:${fgColor};border:none;background:none;">
-                <i class="bi bi-arrow-90deg-up"></i> Last seen
-            </button>`
+            <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor:pointer;text-align:right;color:${fgColor};border:none;background:none;">
+                <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>`:`<i class="bi bi-check2"></i>`}</strong>
+            </button>
+            `
             : ''}
            
         <div style="text-align:left;">
@@ -1256,9 +1305,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         if (dateToAdd) output.insertAdjacentHTML("beforeend", dateToAdd);
         if (unreadToAdd) output.insertAdjacentHTML("beforeend", unreadToAdd);
         output.insertAdjacentHTML("beforeend", contentToAdd);
-            setTimeout(() => {
-                scrollDown(); // Scroll to the first unread message
-            }, 500); // Adjust delay time if necessary
+          
     }
 
     // Reset file input and image
@@ -1283,10 +1330,8 @@ function toggleReactBtnVisibility(messageId, show) {
 function toggleStickerPicker(messageId) {
     console.log("Sticker picker toggled for message ID:", messageId);
     // Implement logic for showing/hiding sticker picker
-}
-// Function to toggle the emoji picker visibility
-function toggleStickerPicker(messageId) {
-    const stickerPicker = document.getElementById(`emoji-${messageId}`);
+
+    let stickerPicker = output.querySelector(`#emoji-${messageId}`);
     if (stickerPicker.classList.contains("show")) {
         stickerPicker.classList.remove("show");
         stickerPicker.classList.add("hide");
@@ -1390,8 +1435,9 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
 // Example usage within your socket event
 socket.on("readMessageUpdate", ({ id, readUsers }) => {
     const readInfoElement = document.querySelector(`#read-info-${id}`);
-
+    var toggleBtn = document.querySelector(`[read-data-id="${id}"]`);
     if (readInfoElement) {
+        toggleBtn.innerHTML=`<i class="bi bi-check2-all"></i>`
         // Update the read information for each read user
         readUsers.forEach((r) => {
             if (r.name !== name.textContent.trim().normalize('NFC')) {
@@ -1433,12 +1479,12 @@ function openReadedMessage(dataId) {
         // Check if the read info is visible and toggle it
         if (!infoDiv.classList.contains("visible")) {
             infoDiv.classList.add("visible");  // Show the read info
-            toggleBtn.innerHTML = `<i class="bi bi-x-lg"></i> Hide here`;  // Change button text
+            // toggleBtn.innerHTML = `<i class="bi bi-x-lg"></i> Hide here`;  // Change button text
             console.log('show')
             
         } else {
             infoDiv.classList.remove("visible"); // Hide the currently visible panel
-            toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Last seen`;  // Change button text
+            // toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Last seen`;  // Change button text
             console.log('hide')
         }
     }
@@ -1456,10 +1502,7 @@ document.addEventListener("click",()=> {
                     panel.classList.remove("visible"); // Hide the currently visible panel
                 } 
             });
-            
-            toggleBtn.forEach((toggleBtn) => {
-                toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Last seen`;  // Change button text
-            })
+      
         }
         
     }
@@ -1479,6 +1522,7 @@ document.addEventListener("click",()=> {
         }
         
     }
+    messageMenu()
 })
 // Function to open the image in a modal
 function openImage(imageSrc) {
@@ -1520,7 +1564,40 @@ function formatDate(dateString) {
     const day = String(date.getDate()-1).padStart(2, '0');  // Ensure two digits for day
     return `${year}-${month}-${day}`;
 }
+
+
+$(document).ready(function () {
+    let lastScrollTop = 0; // Keeps track of the last scroll position
+
+    $(chat_window).on("scroll", function () {
+        const currentScrollTop = $(this).scrollTop();
+
+        if (currentScrollTop < lastScrollTop) {
+            // User is scrolling up
+            $("#down").fadeIn(); // Show the button with a fade-in effect
+        } else {
+            // User is scrolling down
+            $("#down").fadeOut(); // Hide the button with a fade-out effect
+        }
+
+        lastScrollTop = currentScrollTop; // Update last scroll position
+    });
+
+    // Optional: Smooth scroll to the top when the button is clicked
+    $("#down").on("click", function () {
+        $("html, body").animate({ scrollTop: 0 }, "slow");
+    });
+});
+
 chat_window.addEventListener("scroll", () => {
+
+    // if (chat_window.scrollHeight > chat_window.clientHeight) {
+    //     $("#down").fadeIn(); // Show scroll-up button
+    // }else{
+        
+    //     $("#down").fadeOut(); // Show scroll-up button
+    //     // $("#down").show(); // Optionally show the scroll-down button
+    // };
     const visibleMessages = [];
     const messages = document.querySelectorAll(".messageRead"); // Class of each message div
     const firstMessage = document.querySelectorAll(".firstMessgae")[0]; // Class of each message div
@@ -1585,12 +1662,64 @@ chat_window.addEventListener("scroll", () => {
       
 });
 // _______________reply____________________
+function replyMessage(messageId) {
+    // Select the message element
+    const messageElement = document.querySelector(`#Message-${messageId}`);
+    
+    // Extract sender and message content
+    const sender = messageElement.querySelector('h6').textContent.trim();
+    const messageContent = messageElement.querySelector('div[dir="auto"]').textContent.trim();
+
+    // Construct the reply box content
+    const replyBox = document.getElementById('replyBox');
+    replyBox.innerHTML = `
+        <h5><i style="    font-size: x-large;" class="bi bi-reply"></i> Reply message : </h5>
+
+        <div style='display: flex;flex-direction: row;    justify-content: space-between;'>
+            <h6 style="margin: 0; font-style: italic; font-size: 0.9rem; text-align: start;">${sender}</h6>
+           
+        <div class="mx-5" style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+            ${messageContent}
+        </div>
+         <button onclick="clearReply()" class="btn btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
+        </div>
+        <hr>
+
+    `;
+    replyBox.setAttribute('reply-id', messageId);
+    // Apply styling for blur background
+    replyBox.style.display = 'flex';
+    replyBox.style.alignItems = 'center';
+    replyBox.style.justifyContent = 'space-between';
+    replyBox.style.padding = '10px';
+    // replyBox.style.borderRadius = '8px';
+    // replyBox.style.background = 'rgba(0, 0, 0, 0.1)';
+    replyBox.style.backdropFilter = 'blur(5px)';
+    toggleReplyBox(true);
+
+}
 
 
 function clearReply() {
     const replyBox = document.getElementById("replyBox");
-    replyBox.innerHTML = ""; // Clear the reply preview
+    toggleReplyBox(false)
+    setTimeout(() => {
+        replyBox.innerHTML = ""; // Clear innerHTML after 300ms (adjust the time as needed)
+    }, 300);  // This delay should match your CSS transition time    
+    // replyBox.style.display = 'none';
+
     delete replyBox.dataset.replyId; // Remove the reply id
+}
+function toggleReplyBox(isVisible) {
+    const replyBox = document.getElementById('replyBox');
+    
+    if (isVisible) {
+        replyBox.classList.remove('hide');
+        replyBox.classList.add('show');
+    } else {
+        replyBox.classList.remove('show');
+        replyBox.classList.add('hide');
+    }
 }
 
 function uploadImage() {
@@ -1617,27 +1746,63 @@ function uploadImage() {
 function messageMenu() {
     const elements = output.querySelectorAll(".messageElm");
     const menu = document.getElementById("messageMenu");
+    const header = menu.querySelector('.messageMenuHeader')
+    const body = menu.querySelector('.messageMenubody')
 
-    console.log(elements);
+    
+    // console.log(elements);
     elements.forEach(element => {
         // Add click and right-click event listeners
         element.addEventListener("click", (event) => {
-            openMenu(event, menu, element.id); // Pass the clicked element's ID
+            openMenu(event, menu, element); // Pass the clicked element's ID
         });
 
         element.addEventListener("contextmenu", (event) => {
             event.preventDefault(); // Prevent the default right-click context menu
-            openMenu(event, menu, element.id); // Pass the clicked element's ID
+            openMenu(event, menu, element); // Pass the clicked element's ID
         });
     });
 
     // Function to open the menu at the cursor position
-    function openMenu(event, menu, elementId) {
-        menu.innerHTML=elementId
+    function openMenu(event, menu, element) {
+        let messageId = (element.id).split('-')[1]
+        let readInfo = element.querySelector('.read-info') ?? ''
+        header.innerHTML= readInfo.innerHTML || null
+        let emojiDiv = `
+        <button id="reactBtn-${messageId}" class="btn reactBtn visible col-md-12" onclick="toggleStickerPicker(${messageId})">
+        <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
+        Add reaction
+        </button>
+        `
+        body.innerHTML=`
+         <button dir="auto" id="reply-${messageId}" class="btn visible col-md-12" >
+            <i class="bi bi-reply"></i>
+            Reply message
+        </button>
+         <button dir="auto" id="copyMessage-${messageId}" class="btn visible col-md-12" >
+            <i class="bi bi-copy"></i>
+            Copy message
+        </button>
+        `
+        body.innerHTML+=emojiDiv
+        document.getElementById(`reply-${messageId}`).addEventListener("click",()=>{
+            // Copy the innerHTML to the clipboard
+            replyMessage(messageId);
+        })
+        document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
+            // Copy the innerHTML to the clipboard
+            copyToClipboard(element.querySelector('.mess').textContent.trim());
+
+            // Optional: Provide user feedback (e.g., show a success message)
+            alerting("Message copied to clipboard!");
+        })
+        body.addEventListener("click",()=>{
+            menu.style.display = "none";
+        })
         menu.style.display = "block";
         menu.style.left = `${event.pageX}px`; // Position menu at cursor's X position
         menu.style.top = `${event.pageY}px`;  // Position menu at cursor's Y position
-        console.log("Clicked element ID:", elementId); // Log the clicked element's ID
+        // console.log("Clicked element ID:", element.id); // Log the clicked element's ID
     }
 
     // Close the menu when clicking anywhere else
@@ -1646,5 +1811,14 @@ function messageMenu() {
             menu.style.display = "none";
         }
     });
+}
+// Helper function to copy text to the clipboard
+function copyToClipboard(text) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
 }
 

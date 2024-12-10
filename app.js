@@ -144,7 +144,7 @@ app.get("/", middleware.isLoggedIn, (req, res) => {
 });
 
 app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
-    const roomID = req.params.id;
+    const roomID = DOMPurify.sanitize(req.params.id);
 
     try {
         // Find the room using Mongoose's Model.findOne() method
@@ -171,7 +171,7 @@ app.get("/login", (req, res) => {
 // Using async/await properly for login and handling redirects
 app.post("/login", async (req, res, next) => {
     try {
-        const user = await User.findByUsername(req.body.username);
+        const user = await User.findByUsername(DOMPurify.sanitize(req.body.username));
         if (!user) {
             return res.redirect("/login");
         }
@@ -219,6 +219,26 @@ app.post("/login", async (req, res, next) => {
 app.post("/register", (req, res) => {
     // phoneVal(req.body.username,res)
     const newUser = new User({
+        username: DOMPurify.sanitize(req.body.username),
+        first_name: DOMPurify.sanitize(req.body.first_name),
+        last_name: DOMPurify.sanitize(req.body.last_name),
+        password: DOMPurify.sanitize(req.body.password),
+        pic: DOMPurify.sanitize(req.body.pic)
+    });
+
+    User.register(newUser, req.body.password, (error, user) => {
+        if (error) {
+            console.log(error.message);
+            return res.redirect("/");
+        }
+        passport.authenticate("local")(req, res, function () {
+            res.redirect("/");
+        });
+    });
+});
+app.post("/upload", (req, res) => {
+    // phoneVal(req.body.username,res)
+    const newUser = new User({
         username: req.body.username,
         first_name: req.body.first_name,
         last_name: req.body.last_name,
@@ -258,7 +278,7 @@ app.post("/register", (req, res) => {
 // Fetch Messages for Display
 app.get("/messages/:roomId", async (req, res) => {
     try {
-        const { roomId } = req.params;
+        const { roomId } = DOMPurify.sanitize(req.params);
 
         // Fetch messages for the given room ID
         const messages = await Message.find({ roomID: roomId }).sort({ createdAt: 1 });
@@ -710,7 +730,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("chat", async (data) => {
         try {
-            const { username, message, files } = data;
+            const { username, message, files , quote } = data;
             let fileDetails = null;
 
             if (files !== null && files !== undefined) {
@@ -753,6 +773,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 id: `${currentUser.roomID}-${updatedCounter}`,  // ID format: roomID-auto-increment number
                 roomID: currentUser.roomID,
                 sender: username,
+                quote: `${currentUser.roomID}-${quote}`,
                 message: clean ? clean : null,
                 file: fileDetails, // Map over the uploaded files to structure them correctly
                 read: [],
