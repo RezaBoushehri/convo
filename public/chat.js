@@ -1,8 +1,8 @@
 
 // const socket = io.connect(window.location.hostname),
 const production = false;
-const href = production ? window.location.hostname : "localhost",
-    socket = io.connect(`https://${href}:4000`, {
+const href = production ? window.location.hostname : "172.16.28.166",
+    socket = io.connect(`https://172.16.28.166:4000`, {
         transports: ['polling', "websocket"],
         secure: true,
         withCredentials: false, // Ensures cookies are sent along with requests
@@ -29,6 +29,7 @@ const href = production ? window.location.hostname : "localhost",
         useWebWorker: true,
         fileType: "",
     };
+
 const roomID = document.querySelector("#roomID").textContent.trim()
 if (roomID != "") {
     socket.emit("joinRoom",({ 
@@ -128,9 +129,9 @@ function emoji(messageId) {
     return emojiDiv;
 }
 // Call Twemoji to render the emojis after the DOM is ready
-function renderEmojis() {
-    twemoji.parse(document.body);  // This will replace all emojis with Twemoji images
-}
+// function renderEmojis() {
+//     twemoji.parse(document.body);  // This will replace all emojis with Twemoji images
+// }
 
 // Now, parse the emojiContainer to replace the emoji characters with Twemoji images
 // twemoji.parse(emojiContainer);
@@ -587,6 +588,7 @@ socket.on("joined", (data) => {
     
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
+    messageMenu()
 });
 
 //=================================================================
@@ -941,7 +943,7 @@ socket.on("restoreMessages", (data) => {
         });
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
-    renderEmojis()
+    // renderEmojis()
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
     const fontSize = savedSettings?.fontSize || "16px";
@@ -1012,7 +1014,10 @@ socket.on("applySettings", (settings) => {
 
     localStorage.setItem("userSettings", JSON.stringify(settings));
     document.documentElement.style.setProperty("--user-bg-color", settings.bgColor);
+    document.documentElement.style.setProperty("--user-chat-bg-color", settings.chatWindowBgColor);
+    document.documentElement.style.setProperty("--user-chat-fg-color", settings.chatWindowFgColor);
     document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
+    document.documentElement.style.setProperty("--user-border-radius", settings.borderRad);
 });
 document.getElementById("resetSettings").addEventListener("click", () => {
     if(confirm("Are u sure ? (It may delete all customized setting.)")){
@@ -1052,12 +1057,17 @@ let headTagVal = null;
 let lastProcessedDate = null;
 let ProcessedDate = null;
 const messagesCreated=[]
+const messagesCreatedHandler=[]
+
+
+
 function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     if(messagesCreated.includes(data.id)) return
     let contentToAdd = "";
     let dateToAdd = "";
     let unreadToAdd = "";
     messagesCreated.push(data.id)
+    messagesCreatedHandler.push(data.sender)
     let messageId = data.id
     messageId = (data.id).split("-")[1];
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
@@ -1066,7 +1076,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     const borderRad = savedSettings?.borderRad || "5px";
     const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
-    const ownMessage = data.handle.normalize('NFC') === name.textContent.trim().normalize('NFC');
+    const ownMessage = data.sender === currentUser.username;
 
     const style = ownMessage
         ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius:${borderRad};`
@@ -1141,6 +1151,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         </button>
         `
 
+
     contentToAdd += `
     <div style="${divStyle}">
     </div>
@@ -1152,8 +1163,8 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
             </div>`
             :''}
              
-        <div style="${style}" class="message mess p-2 mr-1 m-2 col-md-6">
-            <h6 style="font-style:italic;text-align:end;">${data.handle}</h6>
+        <div style="${style}" class=" ${ownMessage? `right_box `:`left_box `}message mess p-2 mr-1 m-2 col-md-6">
+            <h6 style="font-style:italic;text-align:end;">${ownMessage ? `Me`: data.handle}</h6>
             ${data.file && data.file!==null ? data.file.map(file => `
                 <!-- Thumbnail Display -->
                 ${file.fileType.startsWith("image/") ? `
@@ -1527,7 +1538,7 @@ chat_window.addEventListener("scroll", () => {
             headTag.innerHTML = dateElem.innerHTML; // Set the head tag's content to the current date element
         }
     });
-    
+        if( firstMessage.getAttribute('data-id')){
         let firstMessageId = firstMessage.getAttribute('data-id');
         firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
         const threshold = 50; // Proximity in pixels to the top of the viewport
@@ -1552,7 +1563,7 @@ chat_window.addEventListener("scroll", () => {
                 }
             
             }
-    
+        }
     // Iterate through messages to find visible ones (if needed)
     messages.forEach((message) => {
         const rect = message.getBoundingClientRect();
@@ -1599,5 +1610,41 @@ function uploadImage() {
     } else {
         console.log("No file selected.");
     }
+}
+
+// =========================================================================
+// message menu
+function messageMenu() {
+    const elements = output.querySelectorAll(".messageElm");
+    const menu = document.getElementById("messageMenu");
+
+    console.log(elements);
+    elements.forEach(element => {
+        // Add click and right-click event listeners
+        element.addEventListener("click", (event) => {
+            openMenu(event, menu, element.id); // Pass the clicked element's ID
+        });
+
+        element.addEventListener("contextmenu", (event) => {
+            event.preventDefault(); // Prevent the default right-click context menu
+            openMenu(event, menu, element.id); // Pass the clicked element's ID
+        });
+    });
+
+    // Function to open the menu at the cursor position
+    function openMenu(event, menu, elementId) {
+        menu.innerHTML=elementId
+        menu.style.display = "block";
+        menu.style.left = `${event.pageX}px`; // Position menu at cursor's X position
+        menu.style.top = `${event.pageY}px`;  // Position menu at cursor's Y position
+        console.log("Clicked element ID:", elementId); // Log the clicked element's ID
+    }
+
+    // Close the menu when clicking anywhere else
+    output.addEventListener("click", (event) => {
+        if (!menu.contains(event.target)) {
+            menu.style.display = "none";
+        }
+    });
 }
 

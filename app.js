@@ -699,7 +699,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
         return {
             ...msg,
-            sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+            // sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
             handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
             readUsers,
             readLine: false, // Mark unread messages with a readLine
@@ -764,7 +764,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             // Enrich the message with sender details
             const enrichedMessage = {
                 ...newMessage.toObject(),
-                sender: `${currentUser.first_name} ${currentUser.last_name}`,
+                sender: username,
                 handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
     

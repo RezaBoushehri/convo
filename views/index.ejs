@@ -69,6 +69,10 @@
             <div id="headTag" dir="auto" style=" text-align: center;" ></div>
             <div id="output" class="p-3 container">
             </div>
+
+            <div id="messageMenu" >
+                Context Menu Content
+            </div>
             <input id="username" type="hidden" value="<%= currentUser.username.trim() %>">
             <div id="feedback" class='p-3'></div>
             <button id="up" class="btn btn-warning m-2 text-white" onclick="scrollUp()"></i></button>
@@ -90,7 +94,7 @@
             <div class="col-md-12 my-2 messageInputDiv" >
                 <div 
                 id="editable-message-text" 
-                class="form-control allow-selection flexible-div col-md-12" 
+                class="form-control allow-selection flexible-div " 
                 contenteditable="true" 
                 role="textbox" 
                 dir="auto" 

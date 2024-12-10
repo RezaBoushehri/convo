@@ -48,6 +48,7 @@ body {
     max-width: max-content;
     min-width: 5vw;
     font-size: 3vmin;
+    border: 1px solid var(--user-bg-color);
     /* max-width: fit-content; */
 }
 .messageInputDiv{
@@ -55,6 +56,7 @@ body {
     /* padding-left: 0 !important; */
     display: flex;
     justify-content: space-between;
+    
 
 }
 #editable-message-text {
@@ -411,25 +413,28 @@ footer .fa {
     color: #ccc;
     background-color: #fff;
     padding: 10px;
-
+    border-radius: var(--user-border-radius);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     text-align: left;
     z-index: 10;
     max-width: 200px;
     min-width: 10px;
+    margin-top: 2px;
     transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
     visibility: hidden; /* Hide initially without display:none for smooth transitions */
 }
 .reactBtn:hover{
     color: #ccc;
     padding: 10px;
+    border-radius: var(--user-border-radius);
     background-color: #fff;
     box-shadow: 0px 0px 0px 0px;
     border: 3px solid #007bb5 !important;
 
-
 }
 .reactBtn.visible {
+    border-radius: var(--user-border-radius);
+
     opacity: 1; /* Fully visible */
     visibility: visible; /* Make visible for the transition */
 }
@@ -437,7 +442,9 @@ footer .fa {
     /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); */
     border: 3px solid #ccc;
     background-color: #ffffff !important;
-    border-radius: 10px;
+    backdrop-filter: blur(10px); /* Blur the background behind the element */
+
+    border-radius: var(--user-border-radius);
     padding: 10px;
     cursor: default;
 
@@ -470,4 +477,78 @@ footer .fa {
 
 .emoji:hover {
     animation: bounce 0.5s ease infinite;
+}
+
+.right_box {
+    position: relative;
+    text-align: right;
+    
+    padding: 10px 15px;
+    border-radius: 6px;
+    float: right;
+    right: 20px;
+  }
+
+  .right_box::before {
+    content: '';
+    position: absolute;
+    visibility: visible;
+    bottom: -1px;
+    right: -10px;
+    border: 10px solid transparent;
+    border-bottom: 10px solid var(--user-bg-color);
+  }
+
+  .right_box::after {
+    content: '';
+    position: absolute;
+    visibility: visible;
+    bottom: 0px;
+    right: -8px;
+    border: 10px solid transparent;
+    border-bottom: 10px solid var(--user-bg-color);
+    clear: both;
+  }
+.left_box {
+    position: relative;
+    text-align: left;
+   
+    padding: 10px 15px;
+    border-radius: 6px;
+    float: left;
+    left: 20px;
+  }
+
+  .left_box::before {
+    content: '';
+    position: absolute;
+    visibility: visible;
+    bottom: -1px;
+    left: -11px;
+    border: 10px solid transparent;
+    border-bottom: 10px solid var(--user-bg-color);
+  }
+
+  .left_box::after {
+    content: '';
+    position: absolute;
+    visibility: visible;
+    bottom: 0px;
+    left: -11px;
+    border: 10px solid transparent;
+    border-bottom: 10px solid #333333;
+    clear: both;
+  }
+
+
+  #messageMenu {
+    display: none; /* Hidden by default */
+    position: absolute;
+    background-color: var(--user-chat-bg-color);
+    color: var(--user-chat-fg-color);
+    border-radius: var(--user-border-radius);
+    border: 1px solid var(--user-bg-color);
+    box-shadow: 1px 4px 8px rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    z-index: 100;
 }
