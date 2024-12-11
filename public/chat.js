@@ -419,15 +419,13 @@ const leaveRoom = () => {
 button.addEventListener("click", () => {
     const replyBox = document.getElementById('replyBox')
     let quote = replyBox.getAttribute('reply-id') || null;
-    let text = message.innerHTML; // Get the HTML content
+    let text = message.innerText; // Get the HTML content
 
     // Sanitize the input to remove potentially dangerous content
     text = DOMPurify.sanitize(text);
     
     // Replace <br> and other elements if needed
-    text = text.replace(/<\/?p>/g, '\n')
-               .replace(/<\/?div>/g, '\n')
-               .replace(/<br\s*\/?>/g, '\n');
+    text = escapeHtml(text)
     
     console.log(text);
     
@@ -585,10 +583,10 @@ socket.on("joined", (data) => {
     console.log("User joined room:", data);
 
     // Ensure required fields exist
-    if (!data.room || !data.room.roomID || !data.room.admin) {
-        console.error("Invalid data received in 'joined' event:", data);
-        return;
-    }
+    // if (!data.room || !data.room.roomID || !data.room.admin) {
+    //     console.error("Invalid data received in 'joined' event:", data);
+    //     return;
+    // }
 
     document.querySelector(".close").click();
     document.querySelector("#roomInfo").innerHTML = `
@@ -596,7 +594,7 @@ socket.on("joined", (data) => {
             <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
                 title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
                 Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
-                Admin : <em class='text-warning'>${data.room.admin}</em>
+                Admin : <em class='text-warning'>${data.name}</em>
             </button>
             <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
             <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
@@ -1225,7 +1223,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
                 <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
                     ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}
                 </h6>
-                <p class="px-2" dir="auto">${escapeHtml(data.reply.message)}</p>
+                <p class="px-2" dir="auto">${(data.reply.message)}</p>
                 </div>`:''}
             
             ${data.file && data.file!==null ? data.file.map(file => `
@@ -1269,7 +1267,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
             `).join('') : ""}
             
             
-                <p class="" dir="auto">${escapeHtml(data.message)}</p>
+                <p class="" dir="auto">${(data.message)}</p>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
             ${ownMessage
                     ? `
@@ -1695,7 +1693,7 @@ function replyMessage(messageId) {
         <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row;    justify-content: space-between;'>
             <h6 style="margin: 0; font-style: italic; font-size: 0.9rem; text-align: start;">${sender}</h6>
             <div  style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                ${escapeHtml(messageContent)}
+                ${(messageContent)}
             </div>
             </div>
             <button onclick="clearReply()" class="btn btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
@@ -1832,11 +1830,27 @@ function messageMenu() {
 }
 // Helper function to copy text to the clipboard
 function copyToClipboard(text) {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
+    // Create a temporary textarea element to copy the HTML content
+    const textarea = document.createElement('textarea');
+    
+    // Set the value of the textarea to the HTML content you want to copy
+    textarea.value = escapeHtml(text);
+
+    // Append the textarea to the body (it's required for copy command to work)
     document.body.appendChild(textarea);
+
+    // Select the content in the textarea
     textarea.select();
-    document.execCommand("copy");
+
+    // Execute the copy command to copy the selected content
+    try {
+        // Use the Clipboard API to copy the content to clipboard
+        document.execCommand('copy');
+    } catch (err) {
+        console.error('Error copying text: ', err);
+    }
+
+    // Remove the temporary textarea element from the DOM
     document.body.removeChild(textarea);
 }
 

@@ -2,7 +2,7 @@ html,
 body {
     background-color: #232323;
     overflow-y: auto;
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
     height: 100%;
     text-align: unset;
 }
@@ -110,12 +110,21 @@ body {
 .button-container {
     right: 0;
     /* top: -1px; */
-    justify-content: space-between;
-    display: flex
-;
-    justify-content: space-between;
+    justify-content: center;
+    display: flex;
+    color: var(--user-chat-fg-color) ;
     width: 93px;
     /* width: 100px; */
+}
+.button-container button{
+
+    color: var(--user-chat-fg-color) ;
+
+}
+.button-container .input-label{
+
+    color: var(--user-chat-fg-color) ;
+
 }
 .btnPosition {
     /* position: absolute;
@@ -724,16 +733,16 @@ footer .fa {
     --bar-gradient: var(--color-peer-gradient-1);
     --accent-background-color: var(--color-peer-bg-1, var(--hover-color));
     --accent-background-active-color: var(--color-peer-bg-active-1, var(--active-color));
-    border-right: 4px solid #ffffff;
-    /* outline: 0.025rem solid var(--user-chat-fg-color); */
+    border-left: 4px solid #ffffff;
+    outline: 0.025rem solid var(--user-chat-fg-color);
 }
 .peer-color-1 {
     --accent-color: var(--color-peer-1, var(--color-text));
     --bar-gradient: var(--color-peer-gradient-1);
     --accent-background-color: var(--color-peer-bg-1, var(--hover-color));
     --accent-background-active-color: var(--color-peer-bg-active-1, var(--active-color));
-    border-right: 4px solid var(--user-bg-color);
-    /* outline: 0.025rem solid var(--user-chat-fg-color); */
+    border-left: 4px solid var(--user-bg-color);
+    outline: 0.025rem solid var(--user-chat-fg-color);
 }
 .replyMessage {
     overflow: scroll; /* Keep scrolling enabled */

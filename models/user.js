@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
         chatWindowBgColor: { type: String, default: "#434343" },
         chatWindowFgColor: { type: String, default: "#ffffff" },
         fontSize: { type: String, default: "16px" },
-        borderRad: { type: String, default: "5px" },
+        borderRad: { type: String, default: "10px" },
     },
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 

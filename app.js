@@ -457,8 +457,9 @@ io.on("connection", (socket) => {
     
         await room.save(); // Save the room to the database
     
-        const data = { handle: handle, room: room };
-    
+        const userRead = await User.findOne({ username: handle }).select("first_name last_name").lean();
+        const data = { name:`${userRead.first_name} ${userRead.last_name}`, handle: handle, room: room };
+
         socket.join(room.roomID); // Add the socket to the room
         
         // Add the user to the room
@@ -534,7 +535,7 @@ io.on("connection", (socket) => {
             console.log(`User ${username} is trying to join room ${roomID}`);
     
             // Ensure the room exists
-            const room = await Room.findOne({ roomID:roomID });
+            let room = await Room.findOne({ roomID:roomID });
             if (!room) throw new Error(`Room "${roomID}" does not exist`);
     
             await addUserToRoom(username, roomID);
@@ -575,11 +576,12 @@ io.on("connection", (socket) => {
             // Emit user settings
             socket.emit("applySettings", user.settings);
     
+            const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();
             // Notify others
             socket.broadcast.to(roomID).emit("userJoined", { username, roomID });
     
-            socket.emit("joined", { room });
-    
+
+            socket.emit("joined", { room , name : `${userRead.first_name} ${userRead.last_name}` });
           
     
         } catch (error) {
@@ -718,7 +720,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         );
         let replyMessage;
         if(msg.quote !== null){
-            console.log(msg)
+            // console.log(msg)
             replyMessage = await Message.findOne({ id: msg.quote }).select("sender message file").lean();
             const replyname = replyMessage ? await User.findOne({ username: replyMessage.sender }).select("first_name last_name").lean():'';
             replyMessage = {
@@ -758,7 +760,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                     }))
                     : null;  // If no files, return null
             
-                console.log(fileDetails);
+                // console.log(fileDetails);
             }else{
                 
                 console.log("erorr : ",files);
@@ -791,7 +793,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 read: [],
                 timestamp,
             });
-            console.log("message : ",newMessage.file)
+            // console.log("message : ",newMessage.file)
             await newMessage.save();
     
             // Enrich the message with sender details
