@@ -712,13 +712,25 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                     name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
                     reaction: readEntry.reaction ? readEntry.reaction :'' ,
                     time: readEntry.time,
-
+                    
                 };
             })
         );
-    
+        let replyMessage;
+        if(msg.quote !== null){
+            console.log(msg)
+            replyMessage = await Message.findOne({ id: msg.quote }).select("sender message file").lean();
+            const replyname = replyMessage ? await User.findOne({ username: replyMessage.sender }).select("first_name last_name").lean():'';
+            replyMessage = {
+                ...replyMessage,
+                handle: replyname ? `${replyname.first_name} ${replyname.last_name}` : null,
+
+            }
+            // console.log("reply: ",replyMessage)
+        }
         return {
             ...msg,
+            reply: replyMessage||null,
             // sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
             handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
             readUsers,
@@ -773,7 +785,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 id: `${currentUser.roomID}-${updatedCounter}`,  // ID format: roomID-auto-increment number
                 roomID: currentUser.roomID,
                 sender: username,
-                quote: `${currentUser.roomID}-${quote}`,
+                quote: quote ? `${currentUser.roomID}-${quote}`:null,
                 message: clean ? clean : null,
                 file: fileDetails, // Map over the uploaded files to structure them correctly
                 read: [],
@@ -783,14 +795,14 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             await newMessage.save();
     
             // Enrich the message with sender details
-            const enrichedMessage = {
+            let enrichedMessage = {
                 ...newMessage.toObject(),
                 sender: username,
-                handle: `${currentUser.first_name} ${currentUser.last_name}`,
+                // handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
-    
+            console.log(await processMessage(enrichedMessage))
             // Broadcast the message to the room
-            io.in(currentUser.roomID).emit("chat", enrichedMessage);
+            io.in(currentUser.roomID).emit("chat",await processMessage(enrichedMessage));
     
             console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
         // }

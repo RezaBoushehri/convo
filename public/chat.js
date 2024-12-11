@@ -419,15 +419,19 @@ const leaveRoom = () => {
 button.addEventListener("click", () => {
     const replyBox = document.getElementById('replyBox')
     let quote = replyBox.getAttribute('reply-id') || null;
+    let text = message.innerHTML; // Get the HTML content
+
+    // Sanitize the input to remove potentially dangerous content
+    text = DOMPurify.sanitize(text);
     
-    let text = message.innerText;
-    // // Replace block elements (e.g., paragraphs, divs, etc.) with newlines
-    // text = text.replace(/<\/?p>/g, '\n');  // Replace <p> and </p> with newline
-    // text = text.replace(/<\/?div>/g, '\n');  // Replace <div> and </div> with newline
-    // text = text.replace(/<br\s*\/?>/g, '\n');  // Replace <br> tags with newline
-    // // text = text.textContent;
-    console.log(text)
-    if(text == 'message ...'){
+    // Replace <br> and other elements if needed
+    text = text.replace(/<\/?p>/g, '\n')
+               .replace(/<\/?div>/g, '\n')
+               .replace(/<br\s*\/?>/g, '\n');
+    
+    console.log(text);
+    
+    if(text == 'message ...'&& !fileData){
         $("#alert")
         .html(
             `<div class='alert alert-danger' role='alert'>
@@ -450,11 +454,11 @@ button.addEventListener("click", () => {
         handle: name.textContent,
         roomID: roomID,
         quote:quote,
-        message: text ,
+        message: text == 'message ...' ?' ': text,
         files: fileData || null,
         date: new Date(),
     };
-    console.log(data)
+    // console.log(data)
 
     
     if ((!data.message && !data.files) || !data.username ) {
@@ -480,14 +484,15 @@ button.addEventListener("click", () => {
     Sending
     <img src="../svg/threeDotsLoopTransparency.svg" alt="Sending..." style="width:24px;height:24px;margin-right:10px;" />
     </div>`;
-    scrollDown()
     // Send message to server
     socket.emit("chat", data);
-
+    
     // Clear input fields
     message.innerHTML = "";
+    message.style.height = "36px";
+    
     fileData = "";
-
+    clearReply()
     // Add listener for server acknowledgment
     socket.on("chat", (response) => {
         if (response.error) {
@@ -495,16 +500,18 @@ button.addEventListener("click", () => {
             document.getElementById("sending-placeholder").remove(); // Remove placeholder if there's an error
             return;
         }
-
+        
         // Remove "sending" placeholder once the message is successfully added to the UI
         document.getElementById("sending-placeholder").remove();
-
+        
         // // Add the message to the UI
         // addMessageToChatUI(response);
     });
-});
+    setTimeout(() => {
+        scrollDown(); // Scroll to the first unread message
+    },100); // Adjust delay time if necessary});
 
-
+})
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
 let typeUsername = currentUser.username;
@@ -982,8 +989,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     document.getElementById("chat-window").style.backgroundColor = chatWindowBgColor
     document.getElementById("chat-window").style.color = chatWindowFgColor
-    document.getElementById("editable-message-text").style.backgroundColor = bgColor
-    document.getElementById("editable-message-text").style.color = fgColor
+    // document.getElementById("editable-message-text").style.backgroundColor = bgColor
+    // document.getElementById("editable-message-text").style.color = fgColor
     document.getElementById("editable-message-text").style.borderRadius = borderRad
     headTag.style.fontSize = fontSize+"px"
     headTag.style.color = chatWindowFgColor
@@ -1123,9 +1130,10 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         /((https?:\/\/|www\.)[^\s<]+)/g, // Match URLs (starting with http, https, or www)
         (url) => {
             const href = url.startsWith('http') ? url : `https://${url}`; // Ensure href starts with http(s)
-            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+            return `<a href="https://href.li/?${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
         }
     );
+
     const style = ownMessage
         ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius:${borderRad};`
         : `background-color:#333;color:white;font-size:${fontSize};border-radius:${borderRad};`;
@@ -1212,7 +1220,14 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
             :''}
              
         <div style="${style}" class=" ${ownMessage? `right_box `:`left_box `}message mess p-2 mr-1 m-2 col-md-6">
-            <h6 style="font-style:italic;text-align:end;">${ownMessage ? `Me`: data.handle}</h6>
+            <h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">${ownMessage ? `Me`: data.handle}</h6>
+            ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}">
+                <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
+                    ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}
+                </h6>
+                <p class="px-2" dir="auto">${escapeHtml(data.reply.message)}</p>
+                </div>`:''}
+            
             ${data.file && data.file!==null ? data.file.map(file => `
                 <!-- Thumbnail Display -->
                 ${file.fileType.startsWith("image/") ? `
@@ -1254,7 +1269,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
             `).join('') : ""}
             
             
-            <div dir="auto">${data.message}</div>
+                <p class="" dir="auto">${escapeHtml(data.message)}</p>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
             ${ownMessage
                     ? `
@@ -1569,13 +1584,14 @@ function formatDate(dateString) {
 $(document).ready(function () {
     let lastScrollTop = 0; // Keeps track of the last scroll position
 
+    // Attach scroll event listener to the chat window
     $(chat_window).on("scroll", function () {
         const currentScrollTop = $(this).scrollTop();
 
         if (currentScrollTop < lastScrollTop) {
             // User is scrolling up
             $("#down").fadeIn(); // Show the button with a fade-in effect
-        } else {
+        } else if (currentScrollTop > lastScrollTop) {
             // User is scrolling down
             $("#down").fadeOut(); // Hide the button with a fade-out effect
         }
@@ -1583,11 +1599,12 @@ $(document).ready(function () {
         lastScrollTop = currentScrollTop; // Update last scroll position
     });
 
-    // Optional: Smooth scroll to the top when the button is clicked
+    // Smooth scroll to the bottom when the button is clicked
     $("#down").on("click", function () {
-        $("html, body").animate({ scrollTop: 0 }, "slow");
+        $(chat_window).animate({ scrollTop: $(chat_window)[0].scrollHeight }, "slow");
     });
 });
+
 
 chat_window.addEventListener("scroll", () => {
 
@@ -1668,21 +1685,20 @@ function replyMessage(messageId) {
     
     // Extract sender and message content
     const sender = messageElement.querySelector('h6').textContent.trim();
-    const messageContent = messageElement.querySelector('div[dir="auto"]').textContent.trim();
+    const messageContent = messageElement.querySelector('p[dir="auto"]').textContent.trim();
 
     // Construct the reply box content
     const replyBox = document.getElementById('replyBox');
     replyBox.innerHTML = `
-        <h5><i style="    font-size: x-large;" class="bi bi-reply"></i> Reply message : </h5>
+        <h5 style="font-style: italic; font-size: 0.6rem;"><i class="bi bi-reply"></i> Reply message : </h5>
 
-        <div style='display: flex;flex-direction: row;    justify-content: space-between;'>
+        <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row;    justify-content: space-between;'>
             <h6 style="margin: 0; font-style: italic; font-size: 0.9rem; text-align: start;">${sender}</h6>
-           
-        <div class="mx-5" style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-            ${messageContent}
-        </div>
-         <button onclick="clearReply()" class="btn btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
-        </div>
+            <div  style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                ${escapeHtml(messageContent)}
+            </div>
+            </div>
+            <button onclick="clearReply()" class="btn btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
         <hr>
 
     `;
@@ -1692,9 +1708,9 @@ function replyMessage(messageId) {
     replyBox.style.alignItems = 'center';
     replyBox.style.justifyContent = 'space-between';
     replyBox.style.padding = '10px';
-    // replyBox.style.borderRadius = '8px';
+    replyBox.style.borderRadius = '8px';
     // replyBox.style.background = 'rgba(0, 0, 0, 0.1)';
-    replyBox.style.backdropFilter = 'blur(5px)';
+    // replyBox.style.backdropFilter = 'blur(5px)';
     toggleReplyBox(true);
 
 }
@@ -1702,6 +1718,8 @@ function replyMessage(messageId) {
 
 function clearReply() {
     const replyBox = document.getElementById("replyBox");
+    replyBox.removeAttribute('reply-id');
+
     toggleReplyBox(false)
     setTimeout(() => {
         replyBox.innerHTML = ""; // Clear innerHTML after 300ms (adjust the time as needed)
@@ -1822,3 +1840,18 @@ function copyToClipboard(text) {
     document.body.removeChild(textarea);
 }
 
+function escapeHtml(input) {
+    // Temporarily replace <br> tags with a placeholder
+    input = input.replace(/<br>/g, "__BR__");
+
+    // Escape the rest of the HTML characters
+    input = String(input)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    // Restore <br> tags from the placeholder
+    return input.replace(/__BR__/g, "<br>");
+}

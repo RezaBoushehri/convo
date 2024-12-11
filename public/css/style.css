@@ -57,11 +57,9 @@ body {
     position: relative;
     bottom: 10px;
     align-items: center;
-    /* padding-left: 0 !important; */
+    padding-left: 45px !important;
     display: flex;
     justify-content: space-between;
-    
-
 }
 #editable-message-text {
     color: #666; /* Grey color for placeholder text */
@@ -74,19 +72,40 @@ body {
     content: attr(aria-placeholder);
     color: #999; /* Light grey for placeholder */
 }
-
+.file-button{
+    color: var(--user-chat-fg-color);
+}
+.send-button{
+    color: var(--user-chat-fg-color);
+}
+.file-button:hover{
+    color: var(--user-chat-fg-color);
+}
+.send-button:hover{
+    color: var(--user-chat-fg-color);
+}
+#feedback{
+    position: relative;
+    top: -20px;
+}
 #editable-message-text {
 
     position: relative; /* To position buttons within it */
-    max-height: 200px; /* Optional: max height before scrolling is needed */
+    max-height: 100px; /* Optional: max height before scrolling is needed */
     overflow-y: auto; /* Enable scrolling when content exceeds max height */
     align-items: center;
     /* padding-right: 100px; */
     width: calc(100% - 100px);
+    align-items: flex-start; /* Align items to the top of the container */
+    height: auto; /* Allow the height to grow based on the content */
+
     overflow: scroll; /* Keep scrolling enabled */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
     box-sizing: border-box; /* To ensure padding does not affect overall size */
+    border: 1px solid var(--user-bg-color);
+    background: var(--user-chat-bg-color);
+    color: var(--user-chat-fg-color);
 }
 .button-container {
     right: 0;
@@ -632,7 +651,7 @@ footer .fa {
 #replyBox.show {
     position: relative;
     bottom: 10px;
-    max-height: 500px; /* Set a max-height when visible */
+    max-height: 100px; /* Set a max-height when visible */
     opacity: 1;
     transform: translateY(0); /* Reset vertical position */
     align-items: stretch;
@@ -662,8 +681,9 @@ footer .fa {
 
 .form-inline{
     margin-left: 30vw !important;
-    border-radius: 100vw;
-
+    border-radius: 100px;
+    min-height: 66px;
+    max-height: 126px;
     background-color: var(--user-chat-bg-color);
     margin-right: 30vw !important; 
 }
@@ -681,4 +701,54 @@ footer .fa {
         margin-left: 0 !important;
         margin-right: 0 !important;
     }
+}
+.EmbeddedMessage {
+    --hover-opacity: 0;
+    --hover-background-color: white;
+    display: flex
+;
+    align-items: center;
+    font-size: calc(var(--message-text-size, 1rem) - .125rem);
+    line-height: 1.125rem;
+    margin-bottom: .0625rem;
+    padding: .1875rem .375rem .1875rem .1875rem;
+    border-radius: var(--border-radius-messages-small);
+    position: relative;
+    overflow: hidden;
+    cursor: var(--custom-cursor, pointer);
+    background-color: var(--accent-background-color);
+    --ripple-color: rgba(0, 0, 0, 0.08);
+}
+.peer-color-0 {
+    --accent-color: var(--color-peer-1, var(--color-text));
+    --bar-gradient: var(--color-peer-gradient-1);
+    --accent-background-color: var(--color-peer-bg-1, var(--hover-color));
+    --accent-background-active-color: var(--color-peer-bg-active-1, var(--active-color));
+    border-right: 4px solid #ffffff;
+    /* outline: 0.025rem solid var(--user-chat-fg-color); */
+}
+.peer-color-1 {
+    --accent-color: var(--color-peer-1, var(--color-text));
+    --bar-gradient: var(--color-peer-gradient-1);
+    --accent-background-color: var(--color-peer-bg-1, var(--hover-color));
+    --accent-background-active-color: var(--color-peer-bg-active-1, var(--active-color));
+    border-right: 4px solid var(--user-bg-color);
+    /* outline: 0.025rem solid var(--user-chat-fg-color); */
+}
+.replyMessage {
+    overflow: scroll; /* Keep scrolling enabled */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+    text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: .375rem;
+    position: relative;
+   background-color: #ffffff3f;
+   backdrop-filter: blur(5px);
+   border-radius: var(--user-border-radius);
+
+}
+.message-title{
+    color: var(--user-bg-color);
 }
