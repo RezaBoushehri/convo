@@ -31,8 +31,8 @@ const userSchema = new mongoose.Schema({
         default: null, // Optional, will be null if not set
     },
     settings: {
-        bgColor: { type: String, default: "#99ff85" },
-        fgColor: { type: String, default: "#000000" },
+        bgColor: { type: String, default: "#3385ff" },
+        fgColor: { type: String, default: "#ffffff" },
         marginLeft: { type: String, default: "10%" },
         marginRight: { type: String, default: "10%" },
         chatWindowBgColor: { type: String, default: "#434343" },
