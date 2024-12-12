@@ -21,14 +21,16 @@ const href = production ? window.location.hostname : "172.16.28.166",
     currentUser = {
         username: document.getElementById('username').value
     },
-    sentMessagesId=[],
-
+    
     options = {
         maxSizeMB: 0.3,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
         fileType: "",
     };
+let sentMessagesId=[],
+    sentMessagesIdLast=[];
+    let hasScrolledDown = false; // Flag to track if the scroll has already occurred
 
 const roomID = document.querySelector("#roomID").textContent.trim()
 if (roomID != "") {
@@ -495,16 +497,15 @@ button.addEventListener("click", () => {
     socket.on("chat", (response) => {
         if (response.error) {
             alerting(response.error,'danger');
-            document.getElementById("sending-placeholder").remove(); // Remove placeholder if there's an error
             return;
         }
         
-        // Remove "sending" placeholder once the message is successfully added to the UI
-        document.getElementById("sending-placeholder").remove();
         
         // // Add the message to the UI
         // addMessageToChatUI(response);
     });
+    // Remove "sending" placeholder once the message is successfully added to the UI
+    if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
     setTimeout(() => {
         scrollDown(); // Scroll to the first unread message
     },100); // Adjust delay time if necessary});
@@ -705,7 +706,7 @@ socket.on("typing", (data) => {
         // Remove the typing indicator for this user
         $(`#typing-${username}`).remove();
     }
-    scroll()
+    scrollDown()
 });
 
 
@@ -797,7 +798,6 @@ const scrollUp = () => {
 };
 
 // Scroll to the bottom on new messages
-let hasScrolledDown = false; // Flag to track if the scroll has already occurred
 
 // Scroll to the bottom on new messages
 const scroll = () => {
@@ -812,6 +812,65 @@ const scroll = () => {
         hasScrolledDown = true; // Set flag to true after scrolling down
     }
 };
+
+const scrollToMessage = (messageId) => {
+    var message = document.getElementById(`${messageId}`);
+    if (message) {
+        // Scroll to the message
+        message.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+        });
+
+        // Add the shining effect
+        message.classList.add("highlight-shine");
+
+        // Remove the class after 1 second
+        setTimeout(() => {
+            message.classList.remove("highlight-shine");
+        }, 1000);
+    } else {
+
+        var firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
+
+        if( firstMessage.getAttribute('data-id')){
+               let firstMessageId = firstMessage.getAttribute('data-id');
+               if (messageId <= firstMessageId){
+               firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+               messageIdreplied = roomID +"-"+ messageId.split('-')[1]
+               
+               if (!sentMessagesId.includes(firstMessageId)) {
+                const isSmallerThanAll = sentMessagesId.every((id) => {
+                    return firstMessageId < id; // Compare lexicographically (string comparison)
+                });
+                
+                // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+                if (isSmallerThanAll) {
+                    
+                    console.log(firstMessageId)
+
+                    sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+                      // Emit the request for older messages to the server and wait for a response
+                    socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
+                }
+            }              
+
+                // Wait for the server response
+                socket.on("olderMessagesLoaded", (prepend) => {
+                    if(prepend.prepend){
+                        // Add a delay of 500ms
+                        // console.log(prepend)
+                        setTimeout(() => {
+                            scrollToMessage(messageId); // Retry scrolling to the message
+                        }, 100);
+                    }
+                });
+               }
+            }else{
+            console.error(`Message with ID ${messageId} not found`);
+        }
+    }
+    };
 
 const scrollToUnread = () => {
     if (!hasScrolledDown) { // Check if the scroll down hasn't already been triggered
@@ -828,8 +887,10 @@ const scrollToUnread = () => {
         chat_window.scrollTo({
             top: chat_window.scrollHeight, // Scroll to the bottom
             behavior: "auto",            // Smooth scrolling
-        });     }
-        hasScrolledDown = true; // Set flag to true after scrolling down
+        });
+    }
+         hasScrolledDown = true; // Set flag to true after scrolling down
+         console.log(hasScrolledDown)
     }
     $("#down").fadeOut(); // Show scroll-up button
 };
@@ -863,11 +924,50 @@ const copyId = (id) => {
 
 socket.on("restoreMessages", (data) => {
     const roomID = document.querySelector("#roomID").textContent.trim()
-
-    chat_window.scrollTo({
-        top: 2, // Scroll to the bottom
-        behavior: "auto",            // Smooth scrolling
-    });
+    if (output.querySelectorAll('.messageElm').length >= 40 && !data.unread) {
+        var messageElms = output.querySelectorAll('.messageElm');
+    
+        if (data.prepend) {
+            chat_window.scrollTo({
+                top: 1, // Scroll to the bottom
+                behavior: "auto",            // Smooth scrolling
+            });
+            // Remove the last 20 `.messageElm`
+            for (let i = messageElms.length - 1; i > messageElms.length - 20; i--) {
+                if (messageElms[i]) {
+                    let messagereadR = output.querySelector(`.messageRead[data-id='${messageElms[i].id}']`);
+                    if(messagereadR){
+                        messageElms[i].remove();
+                        messagereadR.remove();
+                    }
+                    else{
+                     console.log(messageElms[i].id)   
+                    }
+                }
+            }
+            sentMessagesIdLast=[]
+        } else {
+            
+            sentMessagesId=[]
+            // Remove the first 20 `.messageElm`
+            for (let i = 0; i < 20; i++) {
+                if (messageElms[i]) {
+                    let messagereadR = output.querySelector(`.messageRead[data-id='${messageElms[i].id}']`);
+                    if(messagereadR){
+                        messageElms[i].remove();
+                        messagereadR.remove();
+                    }
+                    else{
+                     console.log(messageElms[i].id)   
+                    }
+                }
+            }
+        }
+    }
+    console.log("last",sentMessagesIdLast)
+    console.log("first",sentMessagesId)
+    // output.innerHTML=''
+   
     let lastSeenDate = [];
 
 
@@ -892,9 +992,18 @@ socket.on("restoreMessages", (data) => {
             }
             // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
             // console.log(message)
-            const isLastMessage = index === data.messages.length - 1;
+            let isFirstMessage ;
+            let isLastMessage ;
+            if(data.prepend){
+                 isFirstMessage = index === data.messages.length - 1;
+                 isLastMessage = index === 0;
+            }else{
+                isLastMessage = index === data.messages.length - 1;
+                isFirstMessage = index === 0;
+                
+            }
             // Prepend reversed messages to the chat UI
-            addMessageToChatUI(message,data.prepend , isLastMessage);
+            addMessageToChatUI(message,data.prepend , isFirstMessage, isLastMessage);
         } catch (error) {
             console.error("Error adding message to chat UI:", { error, message, index });
             
@@ -969,10 +1078,20 @@ socket.on("restoreMessages", (data) => {
                 lastSeenDate.push(messageDateString);
             }
         });
+        if(data.reply){
+            sentMessagesIdLast=[]
 
-        setTimeout(() => {
-            scrollToUnread(); // Scroll to the first unread message
-        },100); // Adjust delay time if necessary
+            sentMessagesId=[]
+
+            console.log((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
+            setTimeout(() => {
+                scrollToMessage((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2]); // Retry scrolling to the message
+            },1500); // Adjust delay time if necessary
+        }else{
+            setTimeout(() => {
+                scrollToUnread(); // Scroll to the first unread message
+            },500); // Adjust delay time if necessary
+        }
         messageMenu()
     });
 // -----------------setting----------------
@@ -1101,13 +1220,13 @@ let lastMessageDate = null;
 let headTagVal = null;
 let lastProcessedDate = null;
 let ProcessedDate = null;
-const messagesCreated=[]
-const messagesCreatedHandler=[]
+let messagesCreated=[]
+let messagesCreatedHandler=[]
 
 
 
-function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
-    if(messagesCreated.includes(data.id)) return
+function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=false) {
+    // if(messagesCreated.includes(data.id)) return
     let contentToAdd = "";
     let dateToAdd = "";
     let unreadToAdd = "";
@@ -1133,8 +1252,8 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
     );
 
     const style = ownMessage
-        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius:${borderRad};`
-        : `background-color:#333;color:white;font-size:${fontSize};border-radius:${borderRad};`;
+        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius: var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)  ;`
+        : `background-color:#333;color:white;font-size:${fontSize};border-radius: var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px;`;
     const divStyle = ownMessage
         ? `display:flex;justify-content:flex-end;`
         : `display:flex;justify-content:flex-start;`;
@@ -1207,8 +1326,7 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
 
 
     contentToAdd += `
-    <div style="${divStyle}">
-    </div>
+
     <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)">
         ${ownMessage?`
             
@@ -1218,8 +1336,8 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
             :''}
              
         <div style="${style}" class=" ${ownMessage? `right_box `:`left_box `}message mess p-2 mr-1 m-2 col-md-6">
-            <h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">${ownMessage ? `Me`: data.handle}</h6>
-            ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}">
+            <h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>
+            ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
                 <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
                     ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}
                 </h6>
@@ -1304,14 +1422,17 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         </div>
 
     `;
-    let firstMessgae = `
-        <div data-id="Message-${messageId}" class="firstMessgae"></div>
+    let firstMessage = `
+    <div data-id="Message-${messageId}" class="firstMessage"></div>
+`;
+let lastMessage = `
+    <div data-id="Message-${messageId}" class="lastMessage"></div>
+`;
 
-    ` 
-    // Insert content into chat UI
+
+
     if (prepend) {
         output.insertAdjacentHTML("afterbegin", contentToAdd);
-        if (isLastMessage) output.insertAdjacentHTML("afterbegin", firstMessgae);
         if (dateToAdd) output.insertAdjacentHTML("afterbegin", dateToAdd);
         if (unreadToAdd) output.insertAdjacentHTML("afterbegin", unreadToAdd);
     } else {
@@ -1320,11 +1441,29 @@ function addMessageToChatUI(data, prepend = false , isLastMessage=false) {
         output.insertAdjacentHTML("beforeend", contentToAdd);
           
     }
+// Check and update or insert firstMessage
+if (isFirstMessage) {
+    let existingFirstMessage = output.querySelector('.firstMessage');
+    if (existingFirstMessage) {
+        existingFirstMessage.remove()
+    } 
+        output.insertAdjacentHTML("afterbegin", firstMessage);
+    
+}
 
+// Check and update or insert lastMessage
+if (isLastMessage) {
+    let existingLastMessage = output.querySelector('.lastMessage');
+    if (existingLastMessage) {
+        existingLastMessage.remove()
+    } 
+        output.insertAdjacentHTML("beforeend", lastMessage);
+    
+}
     // Reset file input and image
     $("file-input").val("");
     image = "";
-
+    searchMessageReply()
 }
 
 // JavaScript function to toggle the visibility of the react button
@@ -1581,27 +1720,54 @@ function formatDate(dateString) {
 
 $(document).ready(function () {
     let lastScrollTop = 0; // Keeps track of the last scroll position
+    let isScrolling = false; // Tracks if the chat window is currently scrolling
+    let scrollTimeout; // Timer to ensure scrolling is complete
 
     // Attach scroll event listener to the chat window
     $(chat_window).on("scroll", function () {
         const currentScrollTop = $(this).scrollTop();
 
-        if (currentScrollTop < lastScrollTop) {
-            // User is scrolling up
-            $("#down").fadeIn(); // Show the button with a fade-in effect
-        } else if (currentScrollTop > lastScrollTop) {
-            // User is scrolling down
-            $("#down").fadeOut(); // Hide the button with a fade-out effect
-        }
+        // Show the "down" button with a fade-in effect
+        $("#down").fadeIn();
 
-        lastScrollTop = currentScrollTop; // Update last scroll position
+        // Clear any previous timeout
+        clearTimeout(scrollTimeout);
+
+        // Debounced check for scroll stability
+        scrollTimeout = setTimeout(() => {
+            if (currentScrollTop === $(this).scrollTop()) {
+                lastScrollTop = currentScrollTop; // Update the last stable scroll position
+                isScrolling = false; // Mark as no longer scrolling
+            }
+        }, 200); // Adjust delay for smoother checks
+
+        isScrolling = true; // Mark as currently scrolling
     });
 
     // Smooth scroll to the bottom when the button is clicked
     $("#down").on("click", function () {
-        $(chat_window).animate({ scrollTop: $(chat_window)[0].scrollHeight }, "slow");
+        $("#down").fadeOut(); // Hide the button with a fade-out effect
+
+        if (!isScrolling) {
+            scrollToBottom();
+        } else {
+            // Wait until scrolling stops before executing scroll to bottom
+            const waitUntilStable = setInterval(() => {
+                if (!isScrolling) {
+                    clearInterval(waitUntilStable);
+                    scrollToBottom();
+                }
+            }, 500); // Check every 100ms for scroll stability
+        }
     });
+
+    // Function to smoothly scroll to the bottom
+    function scrollToBottom() {
+        var chatHeight = $(chat_window)[0].scrollHeight;
+        $(chat_window).animate({ scrollTop: chatHeight }, "slow");
+    }
 });
+
 
 
 chat_window.addEventListener("scroll", () => {
@@ -1615,7 +1781,8 @@ chat_window.addEventListener("scroll", () => {
     // };
     const visibleMessages = [];
     const messages = document.querySelectorAll(".messageRead"); // Class of each message div
-    const firstMessage = document.querySelectorAll(".firstMessgae")[0]; // Class of each message div
+    const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
+    const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
     const Dates = document.querySelectorAll(".Date"); // Class of each date div
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
     const roomID = document.getElementById('roomIDVal').value;
@@ -1633,7 +1800,7 @@ chat_window.addEventListener("scroll", () => {
         if( firstMessage.getAttribute('data-id')){
         let firstMessageId = firstMessage.getAttribute('data-id');
         firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-        const threshold = 50; // Proximity in pixels to the top of the viewport
+        const threshold = 1000; // Proximity in pixels to the top of the viewport
 
         if (firstMessage.getBoundingClientRect().top >= -threshold && 
             firstMessage.getBoundingClientRect().bottom <= window.innerHeight + threshold) {
@@ -1656,6 +1823,34 @@ chat_window.addEventListener("scroll", () => {
             
             }
         }
+        if( lastMessage.getAttribute('data-id')){
+        let lastMessageId = lastMessage.getAttribute('data-id');
+        lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
+        // console.log("before scroll:", lastMessageId)
+        const threshold = 1000; // Proximity in pixels to the top of the viewport
+        let rect = lastMessage.getBoundingClientRect()  
+        if (rect.top <= window.innerHeight+threshold) {
+            // console.log("after scroll:", lastMessageId)
+                        // Check if the message has not been sent before and it's the first message of the day
+                if (!sentMessagesIdLast.includes(lastMessageId)) {
+                    const isSmallerThanAll = sentMessagesIdLast.every((id) => {
+                        return lastMessageId > id; // Compare lexicographically (string comparison)
+                    });
+                    
+                    // If the lastMessageId is smaller than all the sent messages' IDs, request older messages
+                    if (isSmallerThanAll) {
+                        
+                        console.log(lastMessageId)
+    
+                        sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
+                        // Emit the request for older messages to the server
+                        socket.emit("requestOlderMessages", { roomID: roomID, counter: lastMessageId, type: 'last' });
+                    }
+                }
+            
+            }
+        }
+      
     // Iterate through messages to find visible ones (if needed)
     messages.forEach((message) => {
         const rect = message.getBoundingClientRect();
@@ -1710,6 +1905,7 @@ function replyMessage(messageId) {
     // replyBox.style.background = 'rgba(0, 0, 0, 0.1)';
     // replyBox.style.backdropFilter = 'blur(5px)';
     toggleReplyBox(true);
+    searchMessageReply()
 
 }
 
@@ -1834,7 +2030,7 @@ function copyToClipboard(text) {
     const textarea = document.createElement('textarea');
     
     // Set the value of the textarea to the HTML content you want to copy
-    textarea.value = escapeHtml(text);
+    textarea.value = text;
 
     // Append the textarea to the body (it's required for copy command to work)
     document.body.appendChild(textarea);
@@ -1868,4 +2064,19 @@ function escapeHtml(input) {
 
     // Restore <br> tags from the placeholder
     return input.replace(/__BR__/g, "<br>");
+}
+// =======================================================================================
+// message find
+function searchMessageReply() {
+    var replyMessages = document.querySelectorAll('.replyMessage'); // Select all reply messages
+    replyMessages.forEach(reply => {
+        reply.addEventListener('click', () => {
+            const replyID = reply.getAttribute('replyID'); // Get the replyID attribute
+            if (replyID) {
+                scrollToMessage(replyID); // Call the scrollToMessage function
+            } else {
+                console.error('No replyID found for this reply');
+            }
+        });
+    });
 }

@@ -562,7 +562,7 @@ footer .fa {
     position: absolute;
     visibility: visible;
     bottom: -1px;
-    left: -11px;
+    left: -10px;
     border: 10px solid transparent;
     border-bottom: 10px solid var(--user-bg-color);
   }
@@ -572,7 +572,7 @@ footer .fa {
     position: absolute;
     visibility: visible;
     bottom: 0px;
-    left: -11px;
+    left: -10px;
     border: 10px solid transparent;
     border-bottom: 10px solid #333333;
     clear: both;
@@ -584,7 +584,7 @@ footer .fa {
     position: absolute;
     background-color: var(--user-chat-bg-color);
     color: var(--user-chat-fg-color);
-    border-radius: var(--user-border-radius);
+    border-radius: 15px ;
     border: 2px solid var(--user-bg-color);
     box-shadow: 1px 4px 8px rgba(0, 0, 0, 0.2);
     padding: 10px;
@@ -597,7 +597,7 @@ footer .fa {
     color: var(--user-chat-fg-color);
     background-color: var(--user-chat-bg-color);
     padding: 10px;
-    border-radius: var(--user-border-radius);
+    border-radius: 5px ;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     text-align: left;
     z-index: 10;
@@ -748,16 +748,66 @@ footer .fa {
     overflow: scroll; /* Keep scrolling enabled */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
-    text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+    text-overflow: ellipsis; 
+    overflow: hidden; 
+    white-space: nowrap;
     display: flex;
     align-items: flex-end;
     margin-bottom: .375rem;
     position: relative;
-   background-color: #ffffff3f;
-   backdrop-filter: blur(5px);
-   border-radius: var(--user-border-radius);
-
+    background-color: #ffffff3f;
+    backdrop-filter: blur(5px);
+    border-radius: 5px var(--user-border-radius) 5px 5px;
+    transition: all 0.3s ease; /* Smooth transition for hover effect */
 }
+
+.replyMessage:hover {
+    box-shadow: inset 4px 0px 13px rgba(255, 255, 255, 0.6), 0 0 4px rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.replyMessage:active {
+    animation: clickEffect 0.2s ease;
+}
+
+/* Keyframe for click animation */
+@keyframes clickEffect {
+    0% {
+        transform: scale(1);
+        box-shadow: inset 6px 6px 15px rgba(255, 255, 255, 0.4), 0 0 15px rgba(255, 255, 255, 0.8);
+    }
+    50% {
+        transform: scale(0.95); /* Shrinks slightly on click */
+        box-shadow: inset 10px 10px 20px rgba(255, 255, 255, 0.5), 0 0 10px rgba(255, 255, 255, 0.7);
+    }
+    100% {
+        transform: scale(1); /* Returns to original size */
+        box-shadow: inset 4px 0px 13px rgba(255, 255, 255, 0.6), 0 0 30px rgba(255, 255, 255, 0.8);
+    }
+}
+
+
 .message-title{
     color: var(--user-bg-color);
+}
+
+/* Shining effect for the message */
+.highlight-shine {
+    animation: shineEffect 1s ease-in-out;
+    border-radius: 10px;
+}
+
+@keyframes shineEffect {
+    0% {
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.6);
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(255, 255, 255, 1), 0 0 40px rgba(255, 255, 255, 0.8);
+        background-color: rgba(255, 255, 255, 0.3);
+    }
+    100% {
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.6);
+        background-color: rgba(255, 255, 255, 0.2);
+    }
 }
