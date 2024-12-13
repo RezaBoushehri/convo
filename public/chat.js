@@ -924,7 +924,7 @@ const copyId = (id) => {
 
 socket.on("restoreMessages", (data) => {
     const roomID = document.querySelector("#roomID").textContent.trim()
-    if (output.querySelectorAll('.messageElm').length >= 40 && !data.unread) {
+    if (output.querySelectorAll('.messageElm').length >= 150 && !data.unread) {
         var messageElms = output.querySelectorAll('.messageElm');
     
         if (data.prepend) {
@@ -932,8 +932,8 @@ socket.on("restoreMessages", (data) => {
                 top: 1, // Scroll to the bottom
                 behavior: "auto",            // Smooth scrolling
             });
-            // Remove the last 20 `.messageElm`
-            for (let i = messageElms.length - 1; i > messageElms.length - 20; i--) {
+            // Remove the last 50 `.messageElm`
+            for (let i = messageElms.length - 1; i > messageElms.length - 50; i--) {
                 if (messageElms[i]) {
                     let messagereadR = output.querySelector(`.messageRead[data-id='${messageElms[i].id}']`);
                     if(messagereadR){
@@ -949,8 +949,8 @@ socket.on("restoreMessages", (data) => {
         } else {
             
             sentMessagesId=[]
-            // Remove the first 20 `.messageElm`
-            for (let i = 0; i < 20; i++) {
+            // Remove the first 50 `.messageElm`
+            for (let i = 0; i < 50; i++) {
                 if (messageElms[i]) {
                     let messagereadR = output.querySelector(`.messageRead[data-id='${messageElms[i].id}']`);
                     if(messagereadR){
@@ -1011,7 +1011,7 @@ socket.on("restoreMessages", (data) => {
 
     });
     
-    if (output.innerHTML==""|| data.messages.length < 20) {
+    if (output.innerHTML==""|| data.messages.length < 50) {
         
         if (roomID) {
     
@@ -1317,13 +1317,48 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
           })
           .join("")
     : "";
-        const emojiDiv = `
-        ${emoji(messageId)}
-        <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
-        <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
-        </button>
-        `
+    const emojiDiv = `
+    ${emoji(messageId)}
+    <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
+    <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
+    </button>
+    `
+    // sender name
+    const handler = () => {
+      // Check if the last and second-to-last values are equal
+      if(prepend){
 
+          if (messagesCreatedHandler.length >= 2) {
+              const lastValue = messagesCreatedHandler[0];
+              const secondLastValue = messagesCreatedHandler[1];
+              messagesCreatedHandler=[]
+            console.log(lastValue,
+                secondLastValue)
+              if (lastValue === secondLastValue) {
+                  return ``;
+              } else {
+                  return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>
+                  `        
+                }
+            } else {
+              return ``
+          }
+      }else{
+        if (messagesCreatedHandler.length >= 2) {
+            const lastValue = messagesCreatedHandler[messagesCreatedHandler.length - 1];
+            const secondLastValue = messagesCreatedHandler[messagesCreatedHandler.length - 2];
+
+            if (lastValue === secondLastValue) {
+                return ``;
+            } else {
+                return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>
+                `            }
+        } else {
+        return ``;
+        }
+    }
+        
+    }
 
     contentToAdd += `
 
@@ -1336,7 +1371,8 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             :''}
              
         <div style="${style}" class=" ${ownMessage? `right_box `:`left_box `}message mess p-2 mr-1 m-2 col-md-6">
-            <h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>
+
+            ${handler()}
             ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
                 <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
                     ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}

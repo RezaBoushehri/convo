@@ -552,23 +552,23 @@ io.on("connection", (socket) => {
                 socket.emit("restoreMessages", { messages: unreadMessages, prepend: true , unread:true });
             } else {
                 try {
-                    console.log("No unread messages. Fetching the last 20 messages.");
+                    console.log("No unread messages. Fetching the last 50 messages.");
                     
-                    // Fetch the last 20 messages for the room
-                    const lastMessages = await getMessagesByLimit(roomID, 20);
+                    // Fetch the last 50 messages for the room
+                    const lastMessages = await getMessagesByLimit(roomID, 50);
                      // Process each message
                     const processedMessages = await Promise.all(
                         lastMessages.map(async (msg) => await processMessage(msg))
                     );
                     if (processedMessages.length > 0) {
-                        // console.log("Fetched last 20 messages:", processedMessages);
+                        // console.log("Fetched last 50 messages:", processedMessages);
                         socket.emit("restoreMessages", { messages: processedMessages, prepend: true });
                     } else {
                         console.log("No messages found for the room.");
                         socket.emit("noMoreMessages", { message: "No messages available." });
                     }
                 } catch (err) {
-                    console.error("Error fetching last 20 messages:", err);
+                    console.error("Error fetching last 50 messages:", err);
                     socket.emit("error", { message: "Failed to load messages." });
                 }
             }
@@ -601,7 +601,7 @@ io.on("connection", (socket) => {
             // console.log("Starting ID for fetch:", startingID);
     
             // Calculate the limit dynamically based on the counter value
-            const limit = (counter < 20) ? counter-1 : 20; // Use counter if it's less than 20, otherwise limit to 20
+            const limit = (counter < 50) ? counter-1 : 50; // Use counter if it's less than 50, otherwise limit to 50
     
             // Fetch the older messages using the starting ID and dynamic limit
             const olderMessages = await getMessagesByID(startingID, limit,type); // Function to fetch messages
@@ -665,7 +665,7 @@ async function getMessagesByID(startingID, limit,type) {
             id: { $gt: `${room}-${counter}` }, // The id format should still be 'room-counter'
         })
         .sort({  timestamp: 1 }) // Sort by 'id' in descending order to get older messages first
-        .limit(limit || 20) // Limit the result to 20 messages, or the specified limit
+        .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
         .lean(); // Use lean() to get plain JavaScript objects
     }else if(type=='first'){
     // Query the database for messages with IDs numerically less than the given counter
@@ -675,7 +675,7 @@ async function getMessagesByID(startingID, limit,type) {
         id: { $lt: `${room}-${counter}` }, // The id format should still be 'room-counter'
     })
     .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
-    .limit(limit || 20) // Limit the result to 20 messages, or the specified limit
+    .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
     .lean(); // Use lean() to get plain JavaScript objects
     }else if(type.split('-')[0]=="reply"){
         console.log(type)
@@ -686,7 +686,7 @@ async function getMessagesByID(startingID, limit,type) {
             id: { $lt: `${room}-${counter+39}` }, // The id format should still be 'room-counter'
         })
         .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
-        .limit(39) // Limit the result to 20 messages, or the specified limit
+        .limit(39) // Limit the result to 50 messages, or the specified limit
         .lean(); // Use lean() to get plain JavaScript objects
     }
 }
