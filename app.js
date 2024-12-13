@@ -578,8 +578,9 @@ io.on("connection", (socket) => {
     
             const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();
             // Notify others
-            socket.broadcast.to(roomID).emit("userJoined", { username, roomID });
-    
+            // socket.broadcast.to(roomID).emit("userJoined", { username, roomID });
+            socket.broadcast.to(user.roomID).emit("userJoined", `${user.first_name} ${user.last_name}`);
+
 
             socket.emit("joined", { room , name : `${userRead.first_name} ${userRead.last_name}` });
           
@@ -591,7 +592,7 @@ io.on("connection", (socket) => {
     });
     
     // Create an in-memory object to track the last fetched date for each room (or user)
-    socket.on("requestOlderMessages", async ({ roomID, counter , type='first'}) => {
+    socket.on("requestOlderMessages", async ({ roomID, counter=0 , type='first'}) => {
         try {
             // Debugging: Log the incoming data to ensure it's correct
             console.log(`Received request for ${type} messages:`, { roomID, counter });
@@ -601,10 +602,15 @@ io.on("connection", (socket) => {
             // console.log("Starting ID for fetch:", startingID);
     
             // Calculate the limit dynamically based on the counter value
-            const limit = (counter < 50) ? counter-1 : 50; // Use counter if it's less than 50, otherwise limit to 50
-    
+            
+            const limit =()=>{
+                if(counter!==0){
+                return (counter < 50) ? counter-1 : 50; // Use counter if it's less than 50, otherwise limit to 50
+                }
+                else return 50;
+            }
             // Fetch the older messages using the starting ID and dynamic limit
-            const olderMessages = await getMessagesByID(startingID, limit,type); // Function to fetch messages
+            const olderMessages = await getMessagesByID(startingID, limit(),type); // Function to fetch messages
     
             // console.log(olderMessages);
             // If there are older messages, process and send them back to the client
@@ -613,13 +619,17 @@ io.on("connection", (socket) => {
                 const processedMessages = await Promise.all(
                     olderMessages.map(async (msg) => await processMessage(msg))
                 );
-    
-                if(type=='first'){
+                if(type=='latest'){
+
+                    console.log("Sending latest messages.");
+                    socket.emit("restoreMessages", { messages: processedMessages, prepend: true , Latest:true});
+                }
+                else if(type=='first'){
                     console.log("Sending older messages.");
                     socket.emit("restoreMessages", { messages: processedMessages, prepend: true });
                 }else if(type=='last'){
                     console.log("Sending newer messages.");
-                    socket.emit("restoreMessages", { messages: processedMessages, prepend: false });
+                    socket.emit("restoreMessages", { messages: processedMessages, prepend: false  });
                 }
 
                 if(type.split('-')[0]=="reply"){
@@ -648,7 +658,7 @@ io.on("connection", (socket) => {
         }
     });
 async function getMessagesByID(startingID, limit,type) {
-    const [room, currentCounter] = startingID.split("-");
+    const [room, currentCounter] = startingID!=0 ? startingID.split("-"):0;
     const counter = parseInt(currentCounter, 10); // Convert to integer
     
     if (isNaN(counter)) {
@@ -656,7 +666,16 @@ async function getMessagesByID(startingID, limit,type) {
     }
 
     console.log(`Fetching messages ${type=='last' ? `newer` : `older`} than counter =`, counter, "for room =", room);
-    if(type=='last'){
+    if(type=='latest'){
+            // Query the database for messages with IDs numerically less than the given counter
+        return await Message.find({
+            roomID: room,
+        })
+        .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
+        .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
+        .lean(); // Use lean() to get plain JavaScript objects
+        }
+    else if(type=='last'){
 
         // Query the database for messages with IDs numerically less than the given counter
         return await Message.find({
@@ -667,7 +686,8 @@ async function getMessagesByID(startingID, limit,type) {
         .sort({  timestamp: 1 }) // Sort by 'id' in descending order to get older messages first
         .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
         .lean(); // Use lean() to get plain JavaScript objects
-    }else if(type=='first'){
+    }
+    else if(type=='first'){
     // Query the database for messages with IDs numerically less than the given counter
     return await Message.find({
         roomID: room,
@@ -677,7 +697,8 @@ async function getMessagesByID(startingID, limit,type) {
     .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
     .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
     .lean(); // Use lean() to get plain JavaScript objects
-    }else if(type.split('-')[0]=="reply"){
+    }
+    else if(type.split('-')[0]=="reply"){
         console.log(type)
         // Query the database for messages with IDs numerically less than the given counter
         return await Message.find({
@@ -1081,7 +1102,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         try {
             const user = await User.findOne({ username: currentUsername });
             if (user) {
-                socket.broadcast.to(user.roomID).emit("userDisconnected", user.last_name);
+                socket.broadcast.to(user.roomID).emit("userDisconnected", `${user.first_name} ${user.last_name}`);
                 
                 const updatedUser = await User.findOneAndUpdate(
                     { username: currentUsername },

@@ -2,17 +2,17 @@
 // const socket = io.connect(window.location.hostname),
 const production = false;
 const href = production ? window.location.hostname : "172.16.28.166",
-    socket = io.connect(`https://172.16.28.166:4000`, {
+    socket = io.connect(`https://localhost:4000`, {
         transports: ['polling', "websocket"],
         secure: true,
         withCredentials: false, // Ensures cookies are sent along with requests
         rejectUnauthorized: false // Bypass SSL verification for self-signed certificates
     }),
+    name = document.getElementById("dropdownMenuButton"),
     message = document.getElementById("editable-message-text"),
     output = document.getElementById("output"),
     button = document.getElementById("button"),
     feedback = document.getElementById("feedback"),
-    name = document.getElementById("dropdownMenuButton"),
     alertTag = document.getElementById("alert"),
     chat_window = document.getElementById("chat-window"),
     joinRoomName = document.getElementById("joinRoomName"),
@@ -29,11 +29,16 @@ const href = production ? window.location.hostname : "172.16.28.166",
         fileType: "",
     };
 let sentMessagesId=[],
-    sentMessagesIdLast=[];
-    let hasScrolledDown = false; // Flag to track if the scroll has already occurred
+    sentMessagesIdLast=[],
+    loadedForClicking=false
+    , hasScrolledDown = false; // Flag to track if the scroll has already occurred
 
 const roomID = document.querySelector("#roomID").textContent.trim()
 if (roomID != "") {
+    if(document.getElementById('loading').classList.contains('hide')){
+        document.getElementById('loading').classList.remove("hide");
+        document.getElementById('loading').classList.add("show");
+    } 
     socket.emit("joinRoom",({ 
         roomID: roomID,
         username: currentUser.username
@@ -355,7 +360,10 @@ const createRoom = () => {
         return;
     }
     document.querySelector("#roomID").textContent= roomID
-
+ if(document.getElementById('loading').classList.contains('hide')){
+            document.getElementById('loading').classList.remove("hide");
+            document.getElementById('loading').classList.add("show");
+        } 
     socket.emit("createRoom", { 
         handle: currentUser.username,  // Assuming `name.textContent` contains the user's name
         roomName: roomID
@@ -372,6 +380,10 @@ const joinRoom = () => {
         console.log(roomID)
     }
     document.querySelector("#roomID").textContent= roomID
+     if(document.getElementById('loading').classList.contains('hide')){
+            document.getElementById('loading').classList.remove("hide");
+            document.getElementById('loading').classList.add("show");
+        } 
     socket.emit("joinRoom",({ 
         roomID: roomID,
         username: currentUser.username
@@ -406,6 +418,8 @@ const leaveRoom = () => {
         console.log(`${username} has left the room: ${roomID}`);
         // Update the UI to reflect the user's departure
     });
+    // Notify other users when someone leaves
+
 
     document.querySelector("#roomInfo").innerHTML = "";
     document.getElementById("chat-window").style.display = "none";
@@ -507,7 +521,7 @@ button.addEventListener("click", () => {
     // Remove "sending" placeholder once the message is successfully added to the UI
     if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
     setTimeout(() => {
-        scrollDown(); // Scroll to the first unread message
+        scrollDown()
     },100); // Adjust delay time if necessary});
 
 })
@@ -725,6 +739,11 @@ socket.on("left", (user) => {
 
 //=================================================================
 //Handle User-Disconnected event
+socket.on("userJoined", (data) => {
+    alerting(`${data} has join the room`);
+});
+//=================================================================
+//Handle User-Disconnected event
 socket.on("userDisconnected", (data) => {
     $("#alert")
         .html(
@@ -781,11 +800,36 @@ const scrollDown = () => {
 
         // $("#down").show(); // Optionally show the scroll-down button
         $("#down").fadeOut(); // hide scroll-up button
-  
-        chat_window.scrollTo({
-            top: chat_window.scrollHeight, // Scroll to the bottom
-            behavior: "smooth",            // Smooth scrolling
-        }); 
+        if (loadedForClicking) {
+            const roomID = document.querySelector("#roomID").textContent.trim();
+        
+            // Show the loading spinner if hidden
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement.classList.contains('hide')) {
+                loadingElement.classList.remove("hide");
+                loadingElement.classList.add("show");
+            }
+        
+            // Emit the event and wait for the server's acknowledgment
+            socket.emit("requestOlderMessages", { 
+                roomID: roomID, 
+                counter: `${roomID}-0`, 
+                type: 'latest' 
+            }, () => { // Callback function for when the server acknowledges
+                // Scroll after emitting the event
+                chat_window.scrollTo({
+                    top: chat_window.scrollHeight, // Scroll to the bottom
+                    behavior: "smooth",
+                });
+            });
+        
+            loadedForClicking = false;
+        }else{
+            chat_window.scrollTo({
+                top: chat_window.scrollHeight, // Scroll to the bottom
+                behavior: "smooth",
+            });
+        } 
 };
 
 
@@ -801,16 +845,13 @@ const scrollUp = () => {
 
 // Scroll to the bottom on new messages
 const scroll = () => {
-    if (!hasScrolledDown) { // Check if the scroll down hasn't already been triggered
         setTimeout(() => { // Use setTimeout for a one-time scroll
             chat_window.scrollTo({
                 top: chat_window.scrollHeight, // Scroll to the bottom
                 behavior: "smooth",            // Smooth scrolling
             });
         }, 300); // Delay to make sure content has loaded
-
-        hasScrolledDown = true; // Set flag to true after scrolling down
-    }
+    
 };
 
 const scrollToMessage = (messageId) => {
@@ -848,7 +889,10 @@ const scrollToMessage = (messageId) => {
                 if (isSmallerThanAll) {
                     
                     console.log(firstMessageId)
-
+                    if(document.getElementById('loading').classList.contains('hide')){
+                        document.getElementById('loading').classList.remove("hide");
+                        document.getElementById('loading').classList.add("show");
+                    } 
                     sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                       // Emit the request for older messages to the server and wait for a response
                     socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
@@ -923,8 +967,14 @@ const copyId = (id) => {
 // Function to add messages to the chat UI
 
 socket.on("restoreMessages", (data) => {
+    if(document.getElementById('loading').classList.contains('hide')){
+        document.getElementById('loading').classList.remove("hide");
+        document.getElementById('loading').classList.add("show");
+    } 
+
     const roomID = document.querySelector("#roomID").textContent.trim()
     if (output.querySelectorAll('.messageElm').length >= 150 && !data.unread) {
+        loadedForClicking=true
         var messageElms = output.querySelectorAll('.messageElm');
     
         if (data.prepend) {
@@ -963,6 +1013,14 @@ socket.on("restoreMessages", (data) => {
                 }
             }
         }
+    }
+    if(data.Latest||data.reply){
+        sentMessagesIdLast=[]
+        hasScrolledDown= false
+        sentMessagesId=[]
+        loadedForClicking=true
+
+        output.innerHTML=''
     }
     console.log("last",sentMessagesIdLast)
     console.log("first",sentMessagesId)
@@ -1022,7 +1080,10 @@ socket.on("restoreMessages", (data) => {
                 let messageId = messages[0].getAttribute('data-id');
                 
                 if (messageId) {
-                    
+                    if(document.getElementById('loading').classList.contains('hide')){
+                        document.getElementById('loading').classList.remove("hide");
+                        document.getElementById('loading').classList.add("show");
+                    } 
                     messageId = roomID +"-"+ messageId.split('-')[1]
                     // Emit the request for older messages to the server
                     socket.emit("requestOlderMessages", { roomID: roomID, counter: messageId });
@@ -1030,7 +1091,11 @@ socket.on("restoreMessages", (data) => {
                     console.error("Message ID is null or undefined.");
                 }
             } else {
-                console.error("No messages found in the DOM.");
+                if(document.getElementById('loading').classList.contains('hide')){
+                    document.getElementById('loading').classList.remove("hide");
+                    document.getElementById('loading').classList.add("show");
+                } 
+                socket.emit("requestOlderMessages", { roomID: roomID, counter:`${roomID}-0` , type:'latest' });
             }
         } else {
             console.error("Element with id 'roomIDVal' not found.");
@@ -1078,10 +1143,15 @@ socket.on("restoreMessages", (data) => {
                 lastSeenDate.push(messageDateString);
             }
         });
+        if(document.getElementById('loading').classList.contains('show')){
+            document.getElementById('loading').classList.remove("show");
+            document.getElementById('loading').classList.add("hide");
+        }
         if(data.reply){
             sentMessagesIdLast=[]
 
             sentMessagesId=[]
+            loadedForClicking=true
 
             console.log((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
             setTimeout(() => {
@@ -1222,18 +1292,18 @@ let lastProcessedDate = null;
 let ProcessedDate = null;
 let messagesCreated=[]
 let messagesCreatedHandler=[]
-
-
-
+let messageIdSplited=[]
 function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=false) {
     // if(messagesCreated.includes(data.id)) return
     let contentToAdd = "";
     let dateToAdd = "";
     let unreadToAdd = "";
     messagesCreated.push(data.id)
-    messagesCreatedHandler.push(data.sender)
+    messagesCreatedHandler.push(data.handle)
     let messageId = data.id
     messageId = (data.id).split("-")[1];
+    messageIdSplited.push(messageId)
+
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
     const fontSize = savedSettings?.fontSize || "16px";
@@ -1329,16 +1399,17 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
       if(prepend){
 
           if (messagesCreatedHandler.length >= 2) {
-              const lastValue = messagesCreatedHandler[0];
-              const secondLastValue = messagesCreatedHandler[1];
-              messagesCreatedHandler=[]
-            console.log(lastValue,
-                secondLastValue)
-              if (lastValue === secondLastValue) {
+            const lastValue = messagesCreatedHandler[messagesCreatedHandler.length - 1];
+            const secondLastValue = messagesCreatedHandler[messagesCreatedHandler.length - 2];
+            //   messagesCreatedHandler=[]
+              if (lastValue == secondLastValue) {
+                  
+                  return ``        
+                } else {
+                  const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-2]}`)
+                  const inLast = lastMessageElm.querySelector('.message')
+                  inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'Me':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
                   return ``;
-              } else {
-                  return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>
-                  `        
                 }
             } else {
               return ``
@@ -1362,7 +1433,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
     contentToAdd += `
 
-    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)">
+    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)" sender=${data.handle}>
         ${ownMessage?`
             
             <div class="read-info"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
@@ -1783,18 +1854,8 @@ $(document).ready(function () {
     // Smooth scroll to the bottom when the button is clicked
     $("#down").on("click", function () {
         $("#down").fadeOut(); // Hide the button with a fade-out effect
-
-        if (!isScrolling) {
-            scrollToBottom();
-        } else {
-            // Wait until scrolling stops before executing scroll to bottom
-            const waitUntilStable = setInterval(() => {
-                if (!isScrolling) {
-                    clearInterval(waitUntilStable);
-                    scrollToBottom();
-                }
-            }, 500); // Check every 100ms for scroll stability
-        }
+        scrollDown()
+      
     });
 
     // Function to smoothly scroll to the bottom
@@ -1913,7 +1974,7 @@ function replyMessage(messageId) {
     const messageElement = document.querySelector(`#Message-${messageId}`);
     
     // Extract sender and message content
-    const sender = messageElement.querySelector('h6').textContent.trim();
+    const sender = messageElement.getAttribute(`sender`);
     const messageContent = messageElement.querySelector('p[dir="auto"]').textContent.trim();
 
     // Construct the reply box content
