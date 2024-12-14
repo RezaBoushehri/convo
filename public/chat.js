@@ -32,6 +32,7 @@ let sentMessagesId=[],
     sentMessagesIdLast=[],
     loadedForClicking=false
     , hasScrolledDown = false; // Flag to track if the scroll has already occurred
+    let scrolling = true;
 
 const roomID = document.querySelector("#roomID").textContent.trim()
 if (roomID != "") {
@@ -443,7 +444,7 @@ button.addEventListener("click", () => {
     // Replace <br> and other elements if needed
     text = escapeHtml(text)
     
-    console.log(text);
+    // console.log(text);
     
     if(text == 'message ...'&& !fileData){
         $("#alert")
@@ -493,14 +494,41 @@ button.addEventListener("click", () => {
         }, 3000);
         return;
     }
-    // Display "sending" message in UI
-    output.innerHTML += `<div id="sending-placeholder" style="display:flex;justify-content:flex-end;color:gray;">
-    Sending
-    <img src="../svg/threeDotsLoopTransparency.svg" alt="Sending..." style="width:24px;height:24px;margin-right:10px;" />
-    </div>`;
+   // Display "sending" message in UI
+    const sendingPlaceholder =`
+    <div id="sending" style="display: flex; justify-content: flex-end; color: gray;">
+        Sending 
+        <div class="spinner"></div>
+    </div>
+        `;
+    console.log(sendingPlaceholder)
+
+    output.insertAdjacentHTML("beforeend",sendingPlaceholder);
     // Send message to server
-    socket.emit("chat", data);
+    socket.emit("chat", data, (ack) => {
+        // Callback is triggered when the server acknowledges receipt
     
+        // Remove the "sending" placeholder
+        var placeholder = output.querySelector("#sending");
+        console.log(placeholder)
+        if (ack.success) {
+            scrollDown()
+            if (placeholder) {
+                placeholder.remove();
+            }
+        
+
+            // // Display the sent message in the UI
+            // output.innerHTML += `<div style="display:flex;justify-content:flex-end;color:black;">
+            //     ${data.message}
+            // </div>`;
+        } else {
+            // Handle failure (e.g., show an error message)
+            output.innerHTML += `<div style="display:flex;justify-content:flex-end;color:red;">
+                Failed to send message
+            </div>`;
+        }
+    });
     // Clear input fields
     message.innerHTML = "";
     message.style.height = "36px";
@@ -514,7 +542,9 @@ button.addEventListener("click", () => {
             alerting(response.error,'danger');
             return;
         }
-        scrollDown()
+        setTimeout(() => {
+            scrollDown()
+        }, 1000); // Adjust delay based on scroll duration
    
         
         // // Add the message to the UI
@@ -654,7 +684,10 @@ socket.on("invalidRoom", ({ message }) => {
 
 //=================================================================
 //Handle chat event (Recieve message from server and show it on client side)
-socket.on("chat", (data) => {
+socket.on("chat",(data , ack) => {
+    if (ack.success) {
+   
+        
     // let style,
     //     bg,
     //     color,
@@ -695,9 +728,13 @@ socket.on("chat", (data) => {
     // socket.emit("typing", "stop");
     // showUp();
     // scroll();
-    if(!loadedForClicking){
-    addMessageToChatUI(data)
+        if(!loadedForClicking){
+        addMessageToChatUI(data)
+        }
+        scrollDown()
+  
     }
+
     // $("#down").show(); // Show scroll-up button
     messageMenu()
 
@@ -804,39 +841,43 @@ const showUp = () => {
 
 // Scroll to the bottom of the chat window just once
 const scrollDown = () => {
-
-        // $("#down").show(); // Optionally show the scroll-down button
-        $("#down").fadeOut(); // hide scroll-up button
-        if (loadedForClicking) {
-            const roomID = document.querySelector("#roomID").textContent.trim();
-        
-            // Show the loading spinner if hidden
-            const loadingElement = document.getElementById('loading');
-            if (loadingElement.classList.contains('hide')) {
-                loadingElement.classList.remove("hide");
-                loadingElement.classList.add("show");
-            }
-        
-            // Emit the event and wait for the server's acknowledgment
-            socket.emit("requestOlderMessages", { 
-                roomID: roomID, 
-                counter: `${roomID}-0`, 
-                type: 'latest' 
-            }, () => { // Callback function for when the server acknowledges
-                // Scroll after emitting the event
-                chat_window.scrollTo({
-                    top: chat_window.scrollHeight, // Scroll to the bottom
-                    behavior: "smooth",
-                });
-            });
-        
-            loadedForClicking = false;
-        }else{
+    scrolling=false
+     
+    // $("#down").show(); // Optionally show the scroll-down button
+    $("#down").fadeOut(); // hide scroll-up button
+    if (loadedForClicking) {
+        const roomID = document.querySelector("#roomID").textContent.trim();
+    
+        // Show the loading spinner if hidden
+        const loadingElement = document.getElementById('loading');
+        if (loadingElement.classList.contains('hide')) {
+            loadingElement.classList.remove("hide");
+            loadingElement.classList.add("show");
+        }
+    
+        // Emit the event and wait for the server's acknowledgment
+        socket.emit("requestOlderMessages", { 
+            roomID: roomID, 
+            counter: `${roomID}-0`, 
+            type: 'latest' 
+        }, () => { // Callback function for when the server acknowledges
+            // Scroll after emitting the event
             chat_window.scrollTo({
                 top: chat_window.scrollHeight, // Scroll to the bottom
-                behavior: "smooth",
+                behavior: "auto",
             });
-        } 
+        });
+    
+        loadedForClicking = false;
+    }else{
+        chat_window.scrollTo({
+            top: chat_window.scrollHeight, // Scroll to the bottom
+            behavior: "auto",
+        });
+    } 
+    setTimeout(() => {
+        scrolling = true; // Re-enable user-driven scroll handling after scrolling completes
+    }, 2000); // Adjust delay based on scroll duration
 };
 
 
@@ -862,68 +903,77 @@ const scroll = () => {
 };
 
 const scrollToMessage = (messageId) => {
-    var message = document.getElementById(`${messageId}`);
-    if (message) {
-        // Scroll to the message
-        message.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-        });
+  
+    scrolling=false
+     
+var message = document.getElementById(`${messageId}`);
+if (message) {
+    // Scroll to the message
+    message.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+    });
 
-        // Add the shining effect
-        message.classList.add("highlight-shine");
+    // Add the shining effect
+    message.classList.add("highlight-shine");
 
-        // Remove the class after 1 second
-        setTimeout(() => {
-            message.classList.remove("highlight-shine");
-        }, 1000);
-    } else {
+    // Remove the class after 1 second
+    setTimeout(() => {
+        message.classList.remove("highlight-shine");
+    }, 1000);
+} else {
 
-        var firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
+    var firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
 
-        if( firstMessage.getAttribute('data-id')){
-               let firstMessageId = firstMessage.getAttribute('data-id');
-               if (messageId <= firstMessageId){
-               firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-               messageIdreplied = roomID +"-"+ messageId.split('-')[1]
-               
-               if (!sentMessagesId.includes(firstMessageId)) {
-                const isSmallerThanAll = sentMessagesId.every((id) => {
-                    return firstMessageId < id; // Compare lexicographically (string comparison)
-                });
+    if( firstMessage.getAttribute('data-id')){
+            let firstMessageId = firstMessage.getAttribute('data-id');
+            if (messageId <= firstMessageId){
+            firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+            let messageIdreplied = roomID +"-"+ messageId.split('-')[1]
+            
+            if (!sentMessagesId.includes(firstMessageId)) {
+            const isSmallerThanAll = sentMessagesId.every((id) => {
+                return firstMessageId < id; // Compare lexicographically (string comparison)
+            });
+            
+            // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+            if (isSmallerThanAll) {
                 
-                // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
-                if (isSmallerThanAll) {
-                    
-                    console.log(firstMessageId)
-                    if(document.getElementById('loading').classList.contains('hide')){
-                        document.getElementById('loading').classList.remove("hide");
-                        document.getElementById('loading').classList.add("show");
-                    } 
-                    sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
-                      // Emit the request for older messages to the server and wait for a response
-                    socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
-                }
-            }              
+                console.log(firstMessageId)
+                if(document.getElementById('loading').classList.contains('hide')){
+                    document.getElementById('loading').classList.remove("hide");
+                    document.getElementById('loading').classList.add("show");
+                } 
+                sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+                    // Emit the request for older messages to the server and wait for a response
+                socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
+            }
+        }              
 
-                // Wait for the server response
-                socket.on("olderMessagesLoaded", (prepend) => {
-                    if(prepend.prepend){
-                        // Add a delay of 500ms
-                        // console.log(prepend)
-                        setTimeout(() => {
-                            scrollToMessage(messageId); // Retry scrolling to the message
-                        }, 100);
-                    }
-                });
-               }
-            }else{
-            console.error(`Message with ID ${messageId} not found`);
-        }
+            // Wait for the server response
+            socket.on("olderMessagesLoaded", (prepend) => {
+                if(prepend.prepend){
+                    // Add a delay of 500ms
+                    // console.log(prepend)
+                    // message.scrollIntoView({
+                    //     behavior: "smooth",
+                    //     block: "center",
+                    // });
+                }
+            });
+            }
+        }else{
+        console.error(`Message with ID ${messageId} not found`);
     }
-    };
+}
+setTimeout(() => {
+    scrolling = true; // Re-enable user-driven scroll handling after scrolling completes
+}, 2000); // Adjust delay based on scroll duration
+};
 
 const scrollToUnread = () => {
+    scrolling=false
+
     if (!hasScrolledDown) { // Check if the scroll down hasn't already been triggered
 
     var unreadMarker = document.querySelector(".unread");
@@ -944,6 +994,9 @@ const scrollToUnread = () => {
          console.log(hasScrolledDown)
     }
     $("#down").fadeOut(); // Show scroll-up button
+    setTimeout(() => {
+        scrolling = true; // Re-enable user-driven scroll handling after scrolling completes
+    }, 2000); // Adjust delay based on scroll duration
 };
 
 
@@ -978,16 +1031,29 @@ socket.on("restoreMessages", (data) => {
         document.getElementById('loading').classList.remove("hide");
         document.getElementById('loading').classList.add("show");
     } 
-
+    if(data.reply){
+        sentMessagesIdLast=[]
+        hasScrolledDown= false
+        sentMessagesId=[]
+        loadedForClicking=true
+        output.innerHTML=''
+    }
+    if(data.Latest){
+        sentMessagesIdLast=[]
+        hasScrolledDown= false
+        sentMessagesId=[]
+        loadedForClicking=true
+        output.innerHTML=''
+    }
     const roomID = document.querySelector("#roomID").textContent.trim()
     if (output.querySelectorAll('.messageElm').length >= 150 && !data.unread) {
         var messageElms = output.querySelectorAll('.messageElm');
     
         if (data.prepend) {
-            chat_window.scrollTo({
-                top: 1, // Scroll to the bottom
-                behavior: "auto",            // Smooth scrolling
-            });
+            // chat_window.scrollTo({
+            //     top: 1, // Scroll to the bottom
+            //     behavior: "auto",            // Smooth scrolling
+            // });
             // Remove the last 50 `.messageElm`
             for (let i = messageElms.length - 1; i > messageElms.length - 50; i--) {
                 if (messageElms[i]) {
@@ -995,6 +1061,8 @@ socket.on("restoreMessages", (data) => {
                     if(messagereadR){
                         messageElms[i].remove();
                         messagereadR.remove();
+                        loadedForClicking=true
+
                     }
                     else{
                      console.log(messageElms[i].id)   
@@ -1012,8 +1080,6 @@ socket.on("restoreMessages", (data) => {
                     if(messagereadR){
                         messageElms[i].remove();
                         messagereadR.remove();
-                        loadedForClicking=true
-
                     }
                     else{
                      console.log(messageElms[i].id)   
@@ -1022,14 +1088,7 @@ socket.on("restoreMessages", (data) => {
             }
         }
     }
-    if(data.Latest||data.reply){
-        sentMessagesIdLast=[]
-        hasScrolledDown= false
-        sentMessagesId=[]
-        loadedForClicking=true
 
-        output.innerHTML=''
-    }
     console.log("last",sentMessagesIdLast)
     console.log("first",sentMessagesId)
     // output.innerHTML=''
@@ -1155,13 +1214,35 @@ socket.on("restoreMessages", (data) => {
             document.getElementById('loading').classList.remove("show");
             document.getElementById('loading').classList.add("hide");
         }
-        if(data.reply){
-            sentMessagesIdLast=[]
+        if(data.latest){
+            const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
 
-            sentMessagesId=[]
+            if( firstMessage.getAttribute('data-id')){
+    
+            let firstMessageId = firstMessage.getAttribute('data-id');
+    
+            firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+    
+                            sentMessagesIdLast.push(firstMessageId);  // Store the sent date to prevent duplicates
+            }
+            const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
+
+            if( lastMessage.getAttribute('data-id')){
+    
+            let lastMessageId = lastMessage.getAttribute('data-id');
+    
+            lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
+    
+                            sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
+            }
+        }
+        if(data.reply){
+            // sentMessagesIdLast=[]
+
+            // sentMessagesId=[]
             loadedForClicking=true
 
-            console.log((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
+            console.log("reply loaded:",(data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
             setTimeout(() => {
                 scrollToMessage((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2]); // Retry scrolling to the message
             },1500); // Adjust delay time if necessary
@@ -1876,14 +1957,6 @@ $(document).ready(function () {
 
 
 chat_window.addEventListener("scroll", () => {
-
-    // if (chat_window.scrollHeight > chat_window.clientHeight) {
-    //     $("#down").fadeIn(); // Show scroll-up button
-    // }else{
-        
-    //     $("#down").fadeOut(); // Show scroll-up button
-    //     // $("#down").show(); // Optionally show the scroll-down button
-    // };
     const visibleMessages = [];
     const messages = document.querySelectorAll(".messageRead"); // Class of each message div
     const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
@@ -1891,7 +1964,18 @@ chat_window.addEventListener("scroll", () => {
     const Dates = document.querySelectorAll(".Date"); // Class of each date div
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
     const roomID = document.getElementById('roomIDVal').value;
+    if(!scrolling) console.log('scrolling locked')
 
+if(scrolling){
+    console.log('scrolling unlocked')
+    // if (chat_window.scrollHeight > chat_window.clientHeight) {
+    //     $("#down").fadeIn(); // Show scroll-up button
+    // }else{
+        
+    //     $("#down").fadeOut(); // Show scroll-up button
+    //     // $("#down").show(); // Optionally show the scroll-down button
+    // };
+   
     // Iterate through Dates to check if they are in view
     Dates.forEach((dateElem) => {
         const rectDate = dateElem.getBoundingClientRect();
@@ -1902,6 +1986,8 @@ chat_window.addEventListener("scroll", () => {
             headTag.innerHTML = dateElem.innerHTML; // Set the head tag's content to the current date element
         }
     });
+    if(firstMessage){
+
         if( firstMessage.getAttribute('data-id')){
         let firstMessageId = firstMessage.getAttribute('data-id');
         firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
@@ -1927,7 +2013,10 @@ chat_window.addEventListener("scroll", () => {
                 }
             
             }
-        }
+        }  
+    }
+
+    if(lastMessage){
         if( lastMessage.getAttribute('data-id')){
         let lastMessageId = lastMessage.getAttribute('data-id');
         lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
@@ -1955,7 +2044,8 @@ chat_window.addEventListener("scroll", () => {
             
             }
         }
-      
+    }
+}
     // Iterate through messages to find visible ones (if needed)
     messages.forEach((message) => {
         const rect = message.getBoundingClientRect();

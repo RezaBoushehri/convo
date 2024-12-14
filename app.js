@@ -620,9 +620,12 @@ io.on("connection", (socket) => {
                     olderMessages.map(async (msg) => await processMessage(msg))
                 );
                 if(type=='latest'){
-
+                    const lastMessages = await getMessagesByLimit(roomID, 50);
+                    const processedLatestMessages = await Promise.all(
+                        lastMessages.map(async (msg) => await processMessage(msg))
+                    );
                     console.log("Sending latest messages.");
-                    socket.emit("restoreMessages", { messages: processedMessages, prepend: true , Latest:true});
+                    socket.emit("restoreMessages", { messages: processedLatestMessages, prepend: true , Latest:true});
                 }
                 else if(type=='first'){
                     console.log("Sending older messages.");
@@ -807,7 +810,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     
     
-    socket.on("chat", async (data) => {
+    socket.on("chat", async (data , callback) => {
         try {
             const { username, message, files , quote } = data;
             let fileDetails = null;
@@ -869,14 +872,17 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             };
             console.log(await processMessage(enrichedMessage))
             // Broadcast the message to the room
-            io.in(currentUser.roomID).emit("chat",await processMessage(enrichedMessage));
+            io.in(currentUser.roomID).emit("chat",await processMessage(enrichedMessage),{ success: true });
     
             console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
         // }
-        } catch (error) {
-            console.error("Error in chat:", error.message);
-            socket.emit("chat", { error: "Failed to send message." });
-        }
+        callback({ success: true });
+    } catch (error) {
+        console.error("Error handling chat message:", error);
+
+        // Send failure acknowledgment
+        callback({ success: false });
+    }
     });
 
     // Listen for upload progress from clients
