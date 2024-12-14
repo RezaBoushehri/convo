@@ -510,20 +510,19 @@ button.addEventListener("click", () => {
     // Add listener for server acknowledgment
     socket.on("chat", (response) => {
         if (response.error) {
+
             alerting(response.error,'danger');
             return;
         }
-        
+        scrollDown()
+   
         
         // // Add the message to the UI
         // addMessageToChatUI(response);
     });
     // Remove "sending" placeholder once the message is successfully added to the UI
     if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
-    setTimeout(() => {
-        scrollDown()
-    },100); // Adjust delay time if necessary});
-
+  
 })
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
@@ -696,7 +695,9 @@ socket.on("chat", (data) => {
     // socket.emit("typing", "stop");
     // showUp();
     // scroll();
+    if(!loadedForClicking){
     addMessageToChatUI(data)
+    }
     // $("#down").show(); // Show scroll-up button
     messageMenu()
 
@@ -716,11 +717,17 @@ socket.on("typing", (data) => {
                 </p>`
             );
         }
+        $("#down").append( `<p id="typing-${username}Btn" class="badge p-2 ml-2 type">
+                            <em>${name} is typing ....</em>
+                        </p>`
+                    );
     } else {
         // Remove the typing indicator for this user
         $(`#typing-${username}`).remove();
+        $(`#typing-${username}Btn`).remove();
     }
-    scrollDown()
+    $("#down").fadeIn()
+    // scrollDown()
 });
 
 
@@ -974,7 +981,6 @@ socket.on("restoreMessages", (data) => {
 
     const roomID = document.querySelector("#roomID").textContent.trim()
     if (output.querySelectorAll('.messageElm').length >= 150 && !data.unread) {
-        loadedForClicking=true
         var messageElms = output.querySelectorAll('.messageElm');
     
         if (data.prepend) {
@@ -1006,6 +1012,8 @@ socket.on("restoreMessages", (data) => {
                     if(messagereadR){
                         messageElms[i].remove();
                         messagereadR.remove();
+                        loadedForClicking=true
+
                     }
                     else{
                      console.log(messageElms[i].id)   

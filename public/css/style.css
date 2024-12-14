@@ -815,8 +815,8 @@ footer .fa {
 /* Footer loader styles */
 .loader.show {
     position: absolute;
-    top: 50%;
-    left: 5%;
+    top: 50vh;
+    left: 100px;
     /* width: 100%; */
     /* height: 100px; */
     background-color: rgb(216 216 216 / 44%);
