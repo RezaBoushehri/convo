@@ -46,6 +46,7 @@ if (roomID != "") {
         })
     );
 }
+
 {/* <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})"> */}
 function alerting(message,type='success'){
     $("#alert")
@@ -466,14 +467,14 @@ button.addEventListener("click", () => {
     }
     const data = {
         username: currentUser.username,
-        handle: name.textContent,
+        handle: name.textContent.trim(),
         roomID: roomID,
         quote:quote,
         message: text == 'message ...' ?' ': text,
         files: fileData || null,
         date: new Date(),
     };
-    // console.log(data)
+    // console.log(quote)
 
     
     if ((!data.message && !data.files) || !data.username ) {
@@ -496,27 +497,70 @@ button.addEventListener("click", () => {
     }
    // Display "sending" message in UI
     const sendingPlaceholder =`
-    <div id="sending" style="display: flex; justify-content: flex-end; color: gray;">
-        Sending 
+    <div id="sending" style="display: flex; justify-content: flex-end; "> 
         <div class="spinner"></div>
     </div>
         `;
-    console.log(sendingPlaceholder)
-
-    output.insertAdjacentHTML("beforeend",sendingPlaceholder);
+        const reply = (quote) => {
+            if (quote) {
+                const replyMessageElm = document.getElementById('replyBox');
+                if (!replyMessageElm) {
+                    console.error('Reply box element not found.');
+                    return null; // Safeguard if the element doesn't exist
+                }
+                
+                const sender = replyMessageElm.querySelector('h6')?.textContent.trim() || '';
+                const message = document.getElementById('messageReplied')?.innerText || '';
+                
+                return {
+                    sender: sender,
+                    quote: quote,
+                    handle: sender,
+                    message: message,
+                };
+            }
+            return null; // Return null if no quote
+        };
+        
+        const dataShow = {
+            ...data,
+            quote: `${roomID}-${quote}`,
+            sender: currentUser.username || '',
+            reply: quote ? reply(quote) : null // Ensure it's an array if quote is defined
+        };
+        
+    // console.log(dataShow)
     // Send message to server
+    addMessageToChatUI(dataShow)
+    
+    const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
+    
+    const inLast = lastMessageElm.querySelector('.message')
+    // console.log(inLast.innerHTML)
+    if(inLast){
+        const footerSending= inLast.querySelector(`.read-toggle`)
+        if(footerSending){
+            footerSending.innerHTML=`<strong>${sendingPlaceholder}</strong>`
+        }
+    }
+    // output.insertAdjacentHTML("beforeend",sendingPlaceholder);
+    
+    
     socket.emit("chat", data, (ack) => {
         // Callback is triggered when the server acknowledges receipt
-    
+        
         // Remove the "sending" placeholder
         var placeholder = output.querySelector("#sending");
-        console.log(placeholder)
+        // console.log(placeholder)
         if (ack.success) {
-            scrollDown()
             if (placeholder) {
+                
+                placeholder.insertAdjacentHTML('afterend', `<i class="bi bi-check2"></i>`);
                 placeholder.remove();
+                scrollDown()
+                
             }
-        
+            
 
             // // Display the sent message in the UI
             // output.innerHTML += `<div style="display:flex;justify-content:flex-end;color:black;">
@@ -528,6 +572,8 @@ button.addEventListener("click", () => {
                 Failed to send message
             </div>`;
         }
+     
+      
     });
     // Clear input fields
     message.innerHTML = "";
@@ -542,11 +588,7 @@ button.addEventListener("click", () => {
             alerting(response.error,'danger');
             return;
         }
-        setTimeout(() => {
-            scrollDown()
-        }, 1000); // Adjust delay based on scroll duration
-   
-        
+
         // // Add the message to the UI
         // addMessageToChatUI(response);
     });
@@ -728,11 +770,10 @@ socket.on("chat",(data , ack) => {
     // socket.emit("typing", "stop");
     // showUp();
     // scroll();
-        if(!loadedForClicking){
+    if(data.sender != currentUser.username){
         addMessageToChatUI(data)
-        }
-        scrollDown()
-  
+        console.log(data.sender)
+    }
     }
 
     // $("#down").show(); // Show scroll-up button
@@ -753,11 +794,11 @@ socket.on("typing", (data) => {
                     <em>${name} is typing ....</em>
                 </p>`
             );
+            $("#down").append( `<p id="typing-${username}Btn" class="badge p-2 ml-2 type">
+                <em>${name} is typing ....</em>
+                </p>`
+            );
         }
-        $("#down").append( `<p id="typing-${username}Btn" class="badge p-2 ml-2 type">
-                            <em>${name} is typing ....</em>
-                        </p>`
-                    );
     } else {
         // Remove the typing indicator for this user
         $(`#typing-${username}`).remove();
@@ -1042,7 +1083,7 @@ socket.on("restoreMessages", (data) => {
         sentMessagesIdLast=[]
         hasScrolledDown= false
         sentMessagesId=[]
-        loadedForClicking=true
+        // loadedForClicking=true
         output.innerHTML=''
     }
     const roomID = document.querySelector("#roomID").textContent.trim()
@@ -1116,7 +1157,7 @@ socket.on("restoreMessages", (data) => {
                 throw new Error(`Missing required fields in message at index ${index}`);
             }
             // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
-            // console.log(message)
+            console.log(data.latest ?  data.prepend:'')
             let isFirstMessage ;
             let isLastMessage ;
             if(data.prepend){
@@ -1128,7 +1169,7 @@ socket.on("restoreMessages", (data) => {
                 
             }
             // Prepend reversed messages to the chat UI
-            addMessageToChatUI(message,data.prepend , isFirstMessage, isLastMessage);
+            addMessageToChatUI(message, data.prepend , isFirstMessage, isLastMessage);
         } catch (error) {
             console.error("Error adding message to chat UI:", { error, message, index });
             
@@ -1344,10 +1385,10 @@ document.getElementById("resetSettings").addEventListener("click", () => {
             marginRight: "%10",
             chatWindowBgColor: "#434343",
             chatWindowFgColor: "#ffffff",
-            bgColor: "#99ff85", // Assuming a background color picker exists
-            fgColor: "#000000", // Assuming a background color picker exists
-            fontSize: "16px", // Get font size from range input
-            borderRad: "5px", // Get font size from range input
+            bgColor: "#3385ff", // Assuming a background color picker exists
+            fgColor: "#ffffff", // Assuming a background color picker exists
+            fontSize: "12px", // Get font size from range input
+            borderRad: "15px", // Get font size from range input
         };
         localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
@@ -1382,8 +1423,26 @@ let ProcessedDate = null;
 let messagesCreated=[]
 let messagesCreatedHandler=[]
 let messageIdSplited=[]
-function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=false) {
-    // if(messagesCreated.includes(data.id)) return
+let lastSender = null;
+
+function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true) {
+    if(messagesCreated.includes(data.id)){
+        const MessageElm = output.querySelector(`#Message-${data.id.split('-')[1]}`)
+        if(MessageElm)MessageElm.remove()
+    }
+    if(!data.id){
+        const MessageElm = output.querySelectorAll(`.messageElm`)
+
+        if (MessageElm.length > 0) {
+            const lastMessageIdStr = MessageElm[MessageElm.length - 1].id.split('-')[1];
+            if (!isNaN(lastMessageIdStr)) {
+                data.id = roomID+"-"+ (parseInt(lastMessageIdStr, 10) + 1); // Increment the last numeric id
+            } else {
+                console.error("Invalid ID format. Ensure message IDs are in the correct format, e.g., 'Message-123'.");
+            }
+        }
+        // console.log("Next message ID:", data.id);
+    }
     let contentToAdd = "";
     let dateToAdd = "";
     let unreadToAdd = "";
@@ -1392,14 +1451,19 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     let messageId = data.id
     messageId = (data.id).split("-")[1];
     messageIdSplited.push(messageId)
+    const isNewSender = lastSender !== data.sender;
 
+    // Update the last sender
+    lastSender = data.sender;
+    
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
     const bgColor = savedSettings?.bgColor || "#ffff";
-    const fontSize = savedSettings?.fontSize || "16px";
-    const borderRad = savedSettings?.borderRad || "5px";
+    const fontSize = savedSettings?.fontSize || "13px";
+    const borderRad = savedSettings?.borderRad || "15px";
     const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     const ownMessage = data.sender === currentUser.username;
+    const styleClass = ownMessage ? "right_box" : "left_box";
     data.message = data.message
     .replace(/\n/g, '<br>') // Replace newlines with <br>
     .replace(
@@ -1418,7 +1482,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         : `display:flex;justify-content:flex-start;`;
 
     // Get the date of the current message
-    const messageDate = new Date(data.timestamp);
+    const messageDate = new Date(data.timestamp || new Date());
     const messageDateString = messageDate.toLocaleDateString("fa-IR", {
         year: "numeric",
         month: "short",
@@ -1478,10 +1542,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     : "";
     const emojiDiv = `
     ${emoji(messageId)}
-    <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
-    <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
-    </button>
+    
     `
+    // <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
+    // <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
+    // </button>
     // sender name
     const handler = () => {
       // Check if the last and second-to-last values are equal
@@ -1496,9 +1561,13 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                   return ``        
                 } else {
                   const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-2]}`)
-                  const inLast = lastMessageElm.querySelector('.message')
-                  inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'Me':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
-                  return ``;
+                  if(lastMessageElm){
+                    const inLast = lastMessageElm.querySelector('.message')
+                    if(inLast){
+                    inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'Me':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
+                    }
+                    }
+                  else return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>`;
                 }
             } else {
               return ``
@@ -1519,10 +1588,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     }
         
     }
-
+// console.log("replyJson: ", data.reply!==null ?  data.reply:'')
+// onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)"
     contentToAdd += `
 
-    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)" sender=${data.handle}>
+    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}"  sender="${data.handle}">
         ${ownMessage?`
             
             <div class="read-info"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
@@ -1530,7 +1600,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             </div>`
             :''}
              
-        <div style="${style}" class=" ${ownMessage? `right_box `:`left_box `}message mess p-2 mr-1 m-2 col-md-6">
+        <div style="${style}" class=" ${ownMessage? `right_box1 `:`left_box2 `}message mess p-2 mr-1 m-2 col-md-6">
 
             ${handler()}
             ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
@@ -1595,21 +1665,22 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         ${new Intl.DateTimeFormat("en-US", {
             hour: "numeric",
             minute: "numeric",
-        }).format(messageDate)}
+        }).format(messageDate || new Date())}
+        
         </div>
         </div>
         </div>
         </div>
         <div class="messageRead" data-id="Message-${messageId}"  style="${divStyle}">
-        <div  style="${divStyle}" onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)" class=" footerMessage" >
+        <div  style="${divStyle}"  class=" footerMessage" >
         
         ${ ownMessage ? `
             ${emojiDiv} 
-            <div class="mx-2" reactionMessage = "${messageId}">
+            <div class="m-2" reactionMessage = "${messageId}">
                 ${reactionMember}
             </div>`:
         `
-            <div class="mx-2" reactionMessage = "${messageId}">
+            <div class="m-2" reactionMessage = "${messageId}">
                 ${reactionMember}
             </div>
           ${emojiDiv}`
@@ -1620,21 +1691,32 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     `;
     let firstMessage = `
     <div data-id="Message-${messageId}" class="firstMessage"></div>
-`;
-let lastMessage = `
-    <div data-id="Message-${messageId}" class="lastMessage"></div>
-`;
+    `;
+    let lastMessage = `
+        <div data-id="Message-${messageId}" class="lastMessage"></div>
+    `;
 
 
 
+  
     if (prepend) {
         output.insertAdjacentHTML("afterbegin", contentToAdd);
         if (dateToAdd) output.insertAdjacentHTML("afterbegin", dateToAdd);
         if (unreadToAdd) output.insertAdjacentHTML("afterbegin", unreadToAdd);
+        if (isNewSender ) {
+            const lastMessageElm = output.querySelector(`#Message-${messagesCreated[messagesCreated.length -1].split("-")[1]}`);
+            if (lastMessageElm) {
+                const div = lastMessageElm.querySelector(`.mess`);
+        
+                div.classList.add(styleClass); // Ensure only last message retains the box class
+            }
+        }
     } else {
         if (dateToAdd) output.insertAdjacentHTML("beforeend", dateToAdd);
         if (unreadToAdd) output.insertAdjacentHTML("beforeend", unreadToAdd);
         output.insertAdjacentHTML("beforeend", contentToAdd);
+          // Reset styles for new sender if not last in sequence
+
           
     }
 // Check and update or insert firstMessage
@@ -1663,16 +1745,16 @@ if (isLastMessage) {
 }
 
 // JavaScript function to toggle the visibility of the react button
-function toggleReactBtnVisibility(messageId, show) {
-    const reactBtn = document.getElementById(`reactBtn-${messageId}`);
+// function toggleReactBtnVisibility(messageId, show) {
+//     const reactBtn = document.getElementById(`reactBtn-${messageId}`);
     
-    // Toggle the 'visible' class depending on whether the mouse is over or out
-    if (show) {
-        reactBtn.classList.add('visible');
-    } else {
-        reactBtn.classList.remove('visible');
-    }
-}
+//     // Toggle the 'visible' class depending on whether the mouse is over or out
+//     if (show) {
+//         reactBtn.classList.add('visible');
+//     } else {
+//         reactBtn.classList.remove('visible');
+//     }
+// }
 
 // Function to toggle the sticker picker (this is just an example)
 function toggleStickerPicker(messageId) {
@@ -1765,7 +1847,7 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
             // userRect.innerHTML = `<span class='${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' user-id="${username}">${reaction}</span>`;
 
             // Create a new reaction element
-          memberReaction.innerHTML += `<span class='${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' ${username == currentUser.username ? `onClick="addStickerReaction('',${spiltedId})"`:''} user-id="${username}">${reaction}</span>`
+          memberReaction.innerHTML += `<span class='${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji m-1' ${username == currentUser.username ? `onClick="addStickerReaction('',${spiltedId})"`:''} user-id="${username}">${reaction}</span>`
     
             // Debug: Log the newly created element
             // console.log(`New reaction created for username: ${username}`);
@@ -2073,7 +2155,7 @@ function replyMessage(messageId) {
     
     // Extract sender and message content
     const sender = messageElement.getAttribute(`sender`);
-    const messageContent = messageElement.querySelector('p[dir="auto"]').textContent.trim();
+    const messageContent = escapeHtml(messageElement.querySelector('p[dir="auto"]').textContent.trim());
 
     // Construct the reply box content
     const replyBox = document.getElementById('replyBox');
@@ -2082,9 +2164,9 @@ function replyMessage(messageId) {
 
         <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row;    justify-content: space-between;'>
             <h6 style="margin: 0; font-style: italic; font-size: 0.9rem; text-align: start;">${sender}</h6>
-            <div  style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+            <p dir="auto" id="messageReplied" style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
                 ${(messageContent)}
-            </div>
+            </p>
             </div>
             <button onclick="clearReply()" class="btn btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
         <hr>
@@ -2198,7 +2280,7 @@ function messageMenu() {
         })
         document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
             // Copy the innerHTML to the clipboard
-            copyToClipboard(element.querySelector('.mess').textContent.trim());
+            copyToClipboard(element.querySelector('p[dir="auto"]').textContent.trim());
 
             // Optional: Provide user feedback (e.g., show a success message)
             alerting("Message copied to clipboard!");
