@@ -549,7 +549,7 @@ io.on("connection", (socket) => {
 
                 // Emit unread messages first
             if (unreadMessages.length > 0) {
-                socket.emit("restoreMessages", { messages: unreadMessages, prepend: true , unread:true });
+                socket.emit("restoreMessages", { messages: unreadMessages, prepend: true , unread:true , join:true});
             } else {
                 try {
                     console.log("No unread messages. Fetching the last 50 messages.");
@@ -562,7 +562,7 @@ io.on("connection", (socket) => {
                     );
                     if (processedMessages.length > 0) {
                         // console.log("Fetched last 50 messages:", processedMessages);
-                        socket.emit("restoreMessages", { messages: processedMessages, prepend: true });
+                        socket.emit("restoreMessages", { messages: processedMessages, prepend: true , join:true });
                     } else {
                         console.log("No messages found for the room.");
                         socket.emit("noMoreMessages", { message: "No messages available." });
@@ -931,14 +931,15 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     socket.on("markMessagesRead", async ({ messageIds, username }) => {
         try {
             const timestamp = new Date();
-            // console.log(messageIds)
+            console.log(messageIds)
+            
             // Update the `read` array for each message
             const user = await User.findOne({ username });
             if(user){
             const updatedMessages = await Promise.all(
                 messageIds.map(async (messageId) => {
-                    await Message.updateOne(
-                        { id: messageId, "read.username": { $ne: username } }, // Ensure username isn't already marked
+                    await Message.updateMany(
+                        { id: { $lte: messageId }, "read.username": { $ne: username } }, // All messages with id <= messageId
                         { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
                     );
     

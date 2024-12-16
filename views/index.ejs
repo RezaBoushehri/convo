@@ -77,71 +77,75 @@
             <input id="username" type="hidden" value="<%= currentUser.username.trim() %>">
             <div id="feedback" class='p-3'></div>
             <button id="up" class="btn btn-warning m-2 text-white" onclick="scrollUp()"></i></button>
-            <button id="down" class="btn m-2" style="display: none; font-size: larger; " onclick="scrollDown()"><strong><i class="bi bi-arrow-down"></i></strong></button>
             
         </div>
-        <div class='form-inline row m-2' style='display:none'>
-            
+        <div class=" row g-3 px-5 my-5" style="
+        display: flex;
+        align-items: center;">
+            <button id="down" class="btn " style="display: none; " onclick="scrollDown()"><strong><i class="bi bi-arrow-down"></i></strong></button>
+            <div class='form-inline row m-2' style='display:none'>
+                
                 <!-- reply -->
                 <div id="replyBox" class="col-md-12 message hide " style=" align-items: center; justify-content: space-between; padding: 10px;  backdrop-filter: blur(5px);">
                     <h6 style="margin: 0; font-style: italic; font-size: 14px; text-align: start;"></h6>
                     <div style="flex: 1; margin-left: 10px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; " id="replyMessageContent">
                     </div>
                 </div>
-            <!-- ------------------ -->
-            <div class="col-md-12 my-1 messageInputDiv" >
-                <div 
-                id="editable-message-text" 
-                class="form-control allow-selection flexible-div " 
-                contenteditable="true" 
-                role="textbox" 
-                dir="auto" 
-                tabindex="0" 
-                aria-label="Message" 
-                aria-placeholder="message ..."
-                autocomplete="on">
-                <div class="xMessageInput"></div>
+                <!-- ------------------ -->
+                <div class="col-md-12 messageInputDiv" >
+                    <div 
+                    id="editable-message-text" 
+                    class="form-control allow-selection flexible-div " 
+                    contenteditable="true" 
+                    role="textbox" 
+                    dir="auto" 
+                    tabindex="0" 
+                    aria-label="Message" 
+                    aria-placeholder="message ..."
+                    autocomplete="on">
+                    <div class="xMessageInput"></div>
 
-                </div>
-            
-                <script>
-                    const editableMessageText = document.getElementById("editable-message-text");
+                    </div>
                 
-                    // Set placeholder text
-                    const placeholderText = "message ...";
-                
-                    // Add the placeholder when the content is empty
-                    function setPlaceholder() {
-                        if (editableMessageText.textContent.trim() === "") {
-                            editableMessageText.textContent = placeholderText;
-                        } else if (editableMessageText.textContent === placeholderText) {
-                            editableMessageText.textContent = "";
+                    <script>
+                        const editableMessageText = document.getElementById("editable-message-text");
+                    
+                        // Set placeholder text
+                        const placeholderText = "message ...";
+                    
+                        // Add the placeholder when the content is empty
+                        function setPlaceholder() {
+                            if (editableMessageText.textContent.trim() === "") {
+                                editableMessageText.textContent = placeholderText;
+                            } else if (editableMessageText.textContent === placeholderText) {
+                                editableMessageText.textContent = "";
+                            }
                         }
-                    }
-                
-                    // Trigger placeholder logic on focus and blur
-                    editableMessageText.addEventListener("focus", function() {
-                        if (editableMessageText.textContent === placeholderText) {
-                            editableMessageText.textContent = "";
-                        }
-                    });
-                
-                    editableMessageText.addEventListener("blur", function() {
+                    
+                        // Trigger placeholder logic on focus and blur
+                        editableMessageText.addEventListener("focus", function() {
+                            if (editableMessageText.textContent === placeholderText) {
+                                editableMessageText.textContent = "";
+                            }
+                        });
+                    
+                        editableMessageText.addEventListener("blur", function() {
+                            setPlaceholder();
+                        });
+                    
+                        // Initialize placeholder on page load
                         setPlaceholder();
-                    });
+                    </script>
                 
-                    // Initialize placeholder on page load
-                    setPlaceholder();
-                </script>
-            
-                <div class="button-container g-3">
-                        <button class=" btn  file-button ">
-                            <input type="file" accept="" id="file-input">
-                            <label class="input-label" for="file-input"><i style="    font-size: large;" class="bi bi-upload"></i></label>
-                        </button>
-                        <button class="btn  send-button " type="submit" id="button">
-                                <i class="fa fa-paper-plane"></i>
-                        </button>
+                    <div class="button-container g-3">
+                            <button class=" btn  file-button ">
+                                <input type="file" accept="" id="file-input">
+                                <label class="input-label" for="file-input"><i style="    font-size: large;" class="bi bi-upload"></i></label>
+                            </button>
+                            <button class="btn  send-button " type="submit" id="button">
+                                    <i class="fa fa-paper-plane"></i>
+                            </button>
+                    </div>
                 </div>
             </div>
         </div>

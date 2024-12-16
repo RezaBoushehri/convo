@@ -25,8 +25,7 @@ body {
 #chat-window {
     margin-top: 2vh;
     background-color: #434343;
-    min-height: 50vh;
-    max-height: 70vh;
+    height: 55vh;
     overflow-y: auto;
     color: black;
     color: white;
@@ -59,11 +58,14 @@ body {
     align-items: center;
     padding-left: 45px !important;
     display: flex;
+    
     justify-content: space-between;
 }
 #editable-message-text {
     color: #666; /* Grey color for placeholder text */
     border: none;
+    min-width: 30vw;
+    max-width: 40vw;
 
 }
 
@@ -89,6 +91,7 @@ body {
     top: -20px;
 }
 #editable-message-text {
+    margin-left: -20px;
 
     position: relative; /* To position buttons within it */
     max-height: 100px; /* Optional: max height before scrolling is needed */
@@ -618,8 +621,9 @@ footer .fa {
 }
 
 #down {
-    position: fixed;
-    bottom: 20dvh;
+    /* position: fixed;
+    bottom: 20dvh; */
+    z-index: 99;
 
     background-color: var(--user-bg-color);
     color: var(--user-fg-color);
@@ -689,7 +693,7 @@ footer .fa {
 }
 
 .form-inline{
-    margin-left: 30vw !important;
+    position: fixed;
     border-radius: 100px;
     min-height: 66px;
     max-height: 126px;
@@ -707,8 +711,8 @@ footer .fa {
 /* Reset margins for mobile devices */
 @media (max-width: 767px) {
     .form-inline {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
+        margin-left: 10dvw !important;
+        margin-right: 10dvw !important;
     }
 }
 .EmbeddedMessage {
@@ -757,7 +761,7 @@ footer .fa {
     position: relative;
     background-color: #ffffff3f;
     backdrop-filter: blur(5px);
-    border-radius: 5px var(--user-border-radius) 5px 5px;
+    border-radius: 5px 5px 5px 5px;
     transition: all 0.3s ease; /* Smooth transition for hover effect */
 }
 
@@ -841,7 +845,7 @@ footer .fa {
 .spinner {
     width: 16px;
     height: 16px;
-    border: 2px solid white;
+    border: 2px solid var(--user-fg-color);
     border-top: 2px solid transparent;
     border-radius: 50%;
     animation: spin 1s linear infinite;
@@ -856,3 +860,4 @@ footer .fa {
     transform: rotate(360deg);
     }
 }
+
