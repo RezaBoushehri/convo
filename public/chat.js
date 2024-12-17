@@ -2123,24 +2123,16 @@ if(scrolling){
     // };
    
     // Iterate through Dates to check if they are in view
-    Dates.forEach((dateElem) => {
-        const rectDate = dateElem.getBoundingClientRect();
-
-        // If the bottom of the date element is at or above the top of the head tag
-        if (rectDate.bottom <= rectheadTag.top) {
-            // console.log(dateElem.innerHTML); // Log the date when it reaches the top
-            headTag.innerHTML = dateElem.innerHTML; // Set the head tag's content to the current date element
-        }
-    });
+    
     if(firstMessage){
 
         if( firstMessage.getAttribute('data-id')){
         let firstMessageId = firstMessage.getAttribute('data-id');
         firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-        const threshold = 1000; // Proximity in pixels to the top of the viewport
+        const threshold = 50; // Proximity in pixels to the top of the viewport
 
         if (firstMessage.getBoundingClientRect().top >= -threshold && 
-        firstMessage.getBoundingClientRect().bottom <= window.innerHeight - threshold) { 
+        firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
                 // Check if the message has not been sent before and it's the first message of the day
                 if (!sentMessagesId.includes(firstMessageId)) {
                     const isSmallerThanAll = sentMessagesId.every((id) => {
@@ -2172,7 +2164,7 @@ if(scrolling){
         let lastMessageId = lastMessage.getAttribute('data-id');
         lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
         // console.log("before scroll:", lastMessageId)
-        const threshold = 100; // Proximity in pixels to the top of the viewport
+        const threshold = 50; // Proximity in pixels to the top of the viewport
         let rect = lastMessage.getBoundingClientRect()  
         if (rect.bottom >= -threshold 
             &&rect.top <= window.innerHeight+threshold) {
@@ -2207,6 +2199,7 @@ if(scrolling){
 
 
 chat_window.addEventListener("scroll", () => {
+    
     const visibleMessages = [];
     const messages = document.querySelectorAll(".messageRead"); // Class of each message div
     const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
@@ -2216,7 +2209,15 @@ chat_window.addEventListener("scroll", () => {
     const roomID = document.getElementById('roomIDVal').value;
     if(!scrolling) console.log('scrolling locked')
 
-
+        Dates.forEach((dateElem) => {
+            const rectDate = dateElem.getBoundingClientRect();
+    
+            // If the bottom of the date element is at or above the top of the head tag
+            if (rectDate.bottom <= rectheadTag.top) {
+                // console.log(dateElem.innerHTML); // Log the date when it reaches the top
+                headTag.innerHTML = dateElem.innerHTML; // Set the head tag's content to the current date element
+            }
+        });
     // Iterate through messages to find visible ones (if needed)
     messages.forEach((message) => {
         const rect = message.getBoundingClientRect();
