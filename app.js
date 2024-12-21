@@ -70,7 +70,7 @@ function phoneVal(phoneNumber, res) {
 }
 
 
-const mongoURI = "mongodb://localhost:27017/chatRoom"; // Replace with your URI
+const mongoURI = "mongodb://chatAdmin:chatAdmin@localhost:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 mongoose
     .connect(mongoURI, {})
     .then(() => console.log("MongoDB connected"))

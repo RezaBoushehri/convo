@@ -39,14 +39,14 @@ const roomID = document.querySelector("#roomID").textContent.trim()
 const disableScrolling = () => {
     chat_window.removeEventListener("scroll", scrollLoader)
 
-    console.log("Scrolling disabled.");
+    // console.log("Scrolling disabled.");
 };
 
 // Function to enable scrolling
 const enableScrolling = () => {
     chat_window.addEventListener("scroll", scrollLoader)
 
-    console.log("Scrolling enabled.");
+    // console.log("Scrolling enabled.");
 };
 
 if (roomID != "") {
@@ -393,7 +393,7 @@ const joinRoom = () => {
         alerting("Please enter a room ID.",'danger');  // Validation: Ensure the room ID is not empty
         return;
     }else{
-        console.log(roomID)
+        // console.log(roomID)
     }
     document.querySelector("#roomID").textContent= roomID
      if(document.getElementById('loading').classList.contains('hide')){
@@ -420,7 +420,7 @@ const leaveRoom = () => {
 
     // Success feedback
     socket.on("leftRoom", ({ roomID }) => {
-        console.log(`You have left room: ${roomID}`);
+        // console.log(`You have left room: ${roomID}`);
         // Update the UI to reflect the user leaving the room
     });
 
@@ -431,7 +431,7 @@ const leaveRoom = () => {
 
     // Notify other users when someone leaves
     socket.on("userLeft", ({ username, roomID }) => {
-        console.log(`${username} has left the room: ${roomID}`);
+        // console.log(`${username} has left the room: ${roomID}`);
         // Update the UI to reflect the user's departure
     });
     // Notify other users when someone leaves
@@ -547,6 +547,14 @@ button.addEventListener("click", () => {
     // Send message to server
     addMessageToChatUI(dataShow)
     
+
+  // Clear input fields
+  message.innerHTML = "";
+  message.style.height = "36px";
+  
+  fileData = "";
+  clearReply()
+
     const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
     
     const inLast = lastMessageElm.querySelector('.message')
@@ -560,7 +568,12 @@ button.addEventListener("click", () => {
     // output.insertAdjacentHTML("beforeend",sendingPlaceholder);
     
     
-    scrollDown()
+    chat_window.scrollTo({
+        top: chat_window.scrollHeight, // Scroll to the bottom
+        behavior: "auto",
+    });
+    if(document.querySelector('.unread')) document.querySelector('.unread').remove()
+
     socket.emit("chat", data, (ack) => {
         // Callback is triggered when the server acknowledges receipt
         
@@ -589,12 +602,7 @@ button.addEventListener("click", () => {
      
       
     });
-    // Clear input fields
-    message.innerHTML = "";
-    message.style.height = "36px";
-    
-    fileData = "";
-    clearReply()
+  
     // Add listener for server acknowledgment
     socket.on("chat", (response) => {
         if (response.error) {
@@ -680,7 +688,7 @@ socket.on("newconnection", (data) => {
 //=================================================================
 //Handle User joined the room event
 socket.on("joined", (data) => {
-    console.log("User joined room:", data);
+    // console.log("User joined room:", data);
 
     // Ensure required fields exist
     // if (!data.room || !data.room.roomID || !data.room.admin) {
@@ -740,6 +748,19 @@ socket.on("invalidRoom", ({ message }) => {
 
 //=================================================================
 //Handle chat event (Recieve message from server and show it on client side)
+
+// when scroll up send other user message count 
+let unreadedScroll=0;
+function updateNotifCount(count) {
+    const notifCount = document.getElementById('notifCount');
+    if (count > 0) {
+        notifCount.textContent = count;
+        notifCount.style.display = 'inline'; // Show the badge
+    } else {
+        notifCount.style.display = 'none'; // Hide the badge if count is 0
+    }
+}
+
 socket.on("chat",(data , ack) => {
     if (ack.success) {
    
@@ -790,11 +811,13 @@ socket.on("chat",(data , ack) => {
     const roomID = document.getElementById('roomIDVal').value;
 
     if(lastMessage){
+
         if( lastMessage.getAttribute('data-id')){
             let lastMessageId = lastMessage.getAttribute('data-id');
             lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
             const threshold = 100; // Proximity in pixels to the top of the viewport
-            let rect = lastMessage.getBoundingClientRect()  
+            let rect = lastMessage.getBoundingClientRect()
+
             if (rect.bottom >= -threshold 
                 &&rect.top <= window.innerHeight+threshold) {
                 if(data.sender != currentUser.username){
@@ -804,6 +827,9 @@ socket.on("chat",(data , ack) => {
                 scrollDown()
 
                 }else{
+                    unreadedScroll += 1;
+                    updateNotifCount(unreadedScroll)
+                    console.log('unreaded:',unreadedScroll)
                     if(data.sender != currentUser.username){
                         if(output.querySelectorAll('.unread').length == 0){
                             data = {
@@ -812,7 +838,7 @@ socket.on("chat",(data , ack) => {
                             }
                         }else{
                             
-                            console.log(output.querySelectorAll('.unread'))
+                            // console.log(output.querySelectorAll('.unread'))
                         }
                         addMessageToChatUI(data)
                         hasScrolledDown=false
@@ -825,6 +851,8 @@ socket.on("chat",(data , ack) => {
     // $("#down").show(); // Show scroll-up button
     messageMenu()
 
+
+
 });
 
 //=================================================================
@@ -834,23 +862,45 @@ socket.on("typing", (data) => {
 
     if (isTyping) {
         // Add a typing indicator if one doesn't already exist
-        if (!$(`#typing-${username}`).length) {
-            $("#feedback").append(
-                `<p id="typing-${username}" class="badge p-2 ml-2 type">
-                    <em>${name} is typing ....</em>
-                </p>`
-            );
-            $("#down").append( `<p id="typing-${username}Btn" class="badge p-2 ml-2 type">
-                <em>${name} is typing ....</em>
-                </p>`
-            );
+        if (!$(`#typing-${username}`).length && !$(`#typing-${username}Btn`).length) {
+           
+            const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
+
+            const roomID = document.getElementById('roomIDVal').value;
+
+            if(lastMessage){
+
+                if( lastMessage.getAttribute('data-id')){
+                    let lastMessageId = lastMessage.getAttribute('data-id');
+                    lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
+                    const threshold = 100; // Proximity in pixels to the top of the viewport
+                    let rect = lastMessage.getBoundingClientRect()
+
+                    if (rect.bottom >= -threshold 
+                        &&rect.top <= window.innerHeight+threshold) {
+                       
+                            $("#feedback").append(
+                                `<p id="typing-${username}" class="badge p-2 ml-2 type">
+                                    <em>${name} is typing ....</em>
+                                </p>`
+                            );
+                        }else{
+                            $("#down").fadeIn()
+
+                            $("#chat_windowFooter").append( `<p id="typing-${username}Btn" class="badge p-2 ml-2 type">
+                                <em>${name} is typing ....</em>
+                                </p>`
+                            );
+                        }
+                    }
+            }
+            
         }
     } else {
         // Remove the typing indicator for this user
         $(`#typing-${username}`).remove();
         $(`#typing-${username}Btn`).remove();
     }
-    $("#down").fadeIn()
     // scrollDown()
 });
 
@@ -962,6 +1012,15 @@ const scrollDown = () => {
             top: chat_window.scrollHeight, // Scroll to the bottom
             behavior: "auto",
         });
+        var unreadMarker = document.querySelector(".unread");
+        if (unreadMarker) {
+            const rect = unreadMarker.getBoundingClientRect();
+            // console.log("Unread marker position:", rect);
+            unreadMarker.scrollIntoView({
+                behavior: "auto",
+                block: "center",
+            });
+        }
     } 
     setTimeout(() => {
         scrolling = true; // Re-enable user-driven scroll handling after scrolling completes
@@ -1027,7 +1086,7 @@ if (message) {
             // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
             if (isSmallerThanAll) {
                 
-                console.log(firstMessageId)
+                // console.log(firstMessageId)
                 if(document.getElementById('loading').classList.contains('hide')){
                     document.getElementById('loading').classList.remove("hide");
                     document.getElementById('loading').classList.add("show");
@@ -1067,7 +1126,7 @@ const scrollToUnread = () => {
     var unreadMarker = document.querySelector(".unread");
     if (unreadMarker) {
         const rect = unreadMarker.getBoundingClientRect();
-        console.log("Unread marker position:", rect);
+        // console.log("Unread marker position:", rect);
         unreadMarker.scrollIntoView({
             behavior: "auto",
             block: "center",
@@ -1079,7 +1138,7 @@ const scrollToUnread = () => {
         });
     }
          hasScrolledDown = true; // Set flag to true after scrolling down
-         console.log(hasScrolledDown)
+        //  console.log(hasScrolledDown)
     }
     $("#down").fadeOut(); // Show scroll-up button
     setTimeout(() => {
@@ -1095,7 +1154,7 @@ const copyId = (id) => {
     $temp.val(id).select();
     document.execCommand("copy");
     $temp.remove();
-    console.log("Copied the text: " + id);
+    // console.log("Copied the text: " + id);
     $("#alert")
         .html(
             `<div class='alert alert-info' role='alert'>
@@ -1134,7 +1193,7 @@ socket.on("restoreMessages", (data) => {
         output.innerHTML=''
     }
     const roomID = document.querySelector("#roomID").textContent.trim()
-    if (output.querySelectorAll('.MessagePack').length >= 5 && !data.unread) {
+    if (output.querySelectorAll('.MessagePack').length >= 3 && !data.unread) {
         var MessagePack = output.querySelectorAll('.MessagePack');
     
         if (data.prepend) {
@@ -1143,7 +1202,7 @@ socket.on("restoreMessages", (data) => {
             //     behavior: "auto",            // Smooth scrolling
             // });
             // Remove the last 50 `.messageElm`
-            for (let i = MessagePack.length - 1; i > MessagePack.length - 4; i--) {
+            for (let i = MessagePack.length - 1; i > MessagePack.length - 2; i--) {
                 if (MessagePack[i]) {
                     MessagePack[i].remove();
                     
@@ -1156,7 +1215,7 @@ socket.on("restoreMessages", (data) => {
             
             sentMessagesId=[]
             // Remove the first 50 `.messageElm`
-            for (let i = 0; i < 3; i++) {
+            for (let i = 0; i < 2; i++) {
                 if (MessagePack[i]) {
                     MessagePack[i].remove();
                     
@@ -1166,8 +1225,8 @@ socket.on("restoreMessages", (data) => {
         }
     }
 
-    console.log("last",sentMessagesIdLast)
-    console.log("first",sentMessagesId)
+    // console.log("last",sentMessagesIdLast)
+    // console.log("first",sentMessagesId)
     // output.innerHTML=''
    
     let lastSeenDate = [];
@@ -1212,7 +1271,7 @@ socket.on("restoreMessages", (data) => {
                 throw new Error(`Missing required fields in message at index ${index}`);
             }
             // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
-            console.log("data latest prepend: " , data.latest ?  data.prepend:'')
+            // console.log("data latest prepend: " , data.latest ?  data.prepend:'')
             let isFirstMessage ;
             let isLastMessage ;
             if(data.prepend){
@@ -1338,7 +1397,7 @@ socket.on("restoreMessages", (data) => {
             // sentMessagesId=[]
             loadedForClicking=true
 
-            console.log("reply loaded:",(data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
+            // console.log("reply loaded:",(data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
             setTimeout(() => {
                 scrollToMessage((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2]); // Retry scrolling to the message
             },1500); // Adjust delay time if necessary
@@ -1350,6 +1409,17 @@ socket.on("restoreMessages", (data) => {
         }
        
         messageMenu()
+        if (data.prepend) {
+            const messagePackDiv = document.querySelectorAll('.MessagePack');
+    
+            if (messagePackDiv.length > 0) {
+                chat_window.scrollTop = messagePackDiv[0].scrollHeight;
+            } else {
+                console.error('No elements found with class "MessagePack".');
+            }
+        }
+
+    
         enableScrolling()
     });
     socket.on("noMoreMessages",(data) =>{
@@ -1358,6 +1428,8 @@ socket.on("restoreMessages", (data) => {
             document.getElementById('loading').classList.remove("show");
             document.getElementById('loading').classList.add("hide");
         }
+        
+        // output.querySelector('.firstMessage').innerHTML=''
     })
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
@@ -1490,7 +1562,7 @@ let messagesCreatedHandler=[]
 let messageIdSplited=[]
 let lastSender = null;
 
-function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true , MessagePack = output.querySelector('.MessagePack')) {
+function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true , MessagePack = output.querySelectorAll('.MessagePack')) {
     if(messagesCreated.includes(data.id)){
         const MessageElm = output.querySelector(`#Message-${data.id.split('-')[1]}`)
         if(MessageElm)MessageElm.remove()
@@ -1629,10 +1701,13 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                   if(lastMessageElm){
                     const inLast = lastMessageElm.querySelector('.message')
                     if(inLast){
-                    inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'Me':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
+                        if(!inLast.querySelector('h6')){
+                            inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'Me':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
+                            return``
+                        }
                     }
                     }
-                  else return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>`;
+                  else return ``;
                 }
             } else {
               return ``
@@ -1668,7 +1743,6 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         <div style="${style}" class=" ${ownMessage? `right_box1 `:`left_box2 `}message mess p-2 mr-1 m-2 col-md-6">
 
             ${handler()}
-            ${messageId}
             ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
                 <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
                     ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}
@@ -1756,7 +1830,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
     `;
     let firstMessage = `
-    <div data-id="Message-${messageId}" class="firstMessage"></div>
+    <div data-id="Message-${messageId}" class="firstMessage">
+            <button class="btn btn-outline-secondary my-3 " style="border-radius:50%; border: 2px solid;"  onclick="loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
+
+    </div>
     `;
     let lastMessage = `
         <div data-id="Message-${messageId}" class="lastMessage"></div>
@@ -1766,11 +1843,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
   
     if (prepend) {
-        MessagePack.insertAdjacentHTML("afterbegin", contentToAdd);
-        if (dateToAdd) MessagePack.insertAdjacentHTML("afterbegin", dateToAdd);
-        if (unreadToAdd) MessagePack.insertAdjacentHTML("afterbegin", unreadToAdd);
+        MessagePack[0].insertAdjacentHTML("afterbegin", contentToAdd);
+        if (dateToAdd) MessagePack[0].insertAdjacentHTML("afterbegin", dateToAdd);
+        if (unreadToAdd) MessagePack[0].insertAdjacentHTML("afterbegin", unreadToAdd);
         if (isNewSender ) {
-            const lastMessageElm = MessagePack.querySelector(`#Message-${messagesCreated[messagesCreated.length -1].split("-")[1]}`);
+            const lastMessageElm = MessagePack[0].querySelector(`#Message-${messagesCreated[messagesCreated.length -1].split("-")[1]}`);
             if (lastMessageElm) {
                 const div = lastMessageElm.querySelector(`.mess`);
         
@@ -1778,9 +1855,9 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             }
         }
     } else {
-        if (dateToAdd) MessagePack.insertAdjacentHTML("beforeend", dateToAdd);
-        if (unreadToAdd) MessagePack.insertAdjacentHTML("beforeend", unreadToAdd);
-        MessagePack.insertAdjacentHTML("beforeend", contentToAdd);
+        if (dateToAdd) MessagePack[MessagePack.length-1].insertAdjacentHTML("beforeend", dateToAdd);
+        if (unreadToAdd) MessagePack[MessagePack.length-1].insertAdjacentHTML("beforeend", unreadToAdd);
+        MessagePack[MessagePack.length-1].insertAdjacentHTML("beforeend", contentToAdd);
           // Reset styles for new sender if not last in sequence
 
           
@@ -2072,7 +2149,6 @@ $(document).ready(function () {
         const currentScrollTop = $(this).scrollTop();
 
         // Show the "down" button with a fade-in effect
-        $("#down").fadeIn();
 
         // Clear any previous timeout
         clearTimeout(scrollTimeout);
@@ -2090,9 +2166,11 @@ $(document).ready(function () {
 
     // Smooth scroll to the bottom when the button is clicked
     $("#down").on("click", function () {
-        $("#down").fadeOut(); // Hide the button with a fade-out effect
+        unreadedScroll=0
+        updateNotifCount(unreadedScroll)
+        $("#down").hide(); // Hide the button with a fade-out effect
         scrollDown()
-      
+    //   if(document.querySelector('.unread')) document.querySelector('.unread').fadeOut()
     });
 
     // Function to smoothly scroll to the bottom
@@ -2127,12 +2205,12 @@ if(scrolling){
     if(firstMessage){
 
         if( firstMessage.getAttribute('data-id')){
-        let firstMessageId = firstMessage.getAttribute('data-id');
-        firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-        const threshold = 50; // Proximity in pixels to the top of the viewport
+            let firstMessageId = firstMessage.getAttribute('data-id');
+            firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+            const threshold = 50; // Proximity in pixels to the top of the viewport
 
-        if (firstMessage.getBoundingClientRect().top >= -threshold && 
-        firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
+            if (firstMessage.getBoundingClientRect().top >= -threshold && 
+            firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
                 // Check if the message has not been sent before and it's the first message of the day
                 if (!sentMessagesId.includes(firstMessageId)) {
                     const isSmallerThanAll = sentMessagesId.every((id) => {
@@ -2161,14 +2239,14 @@ if(scrolling){
 
     if(lastMessage){
         if( lastMessage.getAttribute('data-id')){
-        let lastMessageId = lastMessage.getAttribute('data-id');
-        lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
-        // console.log("before scroll:", lastMessageId)
-        const threshold = 50; // Proximity in pixels to the top of the viewport
-        let rect = lastMessage.getBoundingClientRect()  
-        if (rect.bottom >= -threshold 
+            let lastMessageId = lastMessage.getAttribute('data-id');
+            lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
+            // console.log("before scroll:", lastMessageId)
+            const threshold = 50; // Proximity in pixels to the top of the viewport
+            let rect = lastMessage.getBoundingClientRect()  
+            if (rect.bottom >= -threshold 
             &&rect.top <= window.innerHeight+threshold) {
-            console.log("after scroll:", lastMessageId)
+                // console.log("after scroll:", lastMessageId)
                         // Check if the message has not been sent before and it's the first message of the day
                 if (!sentMessagesIdLast.includes(lastMessageId)) {
                     const isSmallerThanAll = sentMessagesIdLast.every((id) => {
@@ -2196,7 +2274,34 @@ if(scrolling){
     }
 }
 }
+function loadfirstButton(){
+    const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
 
+    const roomID = document.getElementById('roomIDVal').value;
+
+    let firstMessageId = firstMessage.getAttribute('data-id');
+    firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+    if (!sentMessagesId.includes(firstMessageId)) {
+            const isSmallerThanAll = sentMessagesId.every((id) => {
+                return firstMessageId < id; // Compare lexicographically (string comparison)
+            });
+            
+            // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+            if (isSmallerThanAll) {
+                
+                console.log(firstMessageId)
+
+                sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+                // Emit the request for older messages to the server
+                if(document.getElementById('loading').classList.contains('hide')){
+                    document.getElementById('loading').classList.remove("hide");
+                    document.getElementById('loading').classList.add("show");
+                    disableScrolling()
+                } 
+                socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
+            }
+        }
+}
 
 chat_window.addEventListener("scroll", () => {
     
@@ -2208,6 +2313,7 @@ chat_window.addEventListener("scroll", () => {
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
     const roomID = document.getElementById('roomIDVal').value;
     if(!scrolling) console.log('scrolling locked')
+        $("#down").fadeIn();
 
         Dates.forEach((dateElem) => {
             const rectDate = dateElem.getBoundingClientRect();
