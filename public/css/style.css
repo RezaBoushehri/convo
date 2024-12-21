@@ -124,6 +124,16 @@ body {
     color: var(--user-chat-fg-color) ;
 
 }
+.button-container button:hover{
+
+    color: var(--user-bg-color) ;
+
+}
+.button-container i:hover{
+
+    color: var(--user-bg-color) ;
+
+}
 .button-container .input-label{
 
     color: var(--user-chat-fg-color) ;
@@ -886,4 +896,17 @@ footer .fa {
     z-index: 999;
     position: relative;
     top : -50px;
+}
+.pdf-frame{
+    border-radius: var(--user-border-radius);
+    overflow-y: hidden;
+}
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1; /* Ensures the overlay is on top of the iframe */
+    cursor: pointer; /* Makes the overlay clickable */
 }

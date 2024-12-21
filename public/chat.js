@@ -1766,9 +1766,9 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     </div>
                 ` : file.fileType === "application/pdf" ? `
                     <!-- PDF Display -->
-                    <iframe class="pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
-                    <div class="file-actions">
-                        <a id="downloadLink" href="${file.file}" download="${file.fileName || 'document.pdf'}" class="download-btn">Download PDF</a>
+                   <div class="file-actions" >
+                        <iframe class="pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
+                        <div class="overlay" onClick="triggerDownload('${file.file}')"></div>
                     </div>
                 ` : file.fileType.startsWith("video/") ? `
                     <!-- Video Display -->
@@ -1885,6 +1885,24 @@ if (isLastMessage) {
     $("file-input").val("");
     image = "";
     searchMessageReply()
+}
+function triggerDownload(src) {
+    // Extract the filename from the URL (you can adjust this if the file name is provided directly)
+    const fileName = src.substring(src.lastIndexOf('/') + 1);
+
+    // Create a temporary <a> tag for the download
+    const tempLink = document.createElement('a');
+    tempLink.href = src;  // Get the file source URL
+    tempLink.download = fileName;  // Set the filename from the URL
+
+    // Append it to the document body
+    document.body.appendChild(tempLink);
+    
+    // Programmatically trigger a click on the link to start the download
+    tempLink.click();
+    
+    // Remove the temporary <a> tag after the download is triggered
+    document.body.removeChild(tempLink);
 }
 
 // JavaScript function to toggle the visibility of the react button

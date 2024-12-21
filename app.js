@@ -237,23 +237,7 @@ app.post("/register", (req, res) => {
     });
 });
 app.post("/upload", (req, res) => {
-    // phoneVal(req.body.username,res)
-    const newUser = new User({
-        username: req.body.username,
-        first_name: req.body.first_name,
-        last_name: req.body.last_name,
-        password: req.body.password
-    });
-
-    User.register(newUser, req.body.password, (error, user) => {
-        if (error) {
-            console.log(error.message);
-            return res.redirect("/");
-        }
-        passport.authenticate("local")(req, res, function () {
-            res.redirect("/");
-        });
-    });
+   
 });
 
 // API to Save a Message
