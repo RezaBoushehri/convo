@@ -2446,19 +2446,19 @@ function replyMessage(messageId) {
     
     // Extract sender and message content
     const sender = messageElement.getAttribute(`sender`);
-    const messageContent = escapeHtml(messageElement.querySelector('.dataMessage').textContent.trim());
+    const messageContent = escapeHtml(messageElement.querySelector('.dataMessage').innerHTML);
 
     // Construct the reply box content
     const replyBox = document.getElementById('replyBox');
     replyBox.innerHTML = `
         <h5 style="font-style: italic; font-size: 0.6rem;"><i class="bi bi-reply"></i> Reply message to ${sender} : </h5>
 
-        <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row;    justify-content: space-between;' replyid="Message-${messageId}">
+        <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row; margin-right: 3em !important ;   justify-content: space-between;' replyid="Message-${messageId}">
             <p dir="auto" id="messageReplied" style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
                 ${(messageContent)}
             </p>
             </div>
-            <button onclick="clearReply()" class="btn btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
+            <button onclick="clearReply()" class="btn replyClose btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
         <hr>
 
     `;
@@ -2630,7 +2630,8 @@ function messageMenu() {
         })
         document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
             // Copy the innerHTML to the clipboard
-            copyToClipboard(element.querySelector('.dataMessage').textContent.trim());
+            console.log(element.querySelector('.dataMessage').innerHTML)
+            copyToClipboard(element.querySelector('.dataMessage').innerHTML);
 
             // Optional: Provide user feedback (e.g., show a success message)
             alerting("Message copied to clipboard!");

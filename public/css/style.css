@@ -1,7 +1,7 @@
 html,
 body {
     background-color: #232323;
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
     font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
     height: 100%;
@@ -56,12 +56,12 @@ body {
 }
 .messageInputDiv{
     position: relative;
-    bottom: 10px;
+    /* bottom: 10px; */
     align-items: center;
     padding-left: 45px !important;
     display: flex;
-    
-    justify-content: space-between;
+    justify-content: center;
+    /* justify-content: space-between; */
 }
 #editable-message-text {
     color: #666; /* Grey color for placeholder text */
@@ -647,7 +647,8 @@ footer .fa {
     /* position: fixed;
     bottom: 20dvh; */
     z-index: 9;
-
+    position: absolute;
+    left: 10px;
     background-color: var(--user-bg-color);
     color: var(--user-fg-color);
     border: none;
@@ -669,6 +670,7 @@ footer .fa {
     font-size: larger;
 }
 #replyBox {
+    z-index: 9;
     border-radius: var(--user-border-radius);
     color: var(--user-fg-color);
     background: var(--user-bg-color);
@@ -686,17 +688,18 @@ footer .fa {
 
 #replyBox.show {
     position: relative;
-    bottom: 10px;
-    max-height: 100px; /* Set a max-height when visible */
+    bottom: 60px;
+    max-height: 75px; /* Set a max-height when visible */
     opacity: 1;
     transform: translateY(0); /* Reset vertical position */
-    align-items: stretch;
+    align-items: stretch !important;
 }
 
 #replyBox.hide {
     max-height: 0;
     opacity: 0;
-    transform: translateY(100%); /* Move the box down */
+    bottom: 60px;
+    transform: translateY(40px); /* Move the box down */
 }
 
 
@@ -730,6 +733,13 @@ footer .fa {
     .form-inline {
         margin-left: 30vw !important;
         margin-right: 30vw !important;
+        max-width: 40vw;
+    }
+    #replyBox{
+        margin-left: 30vw !important;
+        margin-right: 30vw !important;
+        max-width: 40vw;
+
     }
 }
 
@@ -738,6 +748,13 @@ footer .fa {
     .form-inline {
         margin-left: 10dvw !important;
         margin-right: 10dvw !important;
+        max-width: 70vw;
+    }
+    #replyBox{
+        margin-left: 10dvw !important;
+        margin-right: 10dvw !important;
+        max-width: 70vw;
+
     }
 }
 .EmbeddedMessage {
@@ -958,4 +975,9 @@ footer .fa {
 
 .dragging .reply {
     opacity: 1;
+}
+.replyClose {
+    position: absolute;
+    right: 5px;
+    top: 5px;
 }

@@ -79,21 +79,21 @@
             <button id="up" class="btn btn-warning m-2 text-white" onclick="scrollUp()"></i></button>
             
         </div>
-        <div id="chat_windowFooter" class=" row g-3 px-5 my-5" style="
+        <div id="chat_windowFooter" class=" row g-3 px-5 my-4" style="
         display: flex;
         align-items: center;">
             <button id="down" class="btn " style="display: none; " onclick="scrollDown()">
                 <strong><i class="bi bi-arrow-down"></i></strong>
                 <span id="notifCount" class="btn btn-danger">0</span>
             </button>
+            <!-- reply -->
+            <div id="replyBox" class="col-md-12 my-2 message hide " style=" align-items: center; justify-content: space-between; padding: 10px;  backdrop-filter: blur(5px);">
+                <h6 style="margin: 0; font-style: italic; font-size: 14px; text-align: start;"></h6>
+                <div style="flex: 1; margin-left: 10px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; " id="replyMessageContent">
+                </div>
+            </div>
             <div class='form-inline row m-2' style='display:none'>
                 
-                <!-- reply -->
-                <div id="replyBox" class="col-md-12 message hide " style=" align-items: center; justify-content: space-between; padding: 10px;  backdrop-filter: blur(5px);">
-                    <h6 style="margin: 0; font-style: italic; font-size: 14px; text-align: start;"></h6>
-                    <div style="flex: 1; margin-left: 10px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; " id="replyMessageContent">
-                    </div>
-                </div>
                 <!-- ------------------ -->
                 <div class="col-md-12 messageInputDiv" >
                     <div 
