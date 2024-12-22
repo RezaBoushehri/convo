@@ -517,7 +517,8 @@ io.on("connection", (socket) => {
         try {
             const user = await User.findOne({ username });
             console.log(`User ${username} is trying to join room ${roomID}`);
-    
+            // Emit user settings
+            socket.emit("applySettings", user.settings);
             // Ensure the room exists
             let room = await Room.findOne({ roomID:roomID });
             if (!room) throw new Error(`Room "${roomID}" does not exist`);
@@ -557,8 +558,8 @@ io.on("connection", (socket) => {
                 }
             }
 
-            // Emit user settings
-            socket.emit("applySettings", user.settings);
+          
+            socket.emit("members", room.members);
     
             const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();
             // Notify others
@@ -796,31 +797,31 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("chat", async (data , callback) => {
         try {
-            const { username, message, files , quote } = data;
+            const { username, message, file , quote } = data;
             let fileDetails = null;
 
-            if (files !== null && files !== undefined) {
-                // Ensure files is an array (whether single file or array of files)
-                const filesArray = Array.isArray(files) ? files : [files];
+            if (file !== null && file !== undefined) {
+                // Ensure file is an array (whether single file or array of file)
+                const filesArray = Array.isArray(file) ? file : [file];
             
-                // Conditionally map over the files if there are any
+                // Conditionally map over the file if there are any
                 fileDetails = filesArray.length > 0
                     ? filesArray.map(file => ({
                         file: file.fileData,  // Assuming fileData contains base64 data or a URL
                         fileType: file.fileType,
                         fileName: file.fileName || null,  // Default to null if fileName is not present
                     }))
-                    : null;  // If no files, return null
+                    : null;  // If no file, return null
             
                 // console.log(fileDetails);
             }else{
                 
-                console.log("erorr : ",files);
+                console.error("erorr : ",file);
             }
             
             const timestamp = new Date();
             if(!username) throw new Error("User not found or not part of a room.");
-            if (!message  && !files)                 throw new Error("no message.");
+            if (!message  && !file)                 throw new Error("no message.");
             // Validate the user
             const currentUser = await User.findOne({ username });
             if (!currentUser || !currentUser.roomID) {
@@ -840,8 +841,8 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 roomID: currentUser.roomID,
                 sender: username,
                 quote: quote ? `${currentUser.roomID}-${quote}`:null,
-                message: clean ? clean : null,
-                file: fileDetails, // Map over the uploaded files to structure them correctly
+                message: clean ? clean : '',
+                file: fileDetails, // Map over the uploaded file to structure them correctly
                 read: [],
                 timestamp,
             });

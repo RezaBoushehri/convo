@@ -136,15 +136,39 @@
                     
                         // Initialize placeholder on page load
                         setPlaceholder();
+
+
+                          // Function to always keep the focus on the editable div
+                        function keepFocusOnEditableDiv() {
+                            const editableDiv = document.getElementById("editable-message-text");
+                            if (editableDiv) {
+                                editableDiv.focus(); // Programmatically set focus
+                                editableDiv.addEventListener("blur", () => {
+                                    // Re-focus if the element loses focus
+                                    editableDiv.focus();
+                                });
+                            }
+                        }
+
+                        // Call the function on page load
+                        document.addEventListener("DOMContentLoaded", keepFocusOnEditableDiv);
+
+                        // Optional: Call again if new elements or dynamic updates occur
+                        const observer = new MutationObserver(() => {
+                            keepFocusOnEditableDiv();
+                        });
+
+                        // Observe changes in the body to handle dynamic updates
+                        observer.observe(document.body, { childList: true, subtree: true });
                     </script>
                 
                     <div class="button-container g-3">
-                            <button class=" btn  file-button ">
+                            <button id="file-inputBtn" class=" btn  file-button ">
                                 <input type="file" accept="" id="file-input">
-                                <label class="input-label" for="file-input"><i style="    font-size: large;" class="bi bi-upload"></i></label>
+                                <label class="input-label" for="file-input"><i style="    font-size: large;" class="bi bi-paperclip"></i></label>
                             </button>
                             <button class="btn  send-button " type="submit" id="button">
-                                    <i class="fa fa-paper-plane"></i>
+                                <i class="bi bi-send-fill"></i>
                             </button>
                     </div>
                 </div>

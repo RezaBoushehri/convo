@@ -2,8 +2,10 @@ html,
 body {
     background-color: #232323;
     overflow-y: auto;
+    overflow-x: hidden;
     font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
     height: 100%;
+    width:  100%;
     text-align: unset;
 }
 
@@ -11,10 +13,10 @@ body {
     font-family: 'Pacifico', cursive
 }
 
-/* #main {
-    margin-left: 20%;
-    margin-right: 20%;
-} */
+#main {
+    width:  100%;
+
+}
 #headTag{
     
     position: fixed;
@@ -82,6 +84,10 @@ body {
 }
 .file-button:hover{
     color: var(--user-chat-fg-color);
+    .bi-paperclip {
+        color: var(--user-bg-color);
+
+    }
 }
 .send-button:hover{
     color: var(--user-chat-fg-color);
@@ -629,12 +635,18 @@ footer .fa {
 .type{
     color: var(--user-fg-color);
     background-color: var(--user-bg-color);
+
+}
+.typeScrollDownBtn{
+
+    top : -50px;
+
 }
 
 #down {
     /* position: fixed;
     bottom: 20dvh; */
-    z-index: 99;
+    z-index: 9;
 
     background-color: var(--user-bg-color);
     color: var(--user-fg-color);
@@ -710,6 +722,8 @@ footer .fa {
     max-height: 126px;
     background-color: var(--user-chat-bg-color);
     margin-right: 30vw !important; 
+    max-width: 80vw;
+
 }
 /* Apply margin-left and margin-right for large screens */
 @media (min-width: 768px) {
@@ -895,7 +909,6 @@ footer .fa {
 #chat_windowFooter p{
     z-index: 999;
     position: relative;
-    top : -50px;
 }
 .pdf-frame{
     border-radius: var(--user-border-radius);
@@ -909,4 +922,40 @@ footer .fa {
     height: 100%;
     z-index: 1; /* Ensures the overlay is on top of the iframe */
     cursor: pointer; /* Makes the overlay clickable */
+}
+@keyframes longPressAnimationRightClickPanel {
+    0% {
+        transform: scale(1); /* Initial size */
+    }
+    10% {
+        transform: scale(0.95); /* 90% size */
+    }
+    50% {
+        transform: scale(0.9); /* 80% size */
+    }
+    100% {
+        transform: scale(1); /* 60% size */
+    }
+}
+.long-press-effect {
+    animation: longPressAnimationRightClickPanel 500ms ease-in-out forwards;
+}
+
+.reply {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    opacity: 0;
+    font-size: 14px;
+    color: #3498db;
+    transition: opacity 0.2s ease;
+}
+
+.dragging {
+    transform: translateX(60px);
+}
+
+.dragging .reply {
+    opacity: 1;
 }

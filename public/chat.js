@@ -174,6 +174,9 @@ $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 
 //=================================================================
 //input image
+// document.getElementById('file-inputBtn').addEventListener("click",()=>{
+//     document.getElementById('file-input').click();
+// })
 $("#file-input").on("change", async (e) => {
     output.innerHTML+=`
     <div id="upload-container"style="
@@ -256,7 +259,7 @@ $("#file-input").on("change", async (e) => {
             }, 1000);  // Update every second (1 second)
         });
 
-        await fakeProgressUpload;
+        // await fakeProgressUpload;
 
         // After upload completes
         console.log("Processed file data:", processedFile);
@@ -485,13 +488,13 @@ button.addEventListener("click", () => {
         roomID: roomID,
         quote:quote,
         message: text == 'message ...' ?' ': text,
-        files: fileData || null,
+        file: fileData || null,
         date: new Date(),
     };
     // console.log(quote)
 
     
-    if ((!data.message && !data.files) || !data.username ) {
+    if ((!data.message && !data.file) || !data.username ) {
         $("#alert")
                 .html(
                     `<div class='alert alert-danger' role='alert'>
@@ -535,15 +538,37 @@ button.addEventListener("click", () => {
             }
             return null; // Return null if no quote
         };
+        let fileDetails = null;
+
+        if (data.file !== null && data.file !== undefined) {
+            // Ensure data.file is an array (whether single data.file or array of data.file)
+            const filesArray = Array.isArray(data.file) ? data.file : [data.file];
+        
+            // Conditionally map over the file if there are any
+            fileDetails = filesArray.length > 0
+                ? filesArray.map(file => ({
+                    file: file.fileData,  // Assuming fileData contains base64 data or a URL
+                    fileType: file.fileType,
+                    fileName: file.fileName || null,  // Default to null if fileName is not present
+                }))
+                : null;  // If no file, return null
+        
+            // console.log(fileDetails);
+        }else{
+            fileDetails=''
+            // console.error("erorr : ",file);
+        }
+        
         
         const dataShow = {
             ...data,
+            file: fileDetails||'',
             quote: `${roomID}-${quote}`,
             sender: currentUser.username || '',
             reply: quote ? reply(quote) : null // Ensure it's an array if quote is defined
         };
         
-    // console.log(dataShow)
+    console.log(dataShow)
     // Send message to server
     addMessageToChatUI(dataShow)
     
@@ -841,7 +866,8 @@ socket.on("chat",(data , ack) => {
                             // console.log(output.querySelectorAll('.unread'))
                         }
                         addMessageToChatUI(data)
-                        hasScrolledDown=false
+                        hasScrolledDown = false
+                        
                     }
                 }
             }
@@ -887,7 +913,7 @@ socket.on("typing", (data) => {
                         }else{
                             $("#down").fadeIn()
 
-                            $("#chat_windowFooter").append( `<p id="typing-${username}Btn" class="badge p-2 ml-2 type">
+                            $("#chat_windowFooter").append( `<p id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
                                 <em>${name} is typing ....</em>
                                 </p>`
                             );
@@ -1013,13 +1039,14 @@ const scrollDown = () => {
             behavior: "auto",
         });
         var unreadMarker = document.querySelector(".unread");
-        if (unreadMarker) {
+        if (unreadMarker && !hasScrolledDown) {
             const rect = unreadMarker.getBoundingClientRect();
             // console.log("Unread marker position:", rect);
             unreadMarker.scrollIntoView({
                 behavior: "auto",
                 block: "center",
             });
+            hasScrolledDown = true
         }
     } 
     setTimeout(() => {
@@ -1267,7 +1294,7 @@ socket.on("restoreMessages", (data) => {
     }
     data.messages.forEach((message, index) => {
         try {
-            if (!message || !message.timestamp || !message.sender || !message.message) {
+            if (!message || !message.timestamp || !message.sender ) {
                 throw new Error(`Missing required fields in message at index ${index}`);
             }
             // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
@@ -1600,7 +1627,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     const ownMessage = data.sender === currentUser.username;
-    const styleClass = ownMessage ? "right_box" : "left_box";
+    const styleClass = ownMessage ? "5px 5px 5px var(--user-border-radius)" : "5px 5px var(--user-border-radius) 5px ";
     data.message = data.message
     .replace(/\n/g, '<br>') // Replace newlines with <br>
     .replace(
@@ -1610,10 +1637,37 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             return `<a href="https://href.li/?${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
         }
     );
+    const borderRadiusFalse = ()=>{
 
+        
+           const lastMessageElm = output.querySelectorAll(`.messageElm`)
+
+        if (lastMessageElm.length >= 1) {
+            const lastValue = data.handle.trim();
+            const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender').trim();
+            if (lastValue !== secondLastValue) {
+                
+                return ownMessage ? `5px var(--user-border-radius) 5px 5px`: `5px`          
+            } else if(!prepend) {
+                console.log("last: ",lastValue)
+                console.log("second last: ",secondLastValue)
+                const message = lastMessageElm[lastMessageElm.length - 1].querySelector('.message')
+                message.style.borderRadius= `5px`;
+                return ownMessage ? ` 5px 5px 5px var(--user-border-radius)`: ` 5px  5px  var(--user-border-radius)  5px`;
+            }else{
+                return`5px`
+            }
+            
+        }else if(prepend){
+            return ownMessage ? ` 5px 5px 5px var(--user-border-radius)`: ` 5px  5px  var(--user-border-radius)  5px`;
+        }else{
+            return ownMessage ? `5px var(--user-border-radius) 5px 5px`: `var(--user-border-radius) 5px   5px 5px`          
+
+        }
+    }
     const style = ownMessage
-        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius: var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)  ;`
-        : `background-color:#333;color:white;font-size:${fontSize};border-radius: var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px;`;
+        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius: ${borderRadiusFalse()}  ;`
+        : `background-color:#333;color:white;font-size:${fontSize};border-radius:  ${borderRadiusFalse()}`;
     const divStyle = ownMessage
         ? `display:flex;justify-content:flex-end;`
         : `display:flex;justify-content:flex-start;`;
@@ -1703,9 +1757,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     if(inLast){
                         if(!inLast.querySelector('h6')){
                             inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'Me':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
-                            return``
+                            // console.log('before border :',inLast.style.borderRad)
+                            inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) 5px 5px 5px' : ' 5px var(--user-border-radius) 5px 5px ' ;
+                            // console.log('after border :',inLast.style.borderRad)
                         }
                     }
+                    return ``;
                     }
                   else return ``;
                 }
@@ -1713,23 +1770,31 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
               return ``
           }
       }else{
-        if (messagesCreatedHandler.length >= 2) {
-            const lastValue = messagesCreatedHandler[messagesCreatedHandler.length - 1];
-            const secondLastValue = messagesCreatedHandler[messagesCreatedHandler.length - 2];
+        const lastMessageElm = output.querySelectorAll(`.messageElm`)
 
-            if (lastValue === secondLastValue) {
-                return ``;
+        if (lastMessageElm.length >= 2) {
+            const lastValue = data.handle.trim();
+            const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender');
+            console.log("last: ",lastValue)
+            console.log("second last: ",secondLastValue)
+            if (lastValue !== secondLastValue) {
+                return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>`           
             } else {
-                return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>
-                `            }
+                return ``;
+             }
         } else {
-        return ``;
+            return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>
+            ` ;
         }
     }
         
     }
+
+    
 // console.log("replyJson: ", data.reply!==null ?  data.reply:'')
 // onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)"
+
+// ${ownMessage? `right_box1 `:`left_box2 `}
     contentToAdd += `
 
     <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}"  sender="${data.handle}">
@@ -1740,21 +1805,21 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             </div>`
             :''}
              
-        <div style="${style}" class=" ${ownMessage? `right_box1 `:`left_box2 `}message mess p-2 mr-1 m-2 col-md-6">
+        <div style="${style}; margin:2px" class=" message mess py-2 mr-1  col-md-6">
 
             ${handler()}
             ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
                 <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
                     ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}
                 </h6>
-                <p class="px-2" dir="auto">${(data.reply.message)}</p>
+                <span class="px-2" dir="auto">${(data.reply.message)}</span>
                 </div>`:''}
             
             ${data.file && data.file!==null ? data.file.map(file => `
                 <!-- Thumbnail Display -->
                 ${file.fileType.startsWith("image/") ? `
                     <!-- Thumbnail Image -->
-                    <img class="img-fluid rounded mb-2" src="${file.file}" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
+                    <img class="img-fluid mb-2" src="${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
                     
                     <!-- Modal for Enlarged Image -->
                     <div id="imageModal" class="imageModal">
@@ -1768,7 +1833,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     <!-- PDF Display -->
                    <div class="file-actions" >
                         <iframe class="pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
-                        <div class="overlay" onClick="triggerDownload('${file.file}')"></div>
+                        <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
                     </div>
                 ` : file.fileType.startsWith("video/") ? `
                     <!-- Video Display -->
@@ -1791,8 +1856,8 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             `).join('') : ""}
             
             
-                <p class="" dir="auto">${(data.message)}</p>
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
+                <div class="dataMessage" dir="auto">${(data.message)}</div>
+            <div style="    align-items: flex-end; display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
             ${ownMessage
                     ? `
             <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor:pointer;text-align:right;color:${fgColor};border:none;background:none;">
@@ -1816,11 +1881,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         
         ${ ownMessage ? `
             ${emojiDiv} 
-            <div class="m-2" reactionMessage = "${messageId}">
+            <div class="${reactionMember!=''?'my-3':''}" reactionMessage = "${messageId}">
                 ${reactionMember}
             </div>`:
         `
-            <div class="m-2" reactionMessage = "${messageId}">
+            <div class="${reactionMember!=''?'my-3':''}" reactionMessage = "${messageId}">
                 ${reactionMember}
             </div>
           ${emojiDiv}`
@@ -1848,10 +1913,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         if (unreadToAdd) MessagePack[0].insertAdjacentHTML("afterbegin", unreadToAdd);
         if (isNewSender ) {
             const lastMessageElm = MessagePack[0].querySelector(`#Message-${messagesCreated[messagesCreated.length -1].split("-")[1]}`);
+            const lastMessageElm2 = MessagePack[0].querySelector(`#Message-${messagesCreated[messagesCreated.length -2].split("-")[1]}`);
             if (lastMessageElm) {
                 const div = lastMessageElm.querySelector(`.mess`);
-        
-                div.classList.add(styleClass); // Ensure only last message retains the box class
+                // lastMessageElm2.style.borderRadius= ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px`;
+                div.style.borderRadius = (styleClass); // Ensure only last message retains the box class
             }
         }
     } else {
@@ -1886,9 +1952,8 @@ if (isLastMessage) {
     image = "";
     searchMessageReply()
 }
-function triggerDownload(src) {
+function triggerDownload(src,fileName) {
     // Extract the filename from the URL (you can adjust this if the file name is provided directly)
-    const fileName = src.substring(src.lastIndexOf('/') + 1);
 
     // Create a temporary <a> tag for the download
     const tempLink = document.createElement('a');
@@ -1999,7 +2064,9 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
             // Update the reaction
             userRect.innerHTML = reaction;
             }else{
+                // console.log(userRect)
                 userRect.remove()
+
             }
             // Debug: After updating
             // console.log(`After update: ${userRect.innerHTML}`);
@@ -2018,7 +2085,17 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
         // Debug: Member reaction container is not found
         console.log(`Member reaction container not found. Reaction message ID: ${spiltedId}`);
     }
-    
+
+// fixing margins when reactions div is empty
+
+    if(memberReaction.innerHTML.trim()){
+        console.log("true :",memberReaction.innerHTML)
+        memberReaction.classList.add('my-3')
+    }else{
+        console.log("false :",memberReaction.innerHTML)
+        memberReaction.classList.remove('my-3')
+
+    }
 
 });
 // --------------------------------------------
@@ -2206,10 +2283,10 @@ function scrollLoader(){
     const Dates = document.querySelectorAll(".Date"); // Class of each date div
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
     const roomID = document.getElementById('roomIDVal').value;
-    if(!scrolling) console.log('scrolling locked')
+    // if(!scrolling) console.log('scrolling locked')
 
 if(scrolling){
-    console.log('scrolling unlocked')
+    // console.log('scrolling unlocked')
     // if (chat_window.scrollHeight > chat_window.clientHeight) {
     //     $("#down").fadeIn(); // Show scroll-up button
     // }else{
@@ -2330,7 +2407,7 @@ chat_window.addEventListener("scroll", () => {
     const Dates = document.querySelectorAll(".Date"); // Class of each date div
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
     const roomID = document.getElementById('roomIDVal').value;
-    if(!scrolling) console.log('scrolling locked')
+    // if(!scrolling) console.log('scrolling locked')
         $("#down").fadeIn();
 
         Dates.forEach((dateElem) => {
@@ -2369,15 +2446,14 @@ function replyMessage(messageId) {
     
     // Extract sender and message content
     const sender = messageElement.getAttribute(`sender`);
-    const messageContent = escapeHtml(messageElement.querySelector('p[dir="auto"]').textContent.trim());
+    const messageContent = escapeHtml(messageElement.querySelector('.dataMessage').textContent.trim());
 
     // Construct the reply box content
     const replyBox = document.getElementById('replyBox');
     replyBox.innerHTML = `
-        <h5 style="font-style: italic; font-size: 0.6rem;"><i class="bi bi-reply"></i> Reply message : </h5>
+        <h5 style="font-style: italic; font-size: 0.6rem;"><i class="bi bi-reply"></i> Reply message to ${sender} : </h5>
 
-        <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row;    justify-content: space-between;'>
-            <h6 style="margin: 0; font-style: italic; font-size: 0.9rem; text-align: start;">${sender}</h6>
+        <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row;    justify-content: space-between;' replyid="Message-${messageId}">
             <p dir="auto" id="messageReplied" style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
                 ${(messageContent)}
             </p>
@@ -2451,20 +2527,80 @@ function messageMenu() {
     const menu = document.getElementById("messageMenu");
     const header = menu.querySelector('.messageMenuHeader')
     const body = menu.querySelector('.messageMenubody')
+    let longPressTimeout;
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
 
     
-    // console.log(elements);
     elements.forEach(element => {
         // Add click and right-click event listeners
         element.addEventListener("click", (event) => {
             openMenu(event, menu, element); // Pass the clicked element's ID
         });
+    
+        element.addEventListener('touchstart', (e) => {
+            // Start long-press detection
+            isDragging = true;
 
+            longPressTimeout = setTimeout(() => {
+                const touch = e.touches[0];
+                element.classList.add('long-press-effect'); // Add animation class
+                                isDragging = true;
+
+                openMenu(touch, menu, element); // Open menu
+            }, 500); // Long press duration (500ms)
+        });
+    
+        element.addEventListener('touchend', (event) => {
+            clearTimeout(longPressTimeout); // Cancel long-press timer
+            element.classList.remove('long-press-effect'); // Remove animation class
+    
+            // Hide menu if touch ends outside it
+            // if (!menu.contains(event.target)) {
+            //     menu.style.display = "none";
+            // }
+
+            isDragging = false;
+            const deltaX = currentX - startX;
+            // console.log(deltaX,", slm ; ",element.id.split('-')[1])
+            if (-deltaX >= 30) { // Trigger reply if swipe is far enough
+                replyMessage(element.id.split('-')[1])
+                
+            }
+            if(element.querySelector('#replyIcon')){
+                element.querySelector('#replyIcon').remove()
+            }
+            element.style.transform = '';
+        });
+    
+        element.addEventListener('touchmove', (event) => {
+            clearTimeout(longPressTimeout); // Cancel long-press timer
+            element.classList.remove('long-press-effect'); // Remove animation class
+    
+            // Hide menu if user swipes away from the target
+            if (!menu.contains(event.target)) {
+                menu.style.display = "none";
+            }
+            if (!isDragging) return;
+            currentX = event.touches[0].clientX;
+            const deltaX = currentX - startX;
+            
+            if (-deltaX > 0 && -deltaX <= 70) { // Only handle right swipe
+                if(!element.querySelector('#replyIcon')){
+                element.insertAdjacentHTML("beforeend",`<div id="replyIcon"><i style="font-size: xx-large;" class="bi bi-reply"></i></div>`)
+                }
+
+                element.style.transform = `translateX(${deltaX}px)`;
+            }
+        });
+    
         element.addEventListener("contextmenu", (event) => {
-            event.preventDefault(); // Prevent the default right-click context menu
-            openMenu(event, menu, element); // Pass the clicked element's ID
+            event.preventDefault(); // Prevent default right-click context menu
+            openMenu(event, menu, element); // Open custom menu
         });
     });
+    
 
     // Function to open the menu at the cursor position
     function openMenu(event, menu, element) {
@@ -2494,7 +2630,7 @@ function messageMenu() {
         })
         document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
             // Copy the innerHTML to the clipboard
-            copyToClipboard(element.querySelector('p[dir="auto"]').textContent.trim());
+            copyToClipboard(element.querySelector('.dataMessage').textContent.trim());
 
             // Optional: Provide user feedback (e.g., show a success message)
             alerting("Message copied to clipboard!");
@@ -2565,6 +2701,8 @@ function searchMessageReply() {
             const replyID = reply.getAttribute('replyID'); // Get the replyID attribute
             if (replyID) {
                 scrollToMessage(replyID); // Call the scrollToMessage function
+                reply.classList.add('long-press-effect')
+                reply.classList.remove('long-press-effect')
             } else {
                 console.error('No replyID found for this reply');
             }
