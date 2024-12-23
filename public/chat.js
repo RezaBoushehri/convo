@@ -148,10 +148,10 @@ function emoji(messageId) {
                 <span onclick="addStickerReaction('⚡', ${messageId})" class="emoji">⚡</span>
                 <span onclick="addStickerReaction('❌', ${messageId})" class="emoji">❌</span>
                 <span onclick="addStickerReaction('✅', ${messageId})" class="emoji">✅</span>
-            </div>
-        </div>
-        <div class="show-all-icon btn" onclick="toggleEmojiContainer('${messageId}')">
-            <i class="bi bi-arrow-right-circle"></i>
+                </div>
+                <div class="show-all-icon btn" onclick="toggleEmojiContainer('${messageId}')">
+                    <i class="bi bi-arrow-down-circle"></i>
+                </div>
         </div>
     </div>
     `;
@@ -159,11 +159,14 @@ function emoji(messageId) {
 }
 function toggleEmojiContainer(messageId) {
     const container = document.querySelector(`#emoji-${messageId} #emojiContainer`);
-    const expendBtn = document.querySelector(`.show-all-icon`);
-    expendBtn 
-    container.classList.toggle('expanded');
-
+    const expendBtn = document.querySelector(`#emoji-${messageId} .show-all-icon`);
+    
+    if (container && expendBtn) {
+        container.classList.toggle('expanded');
+        expendBtn.classList.toggle('rotated'); // Add a class to rotate the button
+    }
 }
+
 // Call Twemoji to render the emojis after the DOM is ready
 // function renderEmojis() {
 //     twemoji.parse(document.body);  // This will replace all emojis with Twemoji images
@@ -736,7 +739,7 @@ socket.on("joined", (data) => {
 
     document.querySelector(".close").click();
     document.querySelector("#roomInfo").innerHTML = `
-        <div>
+        <div class="mx-3">
             <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
                 title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
                 Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
@@ -746,10 +749,10 @@ socket.on("joined", (data) => {
             <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
                 class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
                 target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
-                <i class='fa fa-whatsapp'></i>
+                <i class='bi bi-whatsapp'></i>
             </a>
-            <button type='button' class='btn btn-danger ml-1' onclick='leaveRoom()'>
-                <i class='fa fa fa-sign-out'></i>
+            <button type='button' title="Leave the room" data-toggle="tooltip" data-placement="bottom" class='btn btn-danger ml-1' onclick='leaveRoom()'>
+                <i class='bi bi-door-closed'></i>
             </button>
         </div>`;
     
@@ -1485,7 +1488,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("chat-window").style.color = chatWindowFgColor
     // document.getElementById("editable-message-text").style.backgroundColor = bgColor
     // document.getElementById("editable-message-text").style.color = fgColor
-    document.getElementById("editable-message-text").style.borderRadius = borderRad
+    // document.getElementById("editable-message-text").style.borderRadius = borderRad
     headTag.style.fontSize = fontSize+"px"
     headTag.style.color = chatWindowFgColor
     headTag.style.borderRadius = borderRad
@@ -1770,7 +1773,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     const inLast = lastMessageElm.querySelector('.message')
                     if(inLast){
                         if(!inLast.querySelector('h6')){
-                            inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'Me':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
+                            inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
                             // console.log('before border :',inLast.style.borderRad)
                             inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px 5px' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
                             // console.log('after border :',inLast.style.borderRad)
@@ -1792,12 +1795,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             console.log("last: ",lastValue)
             console.log("second last: ",secondLastValue)
             if (lastValue !== secondLastValue) {
-                return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>`           
+                return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>`           
             } else {
                 return ``;
              }
         } else {
-            return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `Me`: data.handle}</h6>
+            return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
             ` ;
         }
     }
@@ -1822,9 +1825,9 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         <div style="${style}; margin:2px" class=" message mess py-1 mr-1  col-md-6">
 
             ${handler()}
-                ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
+                ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
                     <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
-                        ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}
+                        ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
                     </h6>
                     <span class="px-2" dir="auto">${(data.reply.message)}</span>
                     </div>`:''}
@@ -1833,7 +1836,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     <!-- Thumbnail Display -->
                     ${file.fileType.startsWith("image/") ? `
                         <!-- Thumbnail Image -->
-                        <img class="img-fluid mb-2" src="${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
+                        <img class="img-fluid m-1" src="${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
                         
                         <!-- Modal for Enlarged Image -->
                         <div id="imageModal" class="imageModal">
@@ -1846,12 +1849,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     ` : file.fileType === "application/pdf" ? `
                         <!-- PDF Display -->
                     <div class="file-actions" >
-                            <iframe class="pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
+                            <iframe class=" m-1 pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
                             <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
                         </div>
                     ` : file.fileType.startsWith("video/") ? `
                         <!-- Video Display -->
-                        <video class="video-preview" controls>
+                        <video class=" m-1 video-preview" controls>
                             <source src="${file.file}" type="${file.fileType}">
                             Your browser does not support the video tag.
                         </video>
@@ -1860,7 +1863,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         </div>
                     ` : `
                         <!-- Generic File Display -->
-                        <div class="file-info">
+                        <div class="m-1 file-info">
                             <p>File: ${file.fileName || 'Unknown File'}</p>
                         </div>
                         <div class="file-actions">
@@ -1869,10 +1872,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     `}
                 `).join('') : ""}
                 
-                            <div style="display:flex">
+                            <div style="display: flex ;justify-content: space-between;}" >
 
                     <div class="dataMessage mx-3" dir="auto">${(data.message)}</div>
-                        <div style="    align-items: flex-end; display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
+                        <div style="justify-content : flex-end; display:flex; align-items:center;font-size: calc(var(--user-font-size) - 0.1rem);;">
                             
                             <div style="text-align:left;">
                             ${new Intl.DateTimeFormat("en-US", {

@@ -203,8 +203,8 @@ app.post("/login", async (req, res, next) => {
                         console.error("Error saving session:", err);
                     }
                 });
-               
-                res.redirect("/"); // Redirect after login
+               if(req.session.redirectUrl !== "/") res.redirect(req.session.redirectUrl); // Redirect after login
+                else{res.redirect("/");} // Redirect after login
             });
         })(req, res, next);
     } catch (err) {

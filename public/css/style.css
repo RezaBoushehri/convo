@@ -3,7 +3,7 @@ body {
     background-color: #232323;
     overflow-y: hidden;
     overflow-x: hidden;
-    font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
+    font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Apple Color Emoji", "Segoe UI", Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
     height: 100%;
     width:  100%;
     text-align: unset;
@@ -98,7 +98,7 @@ body {
 }
 #editable-message-text {
     margin-left: -20px;
-
+    border-radius: 100px;
     position: relative; /* To position buttons within it */
     max-height: 100px; /* Optional: max height before scrolling is needed */
     overflow-y: auto; /* Enable scrolling when content exceeds max height */
@@ -436,11 +436,23 @@ footer .fa {
     opacity: 0;
     transform: translateY(-10px);
 }
+/* Button rotation with smooth transition */
+.show-all-icon {
+    display: inline-block;
+    transition: transform 1s ease;
+    color: var(--user-chat-fg-color);
+
+}
+
+.show-all-icon.rotated {
+    transform: rotate(180deg);
+}
+
 
 /* Container for emojis */
 #emojiContainer {
     display: grid;
-    grid-template-columns: repeat(5, auto);
+    grid-template-columns: repeat(6, auto);
     overflow: hidden;
     height: auto;
     max-height: 35px; /* Adjust this to fit the height of 5 stickers */
@@ -493,10 +505,7 @@ footer .fa {
     }
 }
 
-.show-all-icon{
-    color: var(--user-chat-fg-color);
 
-}
 
 .reactBtn {
     opacity: 0; /* Start fully transparent */
@@ -970,7 +979,7 @@ footer .fa {
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
+    height: 80%;
     z-index: 1; /* Ensures the overlay is on top of the iframe */
     cursor: pointer; /* Makes the overlay clickable */
 }
