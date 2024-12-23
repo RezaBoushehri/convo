@@ -82,10 +82,13 @@ $("#alert").slideDown(500);
     
 }
 function emoji(messageId) {
-    const emojiDiv = `
-    <div id="emoji-${messageId}" class="stickerPicker col-md-4">
-        <div id="emojiGrid">
-            <div id="emojiContainer" class="g-3">
+    if (document.querySelectorAll('.stickerPicker')) {
+        document.querySelectorAll('.stickerPicker').forEach(el => el.remove());
+    }
+        const emojiDiv = `
+  <div id="emoji-${messageId}" class="stickerPicker">
+    <div id="emojiGrid">
+        <div id="emojiContainer" >
                 <!-- Emoji spans that will be rendered by Twemoji -->
                 <span onclick="addStickerReaction('😂', ${messageId})" class="emoji">😂</span>
                 <span onclick="addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
@@ -147,9 +150,19 @@ function emoji(messageId) {
                 <span onclick="addStickerReaction('✅', ${messageId})" class="emoji">✅</span>
             </div>
         </div>
+        <div class="show-all-icon btn" onclick="toggleEmojiContainer('${messageId}')">
+            <i class="bi bi-arrow-right-circle"></i>
+        </div>
     </div>
     `;
     return emojiDiv;
+}
+function toggleEmojiContainer(messageId) {
+    const container = document.querySelector(`#emoji-${messageId} #emojiContainer`);
+    const expendBtn = document.querySelector(`.show-all-icon`);
+    expendBtn 
+    container.classList.toggle('expanded');
+
 }
 // Call Twemoji to render the emojis after the DOM is ready
 // function renderEmojis() {
@@ -1627,7 +1640,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     const ownMessage = data.sender === currentUser.username;
-    const styleClass = ownMessage ? "5px 5px 5px var(--user-border-radius)" : "5px 5px var(--user-border-radius) 5px ";
+    const styleClass = ownMessage ? "var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)" : "5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) ";
     data.message = data.message
     .replace(/\n/g, '<br>') // Replace newlines with <br>
     .replace(
@@ -1646,28 +1659,28 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             const lastValue = data.handle.trim();
             const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender').trim();
             if (lastValue !== secondLastValue) {
-                
-                return ownMessage ? `5px var(--user-border-radius) 5px 5px`: `5px`          
+                if(prepend)return  ownMessage ? ` var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: ` var(--user-border-radius) 5px 5px  5px`
+                else  return ownMessage ? `var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: `var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px`          
             } else if(!prepend) {
                 console.log("last: ",lastValue)
                 console.log("second last: ",secondLastValue)
                 const message = lastMessageElm[lastMessageElm.length - 1].querySelector('.message')
-                message.style.borderRadius= `5px`;
-                return ownMessage ? ` 5px 5px 5px var(--user-border-radius)`: ` 5px  5px  var(--user-border-radius)  5px`;
+                message.style.borderRadius=  ownMessage ? `var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: ` var(--user-border-radius) 5px 5px  5px`;
+                return ownMessage ? ` var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)`: ` 5px  var(--user-border-radius)  var(--user-border-radius)  var(--user-border-radius)`;
             }else{
-                return`5px`
+                return ownMessage ? ` var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: `var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px `
             }
             
         }else if(prepend){
-            return ownMessage ? ` 5px 5px 5px var(--user-border-radius)`: ` 5px  5px  var(--user-border-radius)  5px`;
+            return ownMessage ? ` var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)`: ` 5px  var(--user-border-radius)  var(--user-border-radius)  var(--user-border-radius)`;
         }else{
-            return ownMessage ? `5px var(--user-border-radius) 5px 5px`: `var(--user-border-radius) 5px   5px 5px`          
+            // return ownMessage ? `5px var(--user-border-radius) 5px 5px`: `var(--user-border-radius) 5px   5px 5px`          
 
         }
     }
     const style = ownMessage
         ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius: ${borderRadiusFalse()}  ;`
-        : `background-color:#333;color:white;font-size:${fontSize};border-radius:  ${borderRadiusFalse()}`;
+        : `background-color:#333;color:white;font-size:${fontSize};border-radius:  ${borderRadiusFalse()};`;
     const divStyle = ownMessage
         ? `display:flex;justify-content:flex-end;`
         : `display:flex;justify-content:flex-start;`;
@@ -1718,12 +1731,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     ? data.readUsers
           .map((r) => {
             if(r.name === name.textContent.trim().normalize('NFC')&& r.reaction !== ""){
-              return`<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
+              return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
                        ${"you"} ${r.reaction}
                      </div>
                      <hr>`
             }else if(r.name !== name.textContent.trim().normalize('NFC')){
-                return`<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
+                return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
                 ${r.name} at ${formatTimestamp(r.time)} ${r.reaction}
               </div>
               <hr>`
@@ -1731,6 +1744,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
           })
           .join("")
     : "";
+
     const emojiDiv = `
     ${emoji(messageId)}
     
@@ -1758,7 +1772,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         if(!inLast.querySelector('h6')){
                             inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'Me':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
                             // console.log('before border :',inLast.style.borderRad)
-                            inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) 5px 5px 5px' : ' 5px var(--user-border-radius) 5px 5px ' ;
+                            inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px 5px' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
                             // console.log('after border :',inLast.style.borderRad)
                         }
                     }
@@ -1797,102 +1811,100 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 // ${ownMessage? `right_box1 `:`left_box2 `}
     contentToAdd += `
 
-    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}"  sender="${data.handle}">
+    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}     align-items: center;"  sender="${data.handle}">
         ${ownMessage?`
             
-            <div class="read-info"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
-                ${readInfoHTML}
+            <div class="read-info mx-3"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
+              ${readInfoHTML}
             </div>`
             :''}
              
-        <div style="${style}; margin:2px" class=" message mess py-2 mr-1  col-md-6">
+        <div style="${style}; margin:2px" class=" message mess py-1 mr-1  col-md-6">
 
             ${handler()}
-            ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
-                <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
-                    ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}
-                </h6>
-                <span class="px-2" dir="auto">${(data.reply.message)}</span>
-                </div>`:''}
-            
-            ${data.file && data.file!==null ? data.file.map(file => `
-                <!-- Thumbnail Display -->
-                ${file.fileType.startsWith("image/") ? `
-                    <!-- Thumbnail Image -->
-                    <img class="img-fluid mb-2" src="${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
-                    
-                    <!-- Modal for Enlarged Image -->
-                    <div id="imageModal" class="imageModal">
-                        <span class="close" onclick="closeModal()">&times;</span>
-                        <img id="modalImage" class="imageModal-content" src="${file.file}" alt="Enlarged Image">
-                        <div class="imageModal-caption">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="download-btn">Download</a>
+                ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
+                    <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
+                        ${data.reply.sender == currentUser.username ? `Me` : data.reply.handle}
+                    </h6>
+                    <span class="px-2" dir="auto">${(data.reply.message)}</span>
+                    </div>`:''}
+                
+                ${data.file && data.file!==null ? data.file.map(file => `
+                    <!-- Thumbnail Display -->
+                    ${file.fileType.startsWith("image/") ? `
+                        <!-- Thumbnail Image -->
+                        <img class="img-fluid mb-2" src="${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
+                        
+                        <!-- Modal for Enlarged Image -->
+                        <div id="imageModal" class="imageModal">
+                            <span class="close" onclick="closeModal()">&times;</span>
+                            <img id="modalImage" class="imageModal-content" src="${file.file}" alt="Enlarged Image">
+                            <div class="imageModal-caption">
+                                <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="download-btn">Download</a>
+                            </div>
                         </div>
-                    </div>
-                ` : file.fileType === "application/pdf" ? `
-                    <!-- PDF Display -->
-                   <div class="file-actions" >
-                        <iframe class="pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
-                        <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
-                    </div>
-                ` : file.fileType.startsWith("video/") ? `
-                    <!-- Video Display -->
-                    <video class="video-preview" controls>
-                        <source src="${file.file}" type="${file.fileType}">
-                        Your browser does not support the video tag.
-                    </video>
-                    <div class="file-actions">
-                        <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="download-btn">Download Video</a>
-                    </div>
-                ` : `
-                    <!-- Generic File Display -->
-                    <div class="file-info">
-                        <p>File: ${file.fileName || 'Unknown File'}</p>
-                    </div>
-                    <div class="file-actions">
-                        <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="download-btn">Download File</a>
-                    </div>
-                `}
-            `).join('') : ""}
-            
-            
-                <div class="dataMessage" dir="auto">${(data.message)}</div>
-            <div style="    align-items: flex-end; display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
-            ${ownMessage
-                    ? `
-            <button class="read-toggle" read-data-id="${data.id}" onclick="openReadedMessage('${data.id}')" style="cursor:pointer;text-align:right;color:${fgColor};border:none;background:none;">
-                <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>`:`<i class="bi bi-check2"></i>`}</strong>
-            </button>
-            `
-            : ''}
-           
-        <div style="text-align:left;">
-        ${new Intl.DateTimeFormat("en-US", {
-            hour: "numeric",
-            minute: "numeric",
-        }).format(messageDate || new Date())}
-        
-        </div>
-        </div>
-        </div>
-        </div>
-        <div class="messageRead" data-id="Message-${messageId}"  style="${divStyle}">
-        <div  style="${divStyle}"  class=" footerMessage" >
-        
-        ${ ownMessage ? `
-            ${emojiDiv} 
-            <div class="${reactionMember!=''?'my-3':''}" reactionMessage = "${messageId}">
-                ${reactionMember}
-            </div>`:
-        `
-            <div class="${reactionMember!=''?'my-3':''}" reactionMessage = "${messageId}">
-                ${reactionMember}
-            </div>
-          ${emojiDiv}`
-        }
-        </div>
-        </div>
+                    ` : file.fileType === "application/pdf" ? `
+                        <!-- PDF Display -->
+                    <div class="file-actions" >
+                            <iframe class="pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
+                            <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
+                        </div>
+                    ` : file.fileType.startsWith("video/") ? `
+                        <!-- Video Display -->
+                        <video class="video-preview" controls>
+                            <source src="${file.file}" type="${file.fileType}">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div class="file-actions">
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="download-btn">Download Video</a>
+                        </div>
+                    ` : `
+                        <!-- Generic File Display -->
+                        <div class="file-info">
+                            <p>File: ${file.fileName || 'Unknown File'}</p>
+                        </div>
+                        <div class="file-actions">
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="download-btn">Download File</a>
+                        </div>
+                    `}
+                `).join('') : ""}
+                
+                            <div style="display:flex">
 
+                    <div class="dataMessage mx-3" dir="auto">${(data.message)}</div>
+                        <div style="    align-items: flex-end; display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">
+                            
+                            <div style="text-align:left;">
+                            ${new Intl.DateTimeFormat("en-US", {
+                                hour: "numeric",
+                                minute: "numeric",
+                            }).format(messageDate || new Date())}
+                            
+                        ${ownMessage
+                                ? `
+                                <button 
+                                    class="read-toggle" 
+                                    read-data-id="${data.id}" 
+                                    title="Seen member info" 
+                                    onclick="openReadedMessage('${data.id}')" 
+                                    style="cursor:pointer;text-align:right;color:${fgColor};border:none;background:none;">
+                                    <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>` : `<i class="bi bi-check2"></i>`}</strong>
+                                </button>
+                                                `
+                        : ''}
+                    </div>
+                </div>
+            </div>
+            </div>
+            </div>
+            <div class="messageRead" data-id="Message-${messageId}"  >
+                <div  style="${divStyle}"  class=" footerMessage" >
+                    <div class="${reactionMember!=''?'my-3':''}" reactionMessage = "${messageId}">
+                    ${reactionMember}
+                    </div>
+                </div>
+            </div>
+            
     `;
     let firstMessage = `
     <div data-id="Message-${messageId}" class="firstMessage">
@@ -1983,16 +1995,21 @@ function triggerDownload(src,fileName) {
 // }
 
 // Function to toggle the sticker picker (this is just an example)
-function toggleStickerPicker(messageId) {
-    console.log("Sticker picker toggled for message ID:", messageId);
+function toggleStickerPicker( messageId , pageX =0 ,pageY=0 ) {
+     
+    console.log("Sticker picker toggled for message ID: ",messageId, pageX ," , ",pageY);
     // Implement logic for showing/hiding sticker picker
-
-    let stickerPicker = output.querySelector(`#emoji-${messageId}`);
+    
+    var stickerPicker = chat_window.querySelector(`#emoji-${messageId}`);
+    stickerPicker.style.left = `${pageX}px`; // Position menu at cursor's X position
+    stickerPicker.style.top = `${pageY}px`;  // Position menu at cursor's Y position
     if (stickerPicker.classList.contains("show")) {
         stickerPicker.classList.remove("show");
         stickerPicker.classList.add("hide");
     } else {
         stickerPicker.classList.remove("hide");
+        stickerPicker.style.display = "block";
+        
         stickerPicker.classList.add("show");
     }
 }
@@ -2137,26 +2154,28 @@ const updateTimeForReadUser = (r, readInfoElement) => {
     }, 1000); // Update every second
 };
 function openReadedMessage(dataId) {
-    // Get the read info div based on the data-id (used as read-info-${dataId})
-    var infoDiv = document.querySelector(`#read-info-${dataId}`);
+    // Get the read-info div based on the data-id
+    const infoDiv = document.querySelector(`#read-info-${dataId}`);
+    const toggleBtn = document.querySelector(`[read-data-id="${dataId}"]`);
 
-    // Get the read-toggle button based on the data-id attribute (correct selector)
-    var toggleBtn = document.querySelector(`[read-data-id="${dataId}"]`);
+    if (!infoDiv || !toggleBtn) return; // Ensure elements exist
 
-    if (infoDiv && toggleBtn) {
-        // Check if the read info is visible and toggle it
-        if (!infoDiv.classList.contains("visible")) {
-            infoDiv.classList.add("visible");  // Show the read info
-            // toggleBtn.innerHTML = `<i class="bi bi-x-lg"></i> Hide here`;  // Change button text
-            console.log('show')
-            
-        } else {
-            infoDiv.classList.remove("visible"); // Hide the currently visible panel
-            // toggleBtn.innerHTML = `<i class="bi bi-arrow-90deg-up"></i> Last seen`;  // Change button text
-            console.log('hide')
-        }
+    if (infoDiv.classList.contains("visible")) {
+        // Hide the read-info and reset content
+        infoDiv.classList.remove("visible");
+        infoDiv.style.display = "none";
+        console.log("hide");
+        return;
     }
+
+    // Generate the read info HTML content
+
+    // Show the read-info
+    infoDiv.style.display = "block";
+    infoDiv.classList.add("visible");
+    console.log("show");
 }
+
 document.addEventListener("click",()=> {
     var infoDiv = document.querySelectorAll(`.read-info`);
     var emojiDiv = document.querySelectorAll(`.stickerPicker`);
@@ -2168,6 +2187,7 @@ document.addEventListener("click",()=> {
             infoDiv.forEach((panel) => {
                 if (panel.classList.contains("visible")) {
                     panel.classList.remove("visible"); // Hide the currently visible panel
+                    panel.style.display='none'
                 } 
             });
       
@@ -2606,9 +2626,23 @@ function messageMenu() {
     function openMenu(event, menu, element) {
         let messageId = (element.id).split('-')[1]
         let readInfo = element.querySelector('.read-info') ?? ''
-        header.innerHTML= readInfo.innerHTML || null
+        let emojiLess = `
+            <div class="my-2" id="emojiGrid">
+                <div id="emojiContainer" >
+                    <span onclick="addStickerReaction('😂', ${messageId})" class="emoji">😂</span>
+                    <span onclick="addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
+                    <span onclick="addStickerReaction('👎', ${messageId})" class="emoji">👎</span>
+                    <span onclick="addStickerReaction('❤️', ${messageId})" class="emoji">\u2764\uFE0F</span>
+                    <span onclick="addStickerReaction('🙏', ${messageId})" class="emoji">🙏</span>
+                </div>
+            </div>
+        `
+        header.innerHTML = readInfo.innerHTML || null
+        header.insertAdjacentHTML("afterbegin",emojiLess)
+        menu.insertAdjacentHTML("afterend",emoji(messageId))
         let emojiDiv = `
-        <button id="reactBtn-${messageId}" class="btn reactBtn visible col-md-12" onclick="toggleStickerPicker(${messageId})">
+        
+        <button id="reactBtn-${messageId}" class="btn reactBtn visible col-md-12" onclick="toggleStickerPicker(${messageId},${event.pageX} , ${event.pageY })">
         <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
         Add reaction
         </button>
@@ -2636,7 +2670,7 @@ function messageMenu() {
             // Optional: Provide user feedback (e.g., show a success message)
             alerting("Message copied to clipboard!");
         })
-        body.addEventListener("click",()=>{
+        menu.addEventListener("click",()=>{
             menu.style.display = "none";
         })
         menu.style.display = "block";

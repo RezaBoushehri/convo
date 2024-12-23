@@ -379,6 +379,7 @@ footer .fa {
     cursor: pointer;
   }
   .read-info {
+    display: none;
     opacity: 0; /* Start fully transparent */
     position: relative;
     top: -25px;
@@ -391,7 +392,7 @@ footer .fa {
     z-index: 10;
     max-width: 200px;
     min-width: 100px;
-    max-height: 98px;
+    max-height: 65px;
     transition: opacity 0.3s ease, visibility 0.3s ease; /* Add transition for smooth effects */
     visibility: hidden; /* Hide initially without display:none for smooth transitions */
     overflow: scroll;
@@ -408,23 +409,27 @@ footer .fa {
     margin: 5px;
     /* top: -25px;
     left: -124px; */
-    background-color: #fff;
+    background-color: var(--user-chat-bg-color); 
     padding: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: none; /* Initially hidden */
     text-align: left;
-    z-index: 10;
+    z-index: 99;
     border-radius: 10px;
-    z-index: 999;
     /* overflow: hidden; */
+    position: absolute;
+
     transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 /* Animation for showing the emoji picker */
 .stickerPicker.show {
-    display: block;
+    display: flex;
     opacity: 1;
     transform: translateY(0);
+    flex-direction: row;
+    align-items: center;
+    width: max-content;
 }
 
 .stickerPicker.hide {
@@ -434,13 +439,36 @@ footer .fa {
 
 /* Container for emojis */
 #emojiContainer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    overflow-x: scroll;
-    scrollbar-width: none;
-    animation: emojiFadeIn 1s ease;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: repeat(5, auto);
+    overflow: hidden;
+    height: auto;
+    max-height: 35px; /* Adjust this to fit the height of 5 stickers */
+    transition: width 0.3s ease-in-out, max-height 0.3s ease-in-out;
+}
+
+/* Expanded view */
+#emojiContainer.expanded {
+    display: grid;
+    max-height: 100px; /* Allows full height to show all stickers */
+    overflow-y: scroll; /* Enable vertical scrolling */
+    grid-template-columns: repeat(10, auto);
+    width: fit-content;
+
+    /* Hide scrollbars */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+/* Webkit-based browser scrollbar removal */
+#emojiContainer.expanded::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+}
+
+
+#emojiContainer .stickerPicker.show {
+    background-color: #fff;
+    left: -124px;
 }
 
 /* Hover effects for individual emojis */
@@ -464,6 +492,12 @@ footer .fa {
         opacity: 1;
     }
 }
+
+.show-all-icon{
+    color: var(--user-chat-fg-color);
+
+}
+
 .reactBtn {
     opacity: 0; /* Start fully transparent */
     /* position: absolute; */
