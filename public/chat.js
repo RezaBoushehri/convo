@@ -1662,16 +1662,16 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             const lastValue = data.handle.trim();
             const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender').trim();
             if (lastValue !== secondLastValue) {
-                if(prepend)return  ownMessage ? ` var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: ` var(--user-border-radius) 5px 5px  5px`
+                if(prepend)return  ownMessage ? ` var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: ` 5px var(--user-border-radius) var(--user-border-radius)  5px`
                 else  return ownMessage ? `var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: `var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px`          
             } else if(!prepend) {
                 console.log("last: ",lastValue)
                 console.log("second last: ",secondLastValue)
                 const message = lastMessageElm[lastMessageElm.length - 1].querySelector('.message')
-                message.style.borderRadius=  ownMessage ? `var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: ` var(--user-border-radius) 5px 5px  5px`;
+                message.style.borderRadius=  ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `  5px var(--user-border-radius) var(--user-border-radius)  5px`;
                 return ownMessage ? ` var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)`: ` 5px  var(--user-border-radius)  var(--user-border-radius)  var(--user-border-radius)`;
             }else{
-                return ownMessage ? ` var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: `var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px `
+                return ownMessage ? ` var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px `
             }
             
         }else if(prepend){
@@ -1775,7 +1775,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         if(!inLast.querySelector('h6')){
                             inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
                             // console.log('before border :',inLast.style.borderRad)
-                            inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px 5px' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
+                            inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
                             // console.log('after border :',inLast.style.borderRad)
                         }
                     }
@@ -1874,10 +1874,13 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 
                             <div style="display: flex ;justify-content: space-between;}" >
 
-                    <div class="dataMessage mx-3" dir="auto">${(data.message)}</div>
-                        <div style="justify-content : flex-end; display:flex; align-items:center;font-size: calc(var(--user-font-size) - 0.1rem);;">
+                    <div class="dataMessage " message-id="Message-${messageId}" dir="auto">
+                        ${(data.message)}
+                        <span class="show-more"  style="display: none;">more...</span>
+                    </div>
+                        <div style="ustify-content: flex-end;display: flex;align-items: flex-end;font-size: calc(var(--user-font-size) - 0.1rem);;">
                             
-                            <div style="text-align:left;">
+                            <div style="display: flex;flex-direction: row;align-items: center;">
                             ${new Intl.DateTimeFormat("en-US", {
                                 hour: "numeric",
                                 minute: "numeric",
@@ -1966,7 +1969,33 @@ if (isLastMessage) {
     $("file-input").val("");
     image = "";
     searchMessageReply()
+    // Run the function to apply the functionality
+    applyShowMore();
 }
+
+// Function to check and apply "more..." for all messages
+function applyShowMore() {
+    const messages = document.querySelectorAll('.dataMessage');
+
+    messages.forEach((message) => {
+        const messageText = message.firstChild; // First text node of the message
+        const showMoreButton = message.querySelector('.show-more');
+
+        // Check if the text overflows
+        if (message.scrollHeight > output.clientHeight) {
+            showMoreButton.style.display = 'inline';
+        }
+
+        // Add event listener for the "more..." button
+        showMoreButton.addEventListener('click', () => {
+            message.style.whiteSpace = 'normal';
+            message.style.overflow = 'visible';
+            showMoreButton.style.display = 'none';
+        });
+    });
+}
+
+
 function triggerDownload(src,fileName) {
     // Extract the filename from the URL (you can adjust this if the file name is provided directly)
 

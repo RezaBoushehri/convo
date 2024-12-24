@@ -1028,3 +1028,16 @@ footer .fa {
     right: 5px;
     top: 5px;
 }
+.dataMessage {
+    max-width: 88%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    position: relative;
+}
+.show-more {
+    color: blue;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-left: 5px;
+}
