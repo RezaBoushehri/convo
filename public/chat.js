@@ -885,7 +885,6 @@ socket.on("chat",(data , ack) => {
                         }
                         addMessageToChatUI(data)
                         hasScrolledDown = false
-                        
                     }
                 }
             }
@@ -897,7 +896,10 @@ socket.on("chat",(data , ack) => {
     setTimeout(() => {
         applyShowMore();
     },100);
-
+    if(data.sender != currentUser.username){
+        showBrowserNotification(data.handle,data.message)
+        playNotificationSound()
+    }
 
 });
 
@@ -1590,7 +1592,10 @@ document.getElementById("resetSettings").addEventListener("click", () => {
 // ----------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-
+    if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
+    
     if (savedSettings) {
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
         document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
@@ -1674,7 +1679,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 console.log("last: ",lastValue)
                 console.log("second last: ",secondLastValue)
                 const message = lastMessageElm[lastMessageElm.length - 1].querySelector('.message')
-                message.style.borderRadius=  ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `  5px var(--user-border-radius) var(--user-border-radius)  5px`;
+                if(message.style.borderRadius!= "var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px"
+                     || message.style.borderRadius!= "var(--user-border-radius) var(--user-border-radius)  5px var(--user-border-radius)" ){
+                        message.style.borderRadius=  ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `  5px var(--user-border-radius) var(--user-border-radius)  5px`;
+                     }
                 return ownMessage ? ` var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)`: ` 5px  var(--user-border-radius)  var(--user-border-radius)  var(--user-border-radius)`;
             }else{
                 return ownMessage ? ` var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px `
@@ -1887,9 +1895,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         <div class=" ml-2 mr-0" style="margin-right=0% !important; justify-content: flex-end;display: flex;align-items: flex-end;font-size: calc(var(--user-font-size) - 0.1rem);;">
                             
                         <div class="backdrop-blur" style="display: flex;flex-direction: row;align-items: center;">
-                            <span style="    white-space: nowrap;">${new Intl.DateTimeFormat("en-US", {
+                            <span class="px-1" style="white-space: nowrap;">${new Intl.DateTimeFormat("en-US", {
                                 hour: "numeric",
                                 minute: "numeric",
+                                hour12: false, // This ensures 24-hour format
+
                             }).format(messageDate || new Date())}
                             </span>
                         ${ownMessage
@@ -1937,7 +1947,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         if (unreadToAdd) MessagePack[0].insertAdjacentHTML("afterbegin", unreadToAdd);
         if (isNewSender ) {
             const lastMessageElm = MessagePack[0].querySelector(`#Message-${messagesCreated[messagesCreated.length -1].split("-")[1]}`);
-            const lastMessageElm2 = MessagePack[0].querySelector(`#Message-${messagesCreated[messagesCreated.length -2].split("-")[1]}`);
+            // const lastMessageElm2 = MessagePack[0].querySelector(`#Message-${messagesCreated[messagesCreated.length -2].split("-")[1]}`);
             if (lastMessageElm) {
                 const div = lastMessageElm.querySelector(`.mess`);
                 // lastMessageElm2.style.borderRadius= ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px`;
@@ -2806,4 +2816,34 @@ function searchMessageReply() {
             }
         });
     });
+}
+
+
+// ========================================================
+// notification content
+
+function playNotificationSound() {
+        const sound = document.getElementById("notification-sound");
+        sound.currentTime = 0; // Reset to the beginning in case it's already playing
+        sound.play().catch((error) => {
+            console.error("Failed to play notification sound:", error);
+        });
+   
+}
+
+// Function to show browser notification
+function showBrowserNotification(sender,messageContent) {
+    if (document.hidden) {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                const notification = new Notification(`New Message from ${sender} :`, {
+                    body: messageContent,
+                    icon: "/svg/logo.svg"  // Optional: Set a notification icon
+                });
+            }
+        });
+        playNotificationSound()
+    }else{
+        console.log(Notification.permission)
+    }
 }

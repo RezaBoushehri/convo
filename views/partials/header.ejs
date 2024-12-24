@@ -37,6 +37,8 @@
 </head>
 
 <body>
+    <audio id="notification-sound" src="/sound/notif.wav" preload="auto"></audio>
+
     <div id="loading" class="loader hide">
         <div class="spinner"></div>
         <span>Loading, please wait...</span>
@@ -133,4 +135,13 @@
 
     <% } %>
 </body>
+<script>
+    // Request notification permission when the page loads
+if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
+
+
+
+</script>
 </html>
