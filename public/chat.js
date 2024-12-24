@@ -657,7 +657,9 @@ button.addEventListener("click", () => {
     });
     // Remove "sending" placeholder once the message is successfully added to the UI
     if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
-  
+        setTimeout(() => {
+            applyShowMore();
+            },100);
 })
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
@@ -892,7 +894,9 @@ socket.on("chat",(data , ack) => {
     }
     // $("#down").show(); // Show scroll-up button
     messageMenu()
-
+    setTimeout(() => {
+        applyShowMore();
+    },100);
 
 
 });
@@ -1462,7 +1466,9 @@ socket.on("restoreMessages", (data) => {
             }
         }
 
-    
+        setTimeout(() => {
+            applyShowMore();
+        },100);
         enableScrolling()
     });
     socket.on("noMoreMessages",(data) =>{
@@ -1875,17 +1881,17 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <div style="display: flex ;justify-content: space-between;}" >
 
                     <div class="dataMessage " message-id="Message-${messageId}" dir="auto">
+                    
                         ${(data.message)}
-                        <span class="show-more"  style="display: none;">more...</span>
                     </div>
-                        <div style="ustify-content: flex-end;display: flex;align-items: flex-end;font-size: calc(var(--user-font-size) - 0.1rem);;">
+                        <div class=" ml-2 mr-0" style="margin-right=0% !important; justify-content: flex-end;display: flex;align-items: flex-end;font-size: calc(var(--user-font-size) - 0.1rem);;">
                             
-                            <div style="display: flex;flex-direction: row;align-items: center;">
-                            ${new Intl.DateTimeFormat("en-US", {
+                        <div class="backdrop-blur" style="display: flex;flex-direction: row;align-items: center;">
+                            <span style="    white-space: nowrap;">${new Intl.DateTimeFormat("en-US", {
                                 hour: "numeric",
                                 minute: "numeric",
                             }).format(messageDate || new Date())}
-                            
+                            </span>
                         ${ownMessage
                                 ? `
                                 <button 
@@ -1970,7 +1976,7 @@ if (isLastMessage) {
     image = "";
     searchMessageReply()
     // Run the function to apply the functionality
-    applyShowMore();
+
 }
 
 // Function to check and apply "more..." for all messages
@@ -1978,23 +1984,48 @@ function applyShowMore() {
     const messages = document.querySelectorAll('.dataMessage');
 
     messages.forEach((message) => {
-        const messageText = message.firstChild; // First text node of the message
-        const showMoreButton = message.querySelector('.show-more');
+        // const showMoreButton = message.querySelector('.show-more');
+        const messageId= message.getAttribute('message-id');
+        // Calculate the height of one line of text
+        const lineHeight = parseFloat(getComputedStyle(message).lineHeight);
+        const maxVisibleHeight = lineHeight * 5; // Maximum height for 5 lines
 
-        // Check if the text overflows
-        if (message.scrollHeight > output.clientHeight) {
-            showMoreButton.style.display = 'inline';
+        // Check if the text exceeds 5 lines
+        // console.log('id :',message.getAttribute('message-id')," height :" , message.scrollHeight)
+        if (message.scrollHeight > maxVisibleHeight) {
+            message.style.maxHeight = `${maxVisibleHeight}px`; // Limit to 5 lines
+            // showMoreButton.style.display = 'inline';
+            message.insertAdjacentHTML('afterend',`<span class="backdrop-blur p-1 show-more"  style="display: inline;" onclick="showMore('${messageId}')" message-id="${messageId}">more...</span>`)
         }
 
-        // Add event listener for the "more..." button
-        showMoreButton.addEventListener('click', () => {
-            message.style.whiteSpace = 'normal';
-            message.style.overflow = 'visible';
-            showMoreButton.style.display = 'none';
-        });
+        // // Add event listener for the "more..." button
+        // showMoreButton.addEventListener('click', () => {
+        //     message.style.maxHeight = 'none'; // Expand to show full text
+        //     showMoreButton.style.display = 'none';
+        // });
     });
 }
+function showMore(messageId) {
+    // Get the specific message element by its ID
+    const messageElm = output.querySelector(`#${messageId}`);
+    const message = output.querySelector(`.dataMessage[message-id="${messageId}"]`);
 
+    if (message) {
+        // Expand the message by removing the height and text-overflow restrictions
+        message.style.whiteSpace = 'normal';
+        // message.style.overflow = 'visible';
+        message.style.textOverflow = 'clip';
+        message.style.maxHeight = 'none';
+
+        // Hide the "more..." button
+        const showMoreButton = messageElm.querySelector(`span[message-id="${messageId}"]`);
+        if (showMoreButton) {
+            showMoreButton.style.display = 'none';
+        }
+    } else {
+        console.warn(`Message with ID "${messageId}" not found.`);
+    }
+}
 
 function triggerDownload(src,fileName) {
     // Extract the filename from the URL (you can adjust this if the file name is provided directly)

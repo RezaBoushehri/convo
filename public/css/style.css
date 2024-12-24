@@ -47,7 +47,7 @@ body {
 .mess {
     word-wrap: break-word;
     max-width: max-content;
-    min-width: 5vw;
+    min-width: 160px;
     font-size: 3vmin;
     border: 1px solid var(--user-bg-color);
     box-shadow: inset 0px 0px 2px 0px #ccc;
@@ -841,14 +841,15 @@ footer .fa {
     overflow: scroll; /* Keep scrolling enabled */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
-    text-overflow: ellipsis; 
+    text-overflow: ellipsis !important; 
     overflow: hidden; 
     white-space: nowrap;
     display: flex;
     align-items: flex-end;
+    white-space: nowrap;
     margin-bottom: .375rem;
     position: relative;
-    background-color: #ffffff3f;
+    background-color: #ffffff25;
     backdrop-filter: blur(5px);
     border-radius: 5px 5px 5px 5px;
     transition: all 0.3s ease; /* Smooth transition for hover effect */
@@ -888,6 +889,7 @@ footer .fa {
 .highlight-shine {
     animation: shineEffect 1s ease-in-out;
     border-radius: 10px;
+    padding : 10px
 }
 
 @keyframes shineEffect {
@@ -1031,13 +1033,26 @@ footer .fa {
 .dataMessage {
     max-width: 88%;
     overflow: hidden;
+    line-height: 1.5; /* Adjust this to match your design */
+    max-height: calc(1.5em * 5); /* Limit to 5 lines */
+
     text-overflow: ellipsis;
-    white-space: nowrap;
     position: relative;
 }
 .show-more {
-    color: blue;
+    display: inline;
+    position: absolute;
+    right: 50%;
+    bottom: 3px;
+    color: var(--user-fg-color);
     cursor: pointer;
-    text-decoration: underline;
+    /* text-decoration: underline; */
     margin-left: 5px;
+    box-shadow: 0px 0px 5px 1px #4444442e;
+}
+.backdrop-blur {
+    background-color:  #ffffff15;
+    backdrop-filter: blur(1px);
+    border-radius: 50px;
+    padding-inline: 5px;
 }
