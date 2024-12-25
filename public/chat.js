@@ -928,7 +928,7 @@ socket.on("typing", (data) => {
                         &&rect.top <= window.innerHeight+threshold) {
                        
                             $("#feedback").append(
-                                `<p id="typing-${username}" class="badge p-2 ml-2 type">
+                                `<p id="typing-${username}" style="border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);" class="badge p-2 ml-2 type">
                                     <em>${name} is typing ....</em>
                                 </p>`
                             );
@@ -1395,10 +1395,10 @@ socket.on("restoreMessages", (data) => {
                 // Create a new date header
 
                 const dateToAdd = `
-                <div dir="auto" data-date="${messageDateString}" class="Date" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: ${chatWindowFgColor};">
-                    <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+                <div dir="auto" data-date="${messageDateString}" class="p-2 Date" style="justify-content:center; display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
+                   <div class="backdrop-blur px-3">
                     ${messageDateString}
-                    <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+                    </div
                 </div>`;
 
 
@@ -1486,12 +1486,12 @@ socket.on("restoreMessages", (data) => {
 document.addEventListener("DOMContentLoaded", () => {
     // renderEmojis()
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "#ffff";
+    const bgColor = savedSettings?.bgColor || "255, 255, 255";
     const fontSize = savedSettings?.fontSize || "16px";
     const borderRad = savedSettings?.borderRad || "5px";
-    const fgColor = savedSettings?.fgColor || "#4444";
-    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
-    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+    const fgColor = savedSettings?.fgColor || "67, 67, 67";
+    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "67, 67, 67";
+    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "255, 255, 255";
     document.getElementById("chat-window").style.backgroundColor = chatWindowBgColor
     document.getElementById("chat-window").style.color = chatWindowFgColor
     // document.getElementById("editable-message-text").style.backgroundColor = bgColor
@@ -1500,7 +1500,7 @@ document.addEventListener("DOMContentLoaded", () => {
     headTag.style.fontSize = fontSize+"px"
     headTag.style.color = chatWindowFgColor
     headTag.style.borderRadius = borderRad
-    headTag.style.border = `1px solid ${chatWindowFgColor}`
+    headTag.style.border = `1px solid var(--user-bg-color)`
 
     if (savedSettings) {
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
@@ -1571,10 +1571,10 @@ document.getElementById("resetSettings").addEventListener("click", () => {
         const userSettings = {
             marginLeft: "10%",
             marginRight: "%10",
-            chatWindowBgColor: "#434343",
-            chatWindowFgColor: "#ffffff",
-            bgColor: "#3385ff", // Assuming a background color picker exists
-            fgColor: "#ffffff", // Assuming a background color picker exists
+            chatWindowBgColor: "67, 67, 67",
+            chatWindowFgColor: "255, 255, 255",
+            bgColor: "51, 133, 255", // Assuming a background color picker exists
+            fgColor: "255, 255, 255", // Assuming a background color picker exists
             fontSize: "12px", // Get font size from range input
             borderRad: "15px", // Get font size from range input
         };
@@ -1696,7 +1696,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         }
     }
     const style = ownMessage
-        ? `background-color:${bgColor};color:${fgColor};font-size:${fontSize};border-radius: ${borderRadiusFalse()}  ;`
+        ? `background-color:rgb(var(--user-bg-color));color:rgb(var(--user-fg-color));font-size:${fontSize};border-radius: ${borderRadiusFalse()}  ;`
         : `background-color:#333;color:white;font-size:${fontSize};border-radius:  ${borderRadiusFalse()};`;
     const divStyle = ownMessage
         ? `display:flex;justify-content:flex-end;`
@@ -1713,20 +1713,22 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     // Date tag
     if (data.dateLine) {
         dateToAdd = `
-            <div dir="auto" data-date="${messageDateString}" class="Date" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: ${chatWindowFgColor};">
-                <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+            <div dir="auto" data-date="${messageDateString}" class="Date" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-bg-color));">
+                <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-bg-color)); margin: 0 10px;"></span>
+                <div class="backdrop-blur">
                     ${messageDateString}
-                <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+                </div
+                <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-bg-color)); margin: 0 10px;"></span>
             </div>`; 
                }
 
     // "Unread Messages" tag
     if (data.readLine) {
         unreadToAdd = `
-            <div class="unread" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: ${chatWindowFgColor};">
-                <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+            <div class="unread" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
+                <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-chat-bg-color)); margin: 0 10px;"></span>
                     New Messages
-                <span style="flex: 1; height: 1px; background-color:  ${chatWindowFgColor}; margin: 0 10px;"></span>
+                <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-chat-bg-color)); margin: 0 10px;"></span>
             </div>`;
             // console.log(unreadToAdd)
     }
@@ -1787,7 +1789,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     const inLast = lastMessageElm.querySelector('.message')
                     if(inLast){
                         if(!inLast.querySelector('h6')){
-                            inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
+                            inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: rgb(var(--user-fg-color));`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
                             // console.log('before border :',inLast.style.borderRad)
                             inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
                             // console.log('after border :',inLast.style.borderRad)
@@ -1809,12 +1811,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             console.log("last: ",lastValue)
             console.log("second last: ",secondLastValue)
             if (lastValue !== secondLastValue) {
-                return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>`           
+                return `<h6 class="message-title" style="${ownMessage? `color: rgb(var(--user-fg-color));`:''} font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>`           
             } else {
                 return ``;
              }
         } else {
-            return `<h6 class="message-title" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
+            return `<h6 class="message-title" style="${ownMessage? `color: rgb(var(--user-fg-color));`:''} font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
             ` ;
         }
     }
@@ -1840,7 +1842,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
             ${handler()}
                 ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
-                    <h6 class="message-title" dir="rtl" style="${ownMessage? `color: var(--user-fg-color);`:''} font-style:italic;text-align:end;">
+                    <h6 class="message-title" dir="rtl" style="${ownMessage? `color: rgb(var(--user-fg-color));`:''} font-style:italic;text-align:end;">
                         ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
                     </h6>
                     <span class="px-2" dir="auto">${(data.reply.message)}</span>
@@ -1909,7 +1911,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                                     read-data-id="${data.id}" 
                                     title="Seen member info" 
                                     onclick="openReadedMessage('${data.id}')" 
-                                    style="cursor:pointer;text-align:right;color:${fgColor};border:none;background:none;">
+                                    style="cursor:pointer;text-align:right;color:var(--user-fg-color);border:none;background:none;">
                                     <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>` : `<i class="bi bi-check2"></i>`}</strong>
                                 </button>
                                                 `

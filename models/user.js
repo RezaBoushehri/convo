@@ -31,12 +31,12 @@ const userSchema = new mongoose.Schema({
         default: null, // Optional, will be null if not set
     },
     settings: {
-        bgColor: { type: String, default: "#3385ff" },
-        fgColor: { type: String, default: "#ffffff" },
+        bgColor: { type: String, default: "rgb(51, 133, 255)" },
+        fgColor: { type: String, default: "rgb(255, 255, 255)" },
         marginLeft: { type: String, default: "10%" },
         marginRight: { type: String, default: "10%" },
-        chatWindowBgColor: { type: String, default: "#434343" },
-        chatWindowFgColor: { type: String, default: "#ffffff" },
+        chatWindowBgColor: { type: String, default: "rgb(67, 67, 67)" },
+        chatWindowFgColor: { type: String, default: "rgb(255, 255, 255)" },
         fontSize: { type: String, default: "13px" },
         borderRad: { type: String, default: "15px" },
     },
