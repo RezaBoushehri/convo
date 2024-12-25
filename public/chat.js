@@ -160,7 +160,22 @@ function emoji(messageId) {
 function toggleEmojiContainer(messageId) {
     const container = document.querySelector(`#emoji-${messageId} #emojiContainer`);
     const expendBtn = document.querySelector(`#emoji-${messageId} .show-all-icon`);
-    
+    const emojis = container.querySelectorAll(`span`);
+    container.addEventListener('scroll', () => {
+        const containerRect = container.getBoundingClientRect();
+        emojis.forEach(emoji => {
+          const emojiRect = emoji.getBoundingClientRect();
+          const emojiCenter = (emojiRect.top + emojiRect.bottom) / 2;
+          const containerCenter = (containerRect.top + containerRect.bottom) / 2;
+  
+          // Calculate distance from center
+          const distanceFromCenter = Math.abs(containerCenter - emojiCenter);
+  
+          // Scale based on distance (smaller distance = larger scale)
+          const scale = Math.max(0.8, 1 - distanceFromCenter / 100);
+          emoji.style.transform = `scale(${scale})`;
+        });
+      });
     if (container && expendBtn) {
         container.classList.toggle('expanded');
         expendBtn.classList.toggle('rotated'); // Add a class to rotate the button
@@ -766,6 +781,7 @@ socket.on("joined", (data) => {
     
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
+    
 });
 
 //=================================================================

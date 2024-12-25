@@ -103,6 +103,7 @@
                     role="textbox" 
                     dir="auto" 
                     tabindex="0" 
+                    rows="2"
                     aria-label="Message" 
                     aria-placeholder="Message ..."
                     autocomplete="on">
@@ -138,28 +139,28 @@
                         setPlaceholder();
 
 
-                          // Function to always keep the focus on the editable div
-                        function keepFocusOnEditableDiv() {
-                            const editableDiv = document.getElementById("editable-message-text");
-                            if (editableDiv) {
-                                editableDiv.focus(); // Programmatically set focus
-                                editableDiv.addEventListener("blur", () => {
-                                    // Re-focus if the element loses focus
-                                    editableDiv.focus();
-                                });
-                            }
-                        }
+                        //   // Function to always keep the focus on the editable div
+                        // function keepFocusOnEditableDiv() {
+                        //     const editableDiv = document.getElementById("editable-message-text");
+                        //     if (editableDiv) {
+                        //         editableDiv.focus(); // Programmatically set focus
+                        //         editableDiv.addEventListener("blur", () => {
+                        //             // Re-focus if the element loses focus
+                        //             editableDiv.focus();
+                        //         });
+                        //     }
+                        // }
 
-                        // Call the function on page load
-                        document.addEventListener("DOMContentLoaded", keepFocusOnEditableDiv);
+                        // // Call the function on page load
+                        // document.addEventListener("DOMContentLoaded", keepFocusOnEditableDiv);
 
                         // Optional: Call again if new elements or dynamic updates occur
-                        const observer = new MutationObserver(() => {
-                            keepFocusOnEditableDiv();
-                        });
+                        // const observer = new MutationObserver(() => {
+                        //     keepFocusOnEditableDiv();
+                        // });
 
                         // Observe changes in the body to handle dynamic updates
-                        observer.observe(document.body, { childList: true, subtree: true });
+                        // observer.observe(document.body, { childList: true, subtree: true });
                     </script>
                 
                     <div class="button-container g-3">
