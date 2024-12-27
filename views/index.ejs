@@ -79,9 +79,7 @@
             <button id="up" class="btn btn-warning m-2 text-white" onclick="scrollUp()"></i></button>
             
         </div>
-        <div id="chat_windowFooter" class=" row g-3 px-5 my-4" style="
-        display: flex;
-        align-items: center;">
+        <div id="chat_windowFooter" class=" row g-3 px-5 my-4" >
             <button id="down" class="btn " style="display: none; " onclick="scrollDown()">
                 <strong><i class="bi bi-arrow-down"></i></strong>
                 <span id="notifCount" class="btn btn-danger">0</span>
@@ -110,7 +108,8 @@
                     </div>
                 
                     <script>
-                        const editableMessageText = document.getElementById("editable-message-text");
+                        const editableMessageText = document.getElementById("editable-message-text"),
+                        replyBox1 = document.getElementById("replyBox");
                     
                         // Set placeholder text
                         const placeholderText = "Message ...";
@@ -119,6 +118,9 @@
                         function setPlaceholder() {
                             if (editableMessageText.textContent.trim() === "") {
                                 editableMessageText.textContent = placeholderText;
+                                editableMessageText.style.transform = `translateY(0px)`;
+                                replyBox1.style.transform = `translateY(0px)`;
+
                             } else if (editableMessageText.textContent === placeholderText) {
                                 editableMessageText.textContent = "";
                             }

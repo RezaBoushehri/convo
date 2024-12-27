@@ -2,7 +2,7 @@
 // const socket = io.connect(window.location.hostname),
 const production = false;
 const href = production ? window.location.hostname : "172.16.28.166",
-    socket = io.connect(`https://172.16.28.166:4000`, {
+    socket = io.connect(`https://192.168.100.22:4000`, {
         transports: ['polling', "websocket"],
         secure: true,
         withCredentials: false, // Ensures cookies are sent along with requests
@@ -10,6 +10,7 @@ const href = production ? window.location.hostname : "172.16.28.166",
     }),
     name = document.getElementById("dropdownMenuButton"),
     message = document.getElementById("editable-message-text"),
+    replyBox = document.getElementById("replyBox"),
     output = document.getElementById("output"),
     button = document.getElementById("button"),
     feedback = document.getElementById("feedback"),
@@ -48,6 +49,53 @@ const enableScrolling = () => {
 
     // console.log("Scrolling enabled.");
 };
+
+
+let previousLineCount = 1; // تعداد خطوط قبلی
+
+message.addEventListener('input', () => {
+
+   // محاسبه تعداد خطوط فعلی
+   const lineHeight = parseInt(window.getComputedStyle(message).lineHeight, 10); // ارتفاع خط از CSS
+
+    // تعداد خطوط فعلی
+    const currentLineCount = Math.ceil(message.scrollHeight / lineHeight);
+
+    // بررسی افزایش یا کاهش خطوط
+    if (currentLineCount !== previousLineCount) {
+        // محدود کردن تعداد خطوط به 5
+        const maxLines = 5;
+        const allowedLineCount = Math.min(currentLineCount, maxLines);
+
+        // محاسبه ارتفاع جدید بر اساس تعداد خطوط مجاز
+        const newHeight = allowedLineCount * lineHeight;
+
+        // محاسبه مدت زمان ترنزیشن بر اساس تغییرات ارتفاع
+        const heightDifference = Math.abs(newHeight - message.offsetHeight); // تفاوت بین ارتفاع فعلی و جدید
+        const transitionDuration = Math.min(heightDifference * 20, 1000); // مدت زمان ترنزیشن (محدود به 500ms)
+
+        // اعمال تغییرات در استایل
+        message.style.height = `${newHeight}px`;
+        message.style.transitionDuration = `${transitionDuration}ms`;
+        message.style.transform = `${transitionDuration}ms`;
+        // message.style.overflowY = currentLineCount > maxLines ? 'scroll' : 'hidden';
+       // محاسبه مقدار جابجایی به بالا (برای حفظ انیمیشن از بالا)
+       const translateY = -(newHeight ) / 2;
+       message.style.transform = `translateY(${translateY}px)`;
+       replyBox.style.transform = `translateY(${translateY - 5}px)`;
+
+        // به‌روزرسانی تعداد خطوط قبلی
+        previousLineCount = allowedLineCount-1;
+
+    }
+    if(previousLineCount<=1){
+        message.style.transform = `translateY(0px)`;
+
+    }
+  
+});
+
+
 
 if (roomID != "") {
     if(document.getElementById('loading').classList.contains('hide')){
@@ -191,7 +239,7 @@ function toggleEmojiContainer(messageId) {
 // twemoji.parse(emojiContainer);
 
 
-// const editableDiv = document.getElementById("editable-message-text");
+// const message = document.getElementById("editable-message-text");
 
 message.addEventListener("input", function () {
     this.style.height = "auto"; // Reset height to calculate content height
@@ -607,7 +655,8 @@ button.addEventListener("click", () => {
   // Clear input fields
   message.innerHTML = "";
   message.style.height = "36px";
-  
+  message.style.transform = `translateY(0px)`;
+  replyBox.style.transform = `translateY(0px)`;
   fileData = "";
   clearReply()
 
@@ -1412,7 +1461,7 @@ socket.on("restoreMessages", (data) => {
 
                 const dateToAdd = `
                 <div dir="auto" data-date="${messageDateString}" class="p-2 Date" style="justify-content:center; display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
-                   <div class="backdrop-blur px-3">
+                   <div style="    background-color: rgb(var(--user-chat-fg-color),0.15) !important; " class="backdrop-blur px-3">
                     ${messageDateString}
                     </div
                 </div>`;
