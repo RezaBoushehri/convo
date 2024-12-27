@@ -27,7 +27,6 @@ body {
 #chat-window {
     margin-top: 2vh;
     background-color: #434343;
-    height: 65vh;
     overflow-y: auto;
     color: black;
     color: white;
@@ -71,6 +70,7 @@ body {
     box-shadow: none; /* Removes Bootstrap's default focus shadow */
 }
 
+
 #editable-message-text:not(.editing):empty::before {
     border: none;
     content: attr(aria-placeholder);
@@ -94,7 +94,10 @@ body {
     }
 }
 .send-button:hover{
-    color: rgb(var(--user-chat-fg-color));
+    color: rgb(var(--user-chat-bg-color),0.5);
+}
+.send-button:hover{
+    color: rgb(var(--user-chat-fg-color),0.9);
 }
 #feedback{
     position: relative;
@@ -156,6 +159,12 @@ body {
 
     color: rgb(var(--user-bg-color)) ;
 
+}
+.button-container button:focus {
+    /* border: none !important; */
+    outline: none; /* Removes focus outline */
+    /* border: none; Ensures border stays removed on focus */
+    box-shadow: none; /* Removes Bootstrap's default focus shadow */
 }
 .button-container i:hover{
 
@@ -697,6 +706,12 @@ footer .fa {
 }
 #messageMenu button:hover{
     color: rgb(var(--user-fg-color));
+    background-color: rgb(var(--user-bg-color),0.5);
+    /* border: 3px solid #007bb5 !important; */
+
+}
+#messageMenu button:active{
+    color: rgb(var(--user-fg-color));
     background-color: rgb(var(--user-bg-color));
     /* border: 3px solid #007bb5 !important; */
 
@@ -717,7 +732,7 @@ footer .fa {
     bottom: 20dvh; */
     z-index: 9;
     position: absolute;
-    left: 10px;
+    left: 24px;
     background-color: rgb(var(--user-bg-color));
     color: rgb(var(--user-fg-color));
     border: none;
@@ -810,6 +825,7 @@ footer .fa {
         max-width: 40vw;
 
     }
+    
 }
 
 /* Reset margins for mobile devices */
@@ -824,6 +840,22 @@ footer .fa {
         margin-right: 10dvw !important;
         max-width: 70vw;
 
+    }
+}
+@media(min-height :741px)
+{
+    #chat-window {
+    
+        height: 70vh;
+    
+    }
+}
+@media(max-height :740px)
+{
+    #chat-window {
+    
+        height: 60vh;
+    
     }
 }
 .EmbeddedMessage {
@@ -942,6 +974,7 @@ footer .fa {
 
 /* Footer loader styles */
 .loader.show {
+    display: block;
     position: absolute;
     top: 50vh;
     left: 100px;
@@ -962,7 +995,7 @@ footer .fa {
 }
 .loader.hide {
     opacity: 0;
-
+    display: none;
 }
 
 /* Loading spinner */

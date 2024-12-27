@@ -35,6 +35,10 @@ let sentMessagesId=[],
     , hasScrolledDown = false; // Flag to track if the scroll has already occurred
     let scrolling = true;
 
+// =====================
+// for right click menu
+const windowWidth = window.innerWidth;
+const windowHeight = window.innerHeight;
 const roomID = document.querySelector("#roomID").textContent.trim()
 // Function to disable scrolling
 const disableScrolling = () => {
@@ -543,7 +547,7 @@ button.addEventListener("click", () => {
     
     // console.log(text);
     
-    if(text == 'message ...'&& !fileData){
+    if(text == 'Message ...'&& !fileData){
         $("#alert")
         .html(
             `<div class='alert alert-danger' role='alert'>
@@ -2814,12 +2818,33 @@ function messageMenu() {
         menu.addEventListener("click",()=>{
             menu.style.display = "none";
         })
-        menu.style.display = "block";
-        menu.style.left = `${event.pageX}px`; // Position menu at cursor's X position
-        menu.style.top = `${event.pageY}px`;  // Position menu at cursor's Y position
+        // menu.style.display = "block";
+        // menu.style.left = `${event.pageX}px`; // Position menu at cursor's X position
+        // menu.style.top = `${event.pageY}px`;  // Position menu at cursor's Y position
         // console.log("Clicked element ID:", element.id); // Log the clicked element's ID
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
+       
+    
+        // Calculate position ensuring the menu stays within bounds
+        let x = event.clientX;
+        let y = event.clientY;
+    
+        if (x + menuWidth > windowWidth) {
+            x = windowWidth - menuWidth;
+        }
+    
+        if (y + menuHeight > windowHeight) {
+            y = windowHeight - menuHeight;
+        }
+        // console.log(windowWidth," , ",windowHeight," , ")
+        // Position the menu and display it
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+        menu.style.display = "block";
+    
     }
-
+   
     // Close the menu when clicking anywhere else
     output.addEventListener("click", (event) => {
         if (!menu.contains(event.target)) {
@@ -2855,7 +2880,8 @@ function copyToClipboard(text) {
 
 function escapeHtml(input) {
     // Temporarily replace <br> tags with a placeholder
-    input = input.replace(/<br>/g, "__BR__");
+    input = input.replace(/<br>/g, "__BR__")
+                .replace(/"\n"/g, "__n__");
 
     // Escape the rest of the HTML characters
     input = String(input)
@@ -2866,7 +2892,7 @@ function escapeHtml(input) {
         .replace(/'/g, "&#039;");
 
     // Restore <br> tags from the placeholder
-    return input.replace(/__BR__/g, "<br>");
+    return input.replace(/__BR__/g, "<br>").replace(/"__n__"/g, "\n" );
 }
 // =======================================================================================
 // message find
