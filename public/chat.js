@@ -805,7 +805,7 @@ socket.on("joined", (data) => {
 
     document.querySelector(".close").click();
     document.querySelector("#roomInfo").innerHTML = `
-        <div class="mx-3">
+        <div class=" mx-3">
             <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
                 title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
                 Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
@@ -1461,7 +1461,7 @@ socket.on("restoreMessages", (data) => {
 
                 const dateToAdd = `
                 <div dir="auto" data-date="${messageDateString}" class="p-2 Date" style="justify-content:center; display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
-                   <div style="    background-color: rgb(var(--user-chat-fg-color),0.15) !important; " class="backdrop-blur px-3">
+                   <div  class="backdrop-blur-chat-fg px-3">
                     ${messageDateString}
                     </div
                 </div>`;
@@ -1780,7 +1780,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         dateToAdd = `
             <div dir="auto" data-date="${messageDateString}" class="Date" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-bg-color));">
                 <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-bg-color)); margin: 0 10px;"></span>
-                <div class="backdrop-blur">
+                <div class="backdrop-blur-chat-fg">
                     ${messageDateString}
                 </div
                 <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-bg-color)); margin: 0 10px;"></span>

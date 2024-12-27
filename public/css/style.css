@@ -909,11 +909,22 @@ footer .fa {
 
 /* Shining effect for the message */
 .highlight-shine {
-    animation: shineEffect 1s ease-in-out;
+    animation: shineEffect 1s ease-in-out, paddingAnimation 1s ease-in-out;
     border-radius: 10px;
-    padding : 10px
+    /* padding: 10px; */
 }
 
+@keyframes paddingAnimation {
+    0% {
+        padding: 0px;
+    }
+    50% {
+        padding: 10px; /* مقدار نهایی padding */
+    }
+    100% {
+        padding: 0px; /* مقدار نهایی padding */
+    }
+}
 @keyframes shineEffect {
     0% {
         box-shadow: 0 0 10px rgb(var(--user-chat-fg-color)), 0 0 30px rgba(255, 255, 255, 0.6);
@@ -1082,6 +1093,18 @@ footer .fa {
 }
 .backdrop-blur {
     background-color: rgb(var(--user-chat-bg-color),0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 50px;
+    padding-inline: 5px;
+}
+.backdrop-blur-chat-bg {
+    background-color: rgb(var(--user-chat-bg-color),0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 50px;
+    padding-inline: 5px;
+}
+.backdrop-blur-chat-fg {
+    background-color: rgb(var(--user-chat-fg-color),0.15);
     backdrop-filter: blur(10px);
     border-radius: 50px;
     padding-inline: 5px;
