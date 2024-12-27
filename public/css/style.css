@@ -922,7 +922,7 @@ footer .fa {
         padding: 10px; /* مقدار نهایی padding */
     }
     100% {
-        padding: 0px; /* مقدار نهایی padding */
+        padding: 0px;
     }
 }
 @keyframes shineEffect {

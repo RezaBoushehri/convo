@@ -2580,24 +2580,25 @@ chat_window.addEventListener("scroll", () => {
             }
         });
     // Iterate through messages to find visible ones (if needed)
-    messages.forEach((message) => {
-        const rect = message.getBoundingClientRect();
-        let messageId = message.getAttribute('data-id');
-        messageId = roomID +"-"+ messageId.split('-')[1]
-        // Check if the message is in the viewport (visible)
-        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-            if (messageId && !visibleMessages.includes(messageId)) {
-                visibleMessages.push(messageId);  // Add the data-id of visible messages
-                // console.log(messageId)
+    if(!document.hidden){
+        messages.forEach((message) => {
+            const rect = message.getBoundingClientRect();
+            let messageId = message.getAttribute('data-id');
+            messageId = roomID +"-"+ messageId.split('-')[1]
+            // Check if the message is in the viewport (visible)
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+                if (messageId && !visibleMessages.includes(messageId)) {
+                    visibleMessages.push(messageId);  // Add the data-id of visible messages
+                    // console.log(messageId)
+                }
             }
+        });
+    
+        // Emit the IDs of visible messages to the server
+        if (visibleMessages.length > 0) {
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
         }
-    });
-
-    // Emit the IDs of visible messages to the server
-    if (visibleMessages.length > 0) {
-        socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
     }
-      
 });
 // _______________reply____________________
 function replyMessage(messageId) {
