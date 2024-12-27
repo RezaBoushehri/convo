@@ -1742,7 +1742,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             const lastValue = data.handle.trim();
             const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender').trim();
             if (lastValue !== secondLastValue) {
-                if(prepend)return  ownMessage ? ` var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: ` 5px var(--user-border-radius) var(--user-border-radius)  5px`
+                if(prepend)return ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px`
                 else  return ownMessage ? `var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: `var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px`          
             } else if(!prepend) {
                 console.log("last: ",lastValue)
