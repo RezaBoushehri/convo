@@ -27,14 +27,38 @@ body {
 #chat-window {
     margin-top: 2vh;
     background-color: #434343;
-    overflow-y: auto;
-    color: black;
     color: white;
-    overflow: scroll; /* Keep scrolling enabled */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* scroll-behavior: smooth; */
+
+    /* Firefox customization */
+    scrollbar-width: thin; /* Makes scrollbar thinner */
+    scrollbar-color:  #8600ff rgb(var(--user-chat-bg-color)); /* Thumb and track colors */
 }
 
+/* WebKit-based browsers (Chrome, Safari, Edge) */
+#chat-window::-webkit-scrollbar {
+    width: 8px; /* Width of the scrollbar */
+    height: 8px; /* Height of the scrollbar */
+    border-radius: 50px; /* Rounded edges */
+
+}
+
+#chat-window::-webkit-scrollbar-track {
+    background: #1a1a1a; /* Track color */
+    border-radius: 50px; /* Rounded edges */
+}
+
+#chat-window::-webkit-scrollbar-thumb {
+    background: #8600ff; /* Thumb color */
+    border-radius: 10px; /* Rounded edges */
+    border: 2px solid #1a1a1a; /* Optional: creates padding around the thumb */
+}
+
+#chat-window::-webkit-scrollbar-thumb:hover {
+    background: #b300ff; /* Thumb color on hover */
+}
 #form {
     background-color: rgba(255, 255, 255, 0.1);
     color: white;

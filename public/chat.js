@@ -54,7 +54,15 @@ const enableScrolling = () => {
     // console.log("Scrolling enabled.");
 };
 
+function isMobileDevice() {
+    return /Mobi|Android|iPhone|iPad|iPod|Opera Mini/i.test(navigator.userAgent);
+}
 
+if (isMobileDevice()) {
+    console.log("This is not a computer (mobile or tablet).");
+    // Add specific behavior for mobile/tablet
+    document.getElementById('chat-window').style.overflowY = 'auto'; // Example adjustment
+}
 let previousLineCount = 1; // تعداد خطوط قبلی
 
 message.addEventListener('input', () => {
@@ -759,7 +767,7 @@ message.addEventListener("input", (event) => {
 
 message.addEventListener("keydown", (event) => {
     // 13 => keycode for Enter
-    if (event.keyCode === 13) {
+    if (event.keyCode === 13&& !isMobileDevice()) {
         if (event.shiftKey) {
             // Shift + Enter for new line
             return; // Do nothing, just insert a newline in the editable div
