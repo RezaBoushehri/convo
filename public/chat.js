@@ -1119,7 +1119,7 @@ const scrollDown = () => {
             // Scroll after emitting the event
             chat_window.scrollTo({
                 top: chat_window.scrollHeight, // Scroll to the bottom
-                behavior: "auto",
+                behavior: "smooth",
             });
         });
     
@@ -1127,7 +1127,7 @@ const scrollDown = () => {
     }else{
         chat_window.scrollTo({
             top: chat_window.scrollHeight, // Scroll to the bottom
-            behavior: "auto",
+            behavior: "smooth",
         });
         var unreadMarker = document.querySelector(".unread");
         if (unreadMarker && !hasScrolledDown) {
