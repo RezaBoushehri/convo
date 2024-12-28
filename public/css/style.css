@@ -72,9 +72,10 @@ body {
     max-width: max-content;
     min-width: 160px;
     font-size: 3vmin;
+    max-height: fit-content;
+
     border: 1px solid rgb(var(--user-bg-color));
     box-shadow: inset 0px 0px 2px 0px #ccc;
-
     /* max-width: fit-content; */
 }
 .messageInputDiv{
@@ -505,6 +506,10 @@ footer .fa {
 
 .show-all-icon.rotated {
     transform: rotate(180deg);
+}
+.show-more.rotated {
+    transform: rotate(180deg);
+
 }
 
 
@@ -1148,13 +1153,22 @@ footer .fa {
     top: 5px;
 }
 .dataMessage {
-    max-width: 88%;
-    overflow: hidden;
-    line-height: 1.5; /* Adjust this to match your design */
-    max-height: calc(1.5em * 5); /* Limit to 5 lines */
-
-    text-overflow: ellipsis;
-    position: relative;
+        max-width: 88%;
+        overflow: hidden;
+        line-height: 1.5; /* Adjust this to match your design */
+        max-height: calc(1.5em * 5); /* Limit to 5 lines */
+        float: left;
+        margin-left: -0.25rem;
+        margin-right: .4375rem;
+        text-overflow: ellipsis;
+        transition: max-height 0.3s ease-out; /* Add smooth transition for height changes */
+    
+}
+.timeSeen{
+    align-items: flex-end;
+    display: flex;
+    white-space: nowrap;
+    align-items: flex-end;
 }
 .show-more {
     display: inline;
@@ -1166,6 +1180,8 @@ footer .fa {
     /* text-decoration: underline; */
     margin-left: 5px;
     box-shadow: 0px 0px 5px 1px #4444442e;
+    transition: transform 1s ease;
+
 }
 .backdrop-blur {
     background-color: rgb(var(--user-chat-bg-color),0.15);

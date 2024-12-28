@@ -1965,22 +1965,20 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     `}
                 `).join('') : ""}
                 
-                            <div style="display: flex ;justify-content: space-between;}" >
+                            <div class="text-content" style="display: flex ;justify-content: space-between;}" >
 
-                    <div class="dataMessage " message-id="Message-${messageId}" dir="auto">
+                    <div class="dataMessage "  message-id="Message-${messageId}" dir="auto">
                     
                         ${(data.message)}
                     </div>
-                        <div class=" ml-2 mr-0" style="margin-right=0% !important; justify-content: flex-end;display: flex;align-items: flex-end;font-size: calc(var(--user-font-size) - 0.1rem);;">
-                            
-                        <div class="backdrop-blur" style="display: flex;flex-direction: row;align-items: center;">
-                            <span class="px-1" style="white-space: nowrap;">${new Intl.DateTimeFormat("en-US", {
+ 
+                            <span  dir="ltr" class="px-1 timeSeen" >${new Intl.DateTimeFormat("en-US", {
                                 hour: "numeric",
                                 minute: "numeric",
                                 hour12: false, // This ensures 24-hour format
 
                             }).format(messageDate || new Date())}
-                            </span>
+                           
                         ${ownMessage
                                 ? `
                                 <button 
@@ -1988,14 +1986,19 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                                     read-data-id="${data.id}" 
                                     title="Seen member info" 
                                     onclick="openReadedMessage('${data.id}')" 
-                                    style="cursor:pointer;text-align:right;color:var(--user-fg-color);border:none;background:none;">
+                                    style="    bottom: -3px;
+                                                position: relative;
+                                                cursor:pointer;
+                                                text-align:right;
+                                                color:var(--user-fg-color);
+                                                border:none;background:none;">
                                     <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>` : `<i class="bi bi-check2"></i>`}</strong>
                                 </button>
                                                 `
                         : ''}
-                    </div>
-                </div>
-            </div>
+                         </span>
+                                                                </div>
+
             </div>
             </div>
             <div class="messageRead" data-id="Message-${messageId}"  >
@@ -2084,7 +2087,9 @@ function applyShowMore() {
         if (message.scrollHeight > maxVisibleHeight) {
             message.style.maxHeight = `${maxVisibleHeight}px`; // Limit to 5 lines
             // showMoreButton.style.display = 'inline';
-            message.insertAdjacentHTML('afterend',`<span class="backdrop-blur p-1 show-more"  style="display: inline;" onclick="showMore('${messageId}')" message-id="${messageId}">more...</span>`)
+            message.insertAdjacentHTML('afterend',`<div class="backdrop-blur p-1 show-more"  style="display: inline;" onclick="showMore('${messageId}')" message-id="${messageId}">
+                <i class="bi bi-arrow-down-circle"></i>
+                </div>`)
         }
 
         // // Add event listener for the "more..." button
@@ -2095,24 +2100,21 @@ function applyShowMore() {
     });
 }
 function showMore(messageId) {
-    // Get the specific message element by its ID
-    const messageElm = output.querySelector(`#${messageId}`);
-    const message = output.querySelector(`.dataMessage[message-id="${messageId}"]`);
+    const message = document.querySelector(`.dataMessage[message-id="${messageId}"]`);
+    const button = document.querySelector(`.show-more[message-id="${messageId}"]`);
 
-    if (message) {
-        // Expand the message by removing the height and text-overflow restrictions
-        message.style.whiteSpace = 'normal';
-        // message.style.overflow = 'visible';
-        message.style.textOverflow = 'clip';
-        message.style.maxHeight = 'none';
 
-        // Hide the "more..." button
-        const showMoreButton = messageElm.querySelector(`span[message-id="${messageId}"]`);
-        if (showMoreButton) {
-            showMoreButton.style.display = 'none';
-        }
+    if (message.style.maxHeight === `${message.scrollHeight}px`) {
+        // Collapse back
+        const lineHeight = parseFloat(getComputedStyle(message).lineHeight);
+        const maxVisibleHeight = lineHeight * 5;
+        message.style.maxHeight = `${maxVisibleHeight}px`;
+        button.classList.toggle('rotated'); // Add a class to rotate the button
+
     } else {
-        console.warn(`Message with ID "${messageId}" not found.`);
+        // Expand
+        message.style.maxHeight = `${message.scrollHeight}px`;
+        button.classList.toggle('rotated'); // Add a class to rotate the button
     }
 }
 
@@ -2619,7 +2621,7 @@ function replyMessage(messageId) {
     
     // Extract sender and message content
     const sender = messageElement.getAttribute(`sender`);
-    const messageContent = escapeHtml(messageElement.querySelector('.dataMessage').innerHTML);
+    const messageContent = escapeHtml(messageElement.querySelector('.dataMessage').innerText.trim());
 
     // Construct the reply box content
     const replyBox = document.getElementById('replyBox');
@@ -2818,7 +2820,7 @@ function messageMenu() {
         document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
             // Copy the innerHTML to the clipboard
             console.log(element.querySelector('.dataMessage').innerHTML)
-            copyToClipboard(element.querySelector('.dataMessage').innerHTML);
+            copyToClipboard(element.querySelector('.dataMessage').innerText.trim());
 
             // Optional: Provide user feedback (e.g., show a success message)
             alerting("Message copied to clipboard!");
@@ -2862,13 +2864,13 @@ function messageMenu() {
 }
 // Helper function to copy text to the clipboard
 function copyToClipboard(text) {
-    // Create a temporary textarea element to copy the HTML content
+    // Create a temporary textarea element to copy the content
     const textarea = document.createElement('textarea');
     
-    // Set the value of the textarea to the HTML content you want to copy
+    // Set the value of the textarea to the content you want to copy
     textarea.value = text;
 
-    // Append the textarea to the body (it's required for copy command to work)
+    // Append the textarea to the body (it's required for the copy command to work)
     document.body.appendChild(textarea);
 
     // Select the content in the textarea
@@ -2876,7 +2878,7 @@ function copyToClipboard(text) {
 
     // Execute the copy command to copy the selected content
     try {
-        // Use the Clipboard API to copy the content to clipboard
+        // Use the Clipboard API to copy the content to the clipboard
         document.execCommand('copy');
     } catch (err) {
         console.error('Error copying text: ', err);
@@ -2886,12 +2888,12 @@ function copyToClipboard(text) {
     document.body.removeChild(textarea);
 }
 
+// Function to escape HTML and handle line breaks
 function escapeHtml(input) {
     // Temporarily replace <br> tags with a placeholder
-    input = input.replace(/<br>/g, "__BR__")
-                .replace(/"\n"/g, "__n__");
+    input = input.replace(/<br>/g, "__BR__");
 
-    // Escape the rest of the HTML characters
+    // Escape other HTML characters
     input = String(input)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -2900,8 +2902,9 @@ function escapeHtml(input) {
         .replace(/'/g, "&#039;");
 
     // Restore <br> tags from the placeholder
-    return input.replace(/__BR__/g, "<br>").replace(/"__n__"/g, "\n" );
+    return input.replace(/__BR__/g, "<br>");
 }
+
 // =======================================================================================
 // message find
 function searchMessageReply() {
