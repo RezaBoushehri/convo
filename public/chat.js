@@ -3,11 +3,12 @@
 const production = false;
 const href = production ? window.location.hostname : "172.16.28.166",
     socket = io.connect(`https://192.168.100.22:4000`, {
-        transports: ['polling', "websocket"],
-        secure: true,
-        withCredentials: false, // Ensures cookies are sent along with requests
-        rejectUnauthorized: false // Bypass SSL verification for self-signed certificates
+        transports: ['polling', 'websocket'], // Allows both WebSocket and Polling
+        secure: true, // Ensures that the connection uses HTTPS
+        withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
+        rejectUnauthorized: false, // Bypass SSL verification for self-signed certificates (use with caution)
     }),
+
     name = document.getElementById("dropdownMenuButton"),
     message = document.getElementById("editable-message-text"),
     replyBox = document.getElementById("replyBox"),
@@ -1005,16 +1006,25 @@ socket.on("typing", (data) => {
                         &&rect.top <= window.innerHeight+threshold) {
                        
                             $("#feedback").append(
-                                `<p id="typing-${username}" style="border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);" class="badge p-2 ml-2 type">
-                                    <em>${name} is typing ....</em>
-                                </p>`
+                                `<div id="typing-${username}" style="border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);" class="badge p-2 ml-2 type">
+                                    <em style="
+                                        display: flex;
+                                        align-content: center;
+                                        align-items: center;
+                                    ">${name} is typing <div class="typingLoader"></div></em>
+                                </div>`
                             );
                         }else{
                             $("#down").fadeIn()
 
-                            $("#chat_windowFooter").append( `<p id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
-                                <em>${name} is typing ....</em>
-                                </p>`
+                            $("#chat_windowFooter").append( `<div id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
+                                <em style="
+                                        display: flex;
+                                        align-content: center;
+                                        align-items: center;
+                                    ">${name} is typing <div class="typingLoader"></div></em>
+                                
+                                </div>`
                             );
                         }
                     }

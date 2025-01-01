@@ -748,10 +748,10 @@ footer .fa {
 .type{
     color: rgb(var(--user-fg-color));
     background-color: rgb(var(--user-bg-color));
-
+width: max-content;
 }
 .typeScrollDownBtn{
-
+    position: relative;
     top : -50px;
 
 }
