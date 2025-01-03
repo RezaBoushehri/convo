@@ -1,153 +1,197 @@
 package main
 
 import (
-    "context"
-    "log"
-    "math/rand"
-    "net/http"
-    "time"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"net/http"
+	"strconv"
+	"time"
 
-    "github.com/gorilla/websocket"
-    "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
+	socketio "github.com/googollee/go-socket.io"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
-type User struct {
-	Username  string `bson:"username"`
-	FirstName string `bson:"first_name"`
-	LastName  string `bson:"last_name"`
-}
-
-type Room struct {
-	RoomID   string   `bson:"roomID"`
-	RoomName string   `bson:"roomName"`
-	Admin    string   `bson:"admin"`
-	Members  []string `bson:"members"`
-}
 
 var client *mongo.Client
 
 func main() {
-	http.HandleFunc("/ws", handleConnections)
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
+	// MongoDB connection URI
+	mongoURI := "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"
 
-func handleConnections(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
+	// Connect to MongoDB
+	var err error
+	client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ws.Close()
 
-	for {
-		var msg map[string]interface{}
-		err := ws.ReadJSON(&msg)
-		if err != nil {
-			log.Println("read:", err)
-			break
-		}
-
-		switch msg["type"] {
-		case "userLoggedIn":
-			handleUserLoggedIn(ws, msg["data"].(map[string]interface{}))
-		case "createRoom":
-			handleCreateRoom(ws, msg["data"].(map[string]interface{}))
-		}
+	// Ping the database to verify connection
+	err = client.Ping(context.TODO(), nil)
+	if err != nil {
+		log.Fatal(err)
 	}
-}
+	log.Println("MongoDB connected")
 
-func handleUserLoggedIn(ws *websocket.Conn, data map[string]interface{}) {
-	username := data["username"].(string)
-	currentUser := getUserByUsername(username)
+	// Initialize Socket.IO server
+	server := socketio.NewServer(nil)
 
-	if currentUser != nil {
-		updateUserSocketID(currentUser, ws)
-	} else {
-		log.Println("User not found for socket ID:", ws.RemoteAddr())
+	server.OnConnect("/", func(s socketio.Conn) error {
+		s.SetContext("")
+		log.Println("connected:", s.ID())
+		return nil
+	})
+
+	server.OnEvent("/", "userLoggedIn", func(s socketio.Conn, data map[string]interface{}) {
+		username := data["username"].(string)
+		log.Printf("User %s logged in", username)
+		updateUserSocketId(username, s.ID())
+		s.Emit("applySettings", map[string]interface{}{"settings": "user settings"})
+	})
+
+	server.OnEvent("/", "createRoom", func(s socketio.Conn, data map[string]interface{}) {
+		handle := data["handle"].(string)
+		roomName := data["roomName"].(string)
+		roomID := generateRoomID()
+		log.Printf("Room %s created by %s", roomName, handle)
+		s.Join(roomID)
+		s.Emit("joined", map[string]interface{}{"roomID": roomID, "roomName": roomName})
+		server.BroadcastToRoom("/", roomID, "newconnection", map[string]interface{}{"roomID": roomID, "handle": handle})
+	})
+
+	server.OnEvent("/", "joinRoom", func(s socketio.Conn, data map[string]interface{}) {
+		roomID := data["roomID"].(string)
+		username := data["username"].(string)
+		log.Printf("User %s is trying to join room %s", username, roomID)
+		s.Emit("applySettings", map[string]interface{}{"settings": "user settings"})
+		s.Join(roomID)
+		s.Emit("joined", map[string]interface{}{"roomID": roomID, "username": username})
+		server.BroadcastToRoom("/", roomID, "userJoined", map[string]interface{}{"username": username, "roomID": roomID})
+	})
+
+	server.OnEvent("/", "requestOlderMessages", func(s socketio.Conn, data map[string]interface{}) {
+		roomID := data["roomID"].(string)
+		counter := int(data["counter"].(float64))
+		msgType := data["type"].(string)
+		log.Printf("Received request for %s messages: roomID=%s, counter=%d", msgType, roomID, counter)
+		// Fetch older messages logic here
+		s.Emit("restoreMessages", map[string]interface{}{"messages": []string{}, "prepend": true})
+	})
+
+	server.OnEvent("/", "chat", func(s socketio.Conn, data map[string]interface{}) {
+		username := data["username"].(string)
+		message := data["message"].(string)
+		log.Printf("Message from %s: %s", username, message)
+		s.Emit("chat", map[string]interface{}{"username": username, "message": message})
+	})
+
+	server.OnEvent("/", "addReaction", func(s socketio.Conn, data map[string]interface{}) {
+		username := data["username"].(string)
+		messageId := data["messageId"].(string)
+		reaction := data["reaction"].(string)
+		log.Printf("Reaction from %s on message %s: %s", username, messageId, reaction)
+		s.Emit("reactionAdded", map[string]interface{}{"messageId": messageId, "username": username, "reaction": reaction})
+	})
+
+	server.OnEvent("/", "markMessagesRead", func(s socketio.Conn, data map[string]interface{}) {
+		messageIds := data["messageIds"].([]interface{})
+		username := data["username"].(string)
+		log.Printf("Messages read by %s: %v", username, messageIds)
+		s.Emit("messagesRead", map[string]interface{}{"messageIds": messageIds, "username": username})
+	})
+
+	server.OnEvent("/", "info", func(s socketio.Conn) {
+		log.Println("Info requested")
+		s.Emit("info", map[string]interface{}{"info": "some info"})
+	})
+
+	server.OnEvent("/", "typing", func(s socketio.Conn, data map[string]interface{}) {
+		username := data["username"].(string)
+		isTyping := data["isTyping"].(bool)
+		log.Printf("%s is typing: %v", username, isTyping)
+		s.Emit("typing", map[string]interface{}{"username": username, "isTyping": isTyping})
+	})
+
+	server.OnEvent("/", "saveSettings", func(s socketio.Conn, data map[string]interface{}) {
+		username := data["username"].(string)
+		settings := data["settings"].(string)
+		log.Printf("Settings saved for %s: %s", username, settings)
+		s.Emit("settingsSaved", map[string]interface{}{"username": username, "settings": settings})
+	})
+
+	server.OnEvent("/", "leaveRoom", func(s socketio.Conn, data map[string]interface{}) {
+		username := data["username"].(string)
+		roomID := data["roomID"].(string)
+		log.Printf("%s left room %s", username, roomID)
+		s.Leave(roomID)
+		s.Emit("leftRoom", map[string]interface{}{"roomID": roomID})
+		server.BroadcastToRoom("/", roomID, "userLeft", map[string]interface{}{"username": username, "roomID": roomID})
+	})
+
+	server.OnEvent("/", "disconnect", func(s socketio.Conn, reason string) {
+		log.Printf("Disconnected: %s", reason)
+	})
+
+	server.OnError("/", func(s socketio.Conn, e error) {
+		log.Println("meet error:", e)
+	})
+
+	server.OnDisconnect("/", func(s socketio.Conn, reason string) {
+		log.Println("closed", reason)
+	})
+
+	go server.Serve()
+	defer server.Close()
+
+	http.Handle("/socket.io/", server)
+	log.Println("Serving at https://localhost:8080...")
+
+	// Load server certificate and key
+	cert, err := tls.LoadX509KeyPair("certificate.pem", "private-key.pem")
+	if err != nil {
+		log.Fatal("Failed to load server certificate and key:", err)
 	}
-}
 
-func handleCreateRoom(ws *websocket.Conn, data map[string]interface{}) {
-	handle := data["handle"].(string)
-	roomName := data["roomName"].(string)
+	// Load CA certificate
+	caCert, err := ioutil.ReadFile("ca-certificate.pem")
+	if err != nil {
+		log.Fatal("Failed to load CA certificate:", err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
 
-	uniqueRoomID := generateRoomID()
-	log.Println("Unique Room ID:", uniqueRoomID)
-
-	for roomExists(uniqueRoomID) {
-		uniqueRoomID = generateRoomID()
+	// Configure TLS with passphrase
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    caCertPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		MinVersion:   tls.VersionTLS12,
 	}
 
-	room := Room{
-		RoomID:   uniqueRoomID,
-		RoomName: roomName,
-		Admin:    handle,
-		Members:  []string{},
+	server1 := &http.Server{
+		Addr:      ":8080",
+		Handler:   nil,
+		TLSConfig: tlsConfig,
 	}
 
-	saveRoom(room)
-
-	userRead := getUserByUsername(handle)
-	responseData := map[string]interface{}{
-		"name":   userRead.FirstName + " " + userRead.LastName,
-		"handle": handle,
-		"room":   room,
+	err = server1.ListenAndServeTLS("certificate.pem", "private-key.pem")
+	if err != nil {
+		log.Fatal("ListenAndServeTLS: ", err)
 	}
-
-	ws.WriteJSON(map[string]interface{}{"type": "joined", "data": responseData})
-	broadcastToRoom(uniqueRoomID, map[string]interface{}{"type": "newconnection", "data": responseData})
 }
 
 func generateRoomID() string {
 	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-	rand.Seed(time.Now().UnixNano())
 	roomID := make([]byte, 10)
 	for i := range roomID {
 		roomID[i] = alphabet[rand.Intn(len(alphabet))]
 	}
-	return string(roomID) + time.Now().Format("20060102150405")
+	return string(roomID) + strconv.FormatInt(time.Now().Unix(), 36)
 }
 
-func roomExists(roomID string) bool {
-	collection := client.Database("your_database").Collection("rooms")
-	filter := bson.M{"roomID": roomID}
-	count, err := collection.CountDocuments(context.Background(), filter)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return count > 0
-}
-
-func saveRoom(room Room) {
-	collection := client.Database("your_database").Collection("rooms")
-	_, err := collection.InsertOne(context.Background(), room)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func getUserByUsername(username string) *User {
-	collection := client.Database("your_database").Collection("users")
-	filter := bson.M{"username": username}
-	var user User
-	err := collection.FindOne(context.Background(), filter).Decode(&user)
-	if err != nil {
-		return nil
-	}
-	return &user
-}
-
-func updateUserSocketID(user *User, ws *websocket.Conn) {
-	// Implement the logic to update the user's socket ID
-}
-
-func broadcastToRoom(roomID string, message map[string]interface{}) {
-	// Implement the logic to broadcast a message to all users in the room
+func updateUserSocketId(username, socketId string) {
+	// Implement the logic to update the user's socket ID in the database
 }
