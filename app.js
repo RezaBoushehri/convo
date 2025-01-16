@@ -145,14 +145,21 @@ app.get("/", middleware.isLoggedIn, (req, res) => {
 
 app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
     const roomID = DOMPurify.sanitize(req.params.id);
+    const username = req.user.username; // Assuming the username is stored in req.user
 
     try {
         // Find the room using Mongoose's Model.findOne() method
-        const roomExists = await Room.findOne({ roomID: roomID });
+        const room = await Room.findOne({ roomID: roomID });
 
-        if (roomExists) {
-            // Render the room and provide the room ID
-            res.render("index", { roomID: roomID });
+        if (room) {
+            // Check if the username exists in the room's members array
+            if (room.members.includes(username)) {
+                // Render the room and provide the room ID
+                res.render("index", { roomID: roomID });
+            } else {
+                // If the user is not a member, send an error or redirect
+                res.status(403).json({ error: "You are not a member of this room" });
+            }
         } else {
             // If the room does not exist, redirect or send an error
             res.status(404).json({ error: "Room not found" });

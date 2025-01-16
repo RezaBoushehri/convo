@@ -2,7 +2,7 @@
 // const socket = io.connect(window.location.hostname),
 const production = false;
 const href = production ? window.location.hostname : "172.16.28.166",
-    socket = io.connect(`https://192.168.100.22:8080`, {
+    socket = io.connect(`https://localhost:4000`, {
         transports: ['polling', 'websocket'], // Allows both WebSocket and Polling
         secure: true, // Ensures that the connection uses HTTPS
         withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
