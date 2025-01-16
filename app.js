@@ -365,7 +365,10 @@ const addUserToRoom = async (username, roomID) => {
 //     return index === -1 ? false : true;
 // };
 
-
+// ========================================================
+// color-peer
+const assignRandomColor = () => Math.floor(Math.random() * 5) + 1;
+// ========================================================
 
 const updateUserSocketId = async (username, socketId) => {
     try {
@@ -565,7 +568,14 @@ io.on("connection", (socket) => {
                 }
             }
 
-          
+            const userColor = assignRandomColor();
+            // ذخیره شماره رنگ برای کاربر (در دیتابیس یا حافظه)
+            // مثلا: data.member.color = userColor;
+            socket.to(data.roomID).emit("joined", {
+                room: data.room,
+                name: data.name,
+                userColor: userColor, // ارسال رنگ به کلاینت
+            });
             socket.emit("members", room.members);
     
             const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();

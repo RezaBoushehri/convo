@@ -8,7 +8,21 @@ body {
     width:  100%;
     text-align: unset;
 }
-
+.color-peer-1 {
+    background-color: #ffcccc; /* قرمز روشن */
+}
+.color-peer-2 {
+    background-color: #ccffcc; /* سبز روشن */
+}
+.color-peer-3 {
+    background-color: #ccccff; /* آبی روشن */
+}
+.color-peer-4 {
+    background-color: #ffffcc; /* زرد روشن */
+}
+.color-peer-5 {
+    background-color: #ffccff; /* صورتی روشن */
+}
 .navbar .navbar-brand {
     font-family: 'Pacifico', cursive
 }
@@ -26,7 +40,7 @@ body {
 }
 #chat-window {
     margin-top: 2vh;
-    background-color: #434343;
+    background-color: rgb(var(--user-chat-bg-color));
     color: white;
     overflow-y: auto;
     overflow-x: hidden;
@@ -35,6 +49,14 @@ body {
     /* Firefox customization */
     scrollbar-width: thin; /* Makes scrollbar thinner */
     scrollbar-color:  #8600ff rgb(var(--user-chat-bg-color)); /* Thumb and track colors */
+
+    /* Background image like WhatsApp or Telegram */
+    background-image: url('/img/1b8d6d3b7fde081c150504786acceef7.jpg') ; /* Replace with your image path */
+    background-repeat: repeat;
+    background-position: center;
+    background-size:  350px; /*Adjust size as needed*/
+    background-origin: content-box;
+    background-clip: content-box;
 }
 
 /* WebKit-based browsers (Chrome, Safari, Edge) */
@@ -109,10 +131,10 @@ body {
 .send-button{
     transform: rotate(45deg); /* Rotates each message */
 
-    color: rgb(var(--user-chat-fg-color));
+    color: rgb(var(--user-bg-color));
 }
 .file-button:hover{
-    color: rgb(var(--user-chat-fg-color));
+    color: rgb(var(--user-bg-color));
     .bi-paperclip {
         color: rgb(var(--user-bg-color));
 

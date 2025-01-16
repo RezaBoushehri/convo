@@ -2,7 +2,7 @@
 // const socket = io.connect(window.location.hostname),
 const production = false;
 const href = production ? window.location.hostname : "172.16.28.166",
-    socket = io.connect(`https://localhost:4000`, {
+    socket = io.connect(`https://172.16.28.166:4000`, {
         transports: ['polling', 'websocket'], // Allows both WebSocket and Polling
         secure: true, // Ensures that the connection uses HTTPS
         withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
@@ -1058,6 +1058,19 @@ socket.on("left", (user) => {
 socket.on("userJoined", (data) => {
     alerting(`${data} has join the room`);
 });
+socket.on("members", (data) => {
+    console.log(data);
+    const colors = ["#5CAFFA", "#D45246", "#F68136", "#7ec147", "#ff86a6"]; // Array of colors
+    data.forEach((member, index) => {
+        let color = localStorage.getItem(`--color-peer-${member}`);
+        if (!color) {
+            color = colors[index % colors.length]; // Cycle through colors if not in local storage
+            localStorage.setItem(`--color-peer-${member}`, color); // Store color in local storage
+        }
+        document.documentElement.style.setProperty(`--color-peer-${member}`, color); // Set property for root CSS
+    });
+        // members.innerHTML += `<li class="list-group-item" style="color: ${color};">${member}</li>`;
+});
 //=================================================================
 //Handle User-Disconnected event
 socket.on("userDisconnected", (data) => {
@@ -1559,7 +1572,9 @@ socket.on("restoreMessages", (data) => {
             applyShowMore();
         },100);
         enableScrolling()
+        
     });
+
     socket.on("noMoreMessages",(data) =>{
         console.log(data.message)
         if(document.getElementById('loading').classList.contains('show')){
@@ -1573,10 +1588,12 @@ socket.on("restoreMessages", (data) => {
 document.addEventListener("DOMContentLoaded", () => {
     // renderEmojis()
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "255, 255, 255";
+    const bgColor = savedSettings?.bgColor || "224, 244, 255";
+    const fgColor = savedSettings?.fgColor || "20, 20, 20";
+    const sideBgColor = savedSettings?.bgColor || "255, 255, 255";
+    const sideFgColor = savedSettings?.fgColor || "80, 129, 188";
     const fontSize = savedSettings?.fontSize || "16px";
     const borderRad = savedSettings?.borderRad || "5px";
-    const fgColor = savedSettings?.fgColor || "67, 67, 67";
     const chatWindowBgColor = savedSettings?.chatWindowBgColor || "67, 67, 67";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "255, 255, 255";
     document.getElementById("chat-window").style.backgroundColor = chatWindowBgColor
@@ -1591,12 +1608,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (savedSettings) {
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
-        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
-        document.documentElement.style.setProperty("--user-fg-color", savedSettings.fgColor);
+        document.documentElement.style.setProperty("--user-bg-color", bgColor);
+        document.documentElement.style.setProperty("--user-fg-color", fgColor);
+        document.documentElement.style.setProperty("--user-side-bg-color", sideBgColor);
+        document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);    
         document.documentElement.style.setProperty("--user-chat-bg-color", savedSettings.chatWindowBgColor);
         document.documentElement.style.setProperty("--user-chat-fg-color", savedSettings.chatWindowFgColor);
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
         document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
+        // console.log('styles set')
     }
 });
 document.getElementById("settingsButton").addEventListener("click", () => {
@@ -1630,6 +1650,8 @@ document.getElementById("saveSettings").addEventListener("click", () => {
         chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
         bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
         fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
+        sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
+        sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
         fontSize: `${fontSizeRange.value}px`, // Get font size from range input
         borderRad: `${borderRadRange.value}px`, // Get font size from range input
     };
@@ -1648,6 +1670,8 @@ socket.on("applySettings", (settings) => {
     localStorage.setItem("userSettings", JSON.stringify(settings));
     document.documentElement.style.setProperty("--user-bg-color", settings.bgColor);
     document.documentElement.style.setProperty("--user-fg-color", settings.fgColor);
+    document.documentElement.style.setProperty("--user-side-bg-color", settings.sideBgColor);
+    document.documentElement.style.setProperty("--user-side-fg-color", settings.sideFgColor);
     document.documentElement.style.setProperty("--user-chat-bg-color", settings.chatWindowBgColor);
     document.documentElement.style.setProperty("--user-chat-fg-color", settings.chatWindowFgColor);
     document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
@@ -1658,10 +1682,12 @@ document.getElementById("resetSettings").addEventListener("click", () => {
         const userSettings = {
             marginLeft: "10%",
             marginRight: "%10",
-            chatWindowBgColor: "67, 67, 67",
-            chatWindowFgColor: "255, 255, 255",
-            bgColor: "51, 133, 255", // Assuming a background color picker exists
+            chatWindowBgColor: "245, 245, 245",
+            chatWindowFgColor: "94, 110, 137",
+            bgColor: "55, 155, 240", // Assuming a background color picker exists
             fgColor: "255, 255, 255", // Assuming a background color picker exists
+            sideBgColor: "221, 220, 225", // Assuming a background color picker exists
+            sideFgColor: "67, 67, 67", // Assuming a background color picker exists
             fontSize: "12px", // Get font size from range input
             borderRad: "15px", // Get font size from range input
         };
@@ -1687,6 +1713,8 @@ document.addEventListener("DOMContentLoaded", () => {
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
         document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
         document.documentElement.style.setProperty("--user-fg-color", savedSettings.fgColor);
+        document.documentElement.style.setProperty("--user-side-bg-color", savedSettings.sideBgColor);
+        document.documentElement.style.setProperty("--user-side-fg-color", savedSettings.sideFgColor);
         document.documentElement.style.setProperty("--user-chat-bg-color", savedSettings.chatWindowBgColor);
         document.documentElement.style.setProperty("--user-chat-fg-color", savedSettings.chatWindowFgColor);
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
@@ -1741,6 +1769,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const fgColor = savedSettings?.fgColor || "#4444";
     const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
     const ownMessage = data.sender === currentUser.username;
+
     const styleClass = ownMessage ? "var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)" : "5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) ";
     data.message = data.message
     .replace(/\n/g, '<br>') // Replace newlines with <br>
@@ -1783,11 +1812,20 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         }
     }
     const style = ownMessage
-        ? `background-color:rgb(var(--user-bg-color));color:rgb(var(--user-fg-color));font-size:${fontSize};border-radius: ${borderRadiusFalse()}  ;`
-        : `background-color:#333;color:white;font-size:${fontSize};border-radius:  ${borderRadiusFalse()};`;
+        ? ` background-color:rgb(var(--user-bg-color));
+            color:rgb(var(--user-fg-color));
+            font-size:${fontSize};
+            border-radius: ${borderRadiusFalse()};`
+        : ` background-color:rgb(var(--user-side-bg-color));
+            color:rgb(var(--user-side-fg-color));
+            font-size:${fontSize};
+            border: 1px solid var(--color-peer-${data.sender}) !important;
+            border-radius:  ${borderRadiusFalse()};
+            
+            `;
     const divStyle = ownMessage
-        ? `display:flex;justify-content:flex-end;`
-        : `display:flex;justify-content:flex-start;`;
+        ? `display:flex; justify-content:flex-end;`
+        : `display:flex; justify-content:flex-start;`;
 
     // Get the date of the current message
     const messageDate = new Date(data.timestamp || new Date());
@@ -1867,28 +1905,31 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             const lastValue = messagesCreatedHandler[messagesCreatedHandler.length - 1];
             const secondLastValue = messagesCreatedHandler[messagesCreatedHandler.length - 2];
             //   messagesCreatedHandler=[]
-              if (lastValue == secondLastValue) {
+            if (lastValue == secondLastValue) {
                   
-                  return ``        
-                } else {
-                  const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-2]}`)
-                  if(lastMessageElm){
-                    const inLast = lastMessageElm.querySelector('.message')
-                    if(inLast){
-                        if(!inLast.querySelector('h6')){
-                            inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? `color: rgb(var(--user-fg-color));`:''} font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
-                            // console.log('before border :',inLast.style.borderRad)
-                            inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
-                            // console.log('after border :',inLast.style.borderRad)
-                        }
-                    }
-                    return ``;
-                    }
-                  else return ``;
-                }
+                 return ``        
             } else {
-              return ``
-          }
+                const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-2]}`)
+                if(lastMessageElm){
+                const inLast = lastMessageElm.querySelector('.message')
+                if(inLast){
+                    if(!inLast.querySelector('h6')){
+                        // console.log("last : ",inLast)
+                        let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
+                        inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
+                        // console.log('before border :',inLast.style.borderRad)
+                        inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
+                        // console.log('after border :',inLast.style.borderRad)
+                    }
+                }
+                return `` ;
+            }
+                else return ``;
+            }
+            } else {
+                return `<h6 class="message-title" style="style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
+                ` ;  
+                    }
       }else{
         const lastMessageElm = output.querySelectorAll(`.messageElm`)
 
@@ -1898,12 +1939,14 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             console.log("last: ",lastValue)
             console.log("second last: ",secondLastValue)
             if (lastValue !== secondLastValue) {
-                return `<h6 class="message-title" style="${ownMessage? `color: rgb(var(--user-fg-color));`:''} font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>`           
+                let userColor = `var(--color-peer-${data.sender})`
+
+                return `<h6 class="message-title" style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>`           
             } else {
                 return ``;
              }
         } else {
-            return `<h6 class="message-title" style="${ownMessage? `color: rgb(var(--user-fg-color));`:''} font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
+            return `<h6 class="message-title" style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
             ` ;
         }
     }
@@ -1917,7 +1960,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 // ${ownMessage? `right_box1 `:`left_box2 `}
     contentToAdd += `
 
-    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}     align-items: center;"  sender="${data.handle}">
+    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}  align-items: center;"  sender="${data.sender}">
         ${ownMessage?`
             
             <div class="read-info mx-3"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
@@ -1925,11 +1968,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             </div>`
             :''}
              
-        <div style="${style}; margin:2px" class=" message mess py-1 mr-1  col-md-6">
+        <div    style="${style};
+                margin:2px;" class=" message mess py-1 mr-1  col-md-6">
 
             ${handler()}
                 ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
-                    <h6 class="message-title" dir="rtl" style="${ownMessage? `color: rgb(var(--user-fg-color));`:''} font-style:italic;text-align:end;">
+                    <h6 class="message-title" dir="rtl" style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
                         ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
                     </h6>
                     <span class="px-2" dir="auto">${(data.reply.message)}</span>
@@ -2658,7 +2702,7 @@ function replyMessage(messageId) {
     // replyBox.style.backdropFilter = 'blur(5px)';
     toggleReplyBox(true);
     searchMessageReply()
-
+    message.focus()
 }
 
 
