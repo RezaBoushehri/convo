@@ -1060,7 +1060,7 @@ socket.on("userJoined", (data) => {
 });
 socket.on("members", (data) => {
     console.log(data);
-    const colors = ["#5CAFFA", "#D45246", "#F68136", "#7ec147", "#ff86a6"]; // Array of colors
+    const colors = ["#5CAFFA", "#D45246", "#F68136", "#a7eb6e", "#ff86a6"]; // Array of colors
     data.forEach((member, index) => {
         let color = localStorage.getItem(`--color-peer-${member}`);
         if (!color) {
@@ -1439,7 +1439,20 @@ socket.on("restoreMessages", (data) => {
         }
 
     });
-    
+    const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
+    if(lastMessageElm){
+        const inLast = lastMessageElm.querySelector('.message')
+        if(inLast){
+            if(!inLast.querySelector('h6')){
+                // console.log("last : ",inLast)
+                let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
+                inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
+                // console.log('before border :',inLast.style.borderRad)
+                inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
+                // console.log('after border :',inLast.style.borderRad)
+            }
+        }
+    }
     if (output.innerHTML==""|| data.messages.length < 50) {
         
         if (roomID) {
@@ -1684,9 +1697,9 @@ document.getElementById("resetSettings").addEventListener("click", () => {
             marginRight: "%10",
             chatWindowBgColor: "245, 245, 245",
             chatWindowFgColor: "94, 110, 137",
-            bgColor: "55, 155, 240", // Assuming a background color picker exists
-            fgColor: "255, 255, 255", // Assuming a background color picker exists
-            sideBgColor: "221, 220, 225", // Assuming a background color picker exists
+            bgColor: "130, 198, 255", // Assuming a background color picker exists
+            fgColor: "0, 0, 0", // Assuming a background color picker exists
+            sideBgColor: "255, 255, 255", // Assuming a background color picker exists
             sideFgColor: "67, 67, 67", // Assuming a background color picker exists
             fontSize: "12px", // Get font size from range input
             borderRad: "15px", // Get font size from range input
@@ -1786,7 +1799,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
            const lastMessageElm = output.querySelectorAll(`.messageElm`)
 
         if (lastMessageElm.length >= 1) {
-            const lastValue = data.handle.trim();
+            const lastValue = data.sender.trim();
             const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender').trim();
             if (lastValue !== secondLastValue) {
                 if(prepend)return ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px`
@@ -1904,13 +1917,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
           if (messagesCreatedHandler.length >= 2) {
             const lastValue = messagesCreatedHandler[messagesCreatedHandler.length - 1];
             const secondLastValue = messagesCreatedHandler[messagesCreatedHandler.length - 2];
-            //   messagesCreatedHandler=[]
             if (lastValue == secondLastValue) {
                   
                  return ``        
             } else {
                 const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-2]}`)
-                if(lastMessageElm){
+            if(lastMessageElm){
                 const inLast = lastMessageElm.querySelector('.message')
                 if(inLast){
                     if(!inLast.querySelector('h6')){
@@ -1922,19 +1934,23 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         // console.log('after border :',inLast.style.borderRad)
                     }
                 }
+                // messagesCreatedHandler=[]
+
                 return `` ;
-            }
-                else return ``;
+            }else {
+                return `<h6 class="message-title" style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : `var(--color-peer-${data.sender}) `}!important; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
+                ` ;  
+                    }
             }
             } else {
-                return `<h6 class="message-title" style="style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
+                return `<h6 class="message-title" style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : `var(--color-peer-${data.sender}) `}!important; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
                 ` ;  
                     }
       }else{
         const lastMessageElm = output.querySelectorAll(`.messageElm`)
 
         if (lastMessageElm.length >= 2) {
-            const lastValue = data.handle.trim();
+            const lastValue = data.sender.trim();
             const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender');
             console.log("last: ",lastValue)
             console.log("second last: ",secondLastValue)
@@ -1973,9 +1989,9 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
             ${handler()}
                 ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
-                    <h6 class="message-title" dir="rtl" style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
+                    <h7 class="message-title" dir="rtl" style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
                         ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
-                    </h6>
+                    </h7>
                     <span class="px-2" dir="auto">${(data.reply.message)}</span>
                     </div>`:''}
                 

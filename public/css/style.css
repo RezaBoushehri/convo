@@ -986,7 +986,7 @@ width: max-content;
 
 
 .message-title{
-    color: rgb(var(--user-bg-color));
+    color: rgb(var(--user-fg-color));
 }
 
 /* Shining effect for the message */
