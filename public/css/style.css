@@ -51,7 +51,7 @@ body {
     scrollbar-color:  #8600ff rgb(var(--user-chat-bg-color)); /* Thumb and track colors */
 
     /* Background image like WhatsApp or Telegram */
-    background-image: url('/img/1b8d6d3b7fde081c150504786acceef7.jpg') ; /* Replace with your image path */
+    background-image: url('/img/social-media-doodle.html') ; /* Replace with your image path */
     background-repeat: repeat;
     background-position: center;
     background-size:  350px; /*Adjust size as needed*/
