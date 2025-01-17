@@ -1060,7 +1060,7 @@ socket.on("userJoined", (data) => {
 });
 socket.on("members", (data) => {
     console.log(data);
-    const colors = ["#5CAFFA", "#D45246", "#F68136", "#a7eb6e", "#ff86a6"]; // Array of colors
+    const colors = ["#d95574","#5CAFFA", "#D45246", "#F68136", "#a7eb6e", "#ff86a6"]; // Array of colors
     data.forEach((member, index) => {
         let color = localStorage.getItem(`--color-peer-${member}`);
         if (!color) {
@@ -1433,6 +1433,9 @@ socket.on("restoreMessages", (data) => {
             }
             // Prepend reversed messages to the chat UI
             addMessageToChatUI(message, data.prepend , isFirstMessage, isLastMessage);
+                // "Unread Messages" tag
+            
+
         } catch (error) {
             console.error("Error adding message to chat UI:", { error, message, index });
             
@@ -1446,14 +1449,14 @@ socket.on("restoreMessages", (data) => {
             if(!inLast.querySelector('h6')){
                 // console.log("last : ",inLast)
                 let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
-                inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
+                inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
                 // console.log('before border :',inLast.style.borderRad)
                 inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
                 // console.log('after border :',inLast.style.borderRad)
             }
         }
     }
-    if (output.innerHTML==""|| data.messages.length < 50) {
+    if (output.innerHTML=="") {
         
         if (roomID) {
     
@@ -1489,10 +1492,28 @@ socket.on("restoreMessages", (data) => {
 
         // Get all the message elements
         const messages = document.querySelectorAll(".messageElm");
-
+        const messageReads = document.querySelectorAll(".messageRead");
+        const visibleMessages = [];
+        messageReads.forEach((message) => {
+            
+        let messageId = message.getAttribute("data-id");
+        const rect = message.getBoundingClientRect();
+        messageId = roomID +"-"+ messageId.split('-')[1]
+        // Check if the message is in the viewport (visible)
+        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+            if (messageId && !visibleMessages.includes(messageId)) {
+                visibleMessages.push(messageId);  // Add the data-id of visible messages
+                // console.log(messageId)
+            }
+        }
+        })
+        
+        // Emit the IDs of visible messages to the server
+        if (visibleMessages.length > 0) {
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+        }
         // Iterate through all messages
         messages.forEach((message) => {
-            const messageId = message.getAttribute("data-id");
             const messageDate = new Date(message.getAttribute("date-id")); // Convert date-id to Date object
             // console.log('date-id',messageDate)
             // Format the message's date to a Persian locale string
@@ -1501,31 +1522,32 @@ socket.on("restoreMessages", (data) => {
                 month: "short", // For abbreviated month names (e.g., "Nov" instead of "November")
                 day: "numeric", // For the numeric day of the month
             });
-
+            
             // If the message date is different from the last seen date, add a date header
             if ( messageDateString && !lastSeenDate.includes(messageDateString)) {
                 
                 // Create a new date header
-
+                
                 const dateToAdd = `
                 <div dir="auto" data-date="${messageDateString}" class="p-2 Date" style="justify-content:center; display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
-                   <div  class="backdrop-blur-chat-fg px-3">
-                    ${messageDateString}
-                    </div
+                <div  class="backdrop-blur-chat-fg px-3">
+                ${messageDateString}
+                </div
                 </div>`;
-
-
+                
+                
                 const duplicateDate = document.querySelector(`.Date[data-date="${messageDateString}"]`);
                 // console.log(duplicateDate)
                 if (duplicateDate) duplicateDate.remove();
-            
-
+                
+                
                 // Insert the date header before the current message
                 message.insertAdjacentHTML('beforebegin', dateToAdd);
 
                 // Update the last seen date to the current message's date
                 lastSeenDate.push(messageDateString);
             }
+            
         });
         if(document.getElementById('loading').classList.contains('show')){
             document.getElementById('loading').classList.remove("show");
@@ -1569,23 +1591,23 @@ socket.on("restoreMessages", (data) => {
                 scrollToUnread(); // Scroll to the first unread message
             },500); // Adjust delay time if necessary
         }
-       
-        messageMenu()
-        if (data.prepend) {
-            const messagePackDiv = document.querySelectorAll('.MessagePack');
-    
-            if (messagePackDiv.length > 0) {
-                chat_window.scrollTop = messagePackDiv[0].scrollHeight;
-            } else {
-                console.error('No elements found with class "MessagePack".');
+        else{
+            if (data.prepend ) {
+                const messagePackDiv = document.querySelectorAll('.MessagePack');
+                
+                if (messagePackDiv.length > 0) {
+                    chat_window.scrollTop = messagePackDiv[0].scrollHeight;
+                } else {
+                    console.error('No elements found with class "MessagePack".');
+                }
             }
         }
-
         setTimeout(() => {
             applyShowMore();
         },100);
+        messageMenu()
         enableScrolling()
-        
+
     });
 
     socket.on("noMoreMessages",(data) =>{
@@ -1599,37 +1621,36 @@ socket.on("restoreMessages", (data) => {
     })
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
-    // renderEmojis()
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "224, 244, 255";
-    const fgColor = savedSettings?.fgColor || "20, 20, 20";
-    const sideBgColor = savedSettings?.bgColor || "255, 255, 255";
-    const sideFgColor = savedSettings?.fgColor || "80, 129, 188";
-    const fontSize = savedSettings?.fontSize || "16px";
-    const borderRad = savedSettings?.borderRad || "5px";
-    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "67, 67, 67";
-    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "255, 255, 255";
-    document.getElementById("chat-window").style.backgroundColor = chatWindowBgColor
-    document.getElementById("chat-window").style.color = chatWindowFgColor
-    // document.getElementById("editable-message-text").style.backgroundColor = bgColor
-    // document.getElementById("editable-message-text").style.color = fgColor
-    // document.getElementById("editable-message-text").style.borderRadius = borderRad
-    headTag.style.fontSize = fontSize+"px"
-    headTag.style.color = chatWindowFgColor
-    headTag.style.borderRadius = borderRad
-    headTag.style.border = `1px solid var(--user-bg-color)`
+    if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
 
     if (savedSettings) {
+        const hexToRgb = (hex) => {
+            const bigint = parseInt(hex.slice(1), 16);
+            const r = (bigint >> 16) & 255;
+            const g = (bigint >> 8) & 255;
+            const b = bigint & 255;
+            return `${r}, ${g}, ${b}`;
+        };
+
+        const bgColor = savedSettings.bgColor.startsWith("#") ? hexToRgb(savedSettings.bgColor) : savedSettings.bgColor;
+        const fgColor = savedSettings.fgColor.startsWith("#") ? hexToRgb(savedSettings.fgColor) : savedSettings.fgColor;
+        const sideBgColor = savedSettings.sideBgColor.startsWith("#") ? hexToRgb(savedSettings.sideBgColor) : savedSettings.sideBgColor;
+        const sideFgColor = savedSettings.sideFgColor.startsWith("#") ? hexToRgb(savedSettings.sideFgColor) : savedSettings.sideFgColor;
+        const chatWindowBgColor = savedSettings.chatWindowBgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowBgColor) : savedSettings.chatWindowBgColor;
+        const chatWindowFgColor = savedSettings.chatWindowFgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowFgColor) : savedSettings.chatWindowFgColor;
+
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
         document.documentElement.style.setProperty("--user-bg-color", bgColor);
         document.documentElement.style.setProperty("--user-fg-color", fgColor);
         document.documentElement.style.setProperty("--user-side-bg-color", sideBgColor);
-        document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);    
-        document.documentElement.style.setProperty("--user-chat-bg-color", savedSettings.chatWindowBgColor);
-        document.documentElement.style.setProperty("--user-chat-fg-color", savedSettings.chatWindowFgColor);
-        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+        document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);
+        document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
+        document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
         document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
-        // console.log('styles set')
+        console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
     }
 });
 document.getElementById("settingsButton").addEventListener("click", () => {
@@ -1695,13 +1716,13 @@ document.getElementById("resetSettings").addEventListener("click", () => {
         const userSettings = {
             marginLeft: "10%",
             marginRight: "%10",
-            chatWindowBgColor: "245, 245, 245",
-            chatWindowFgColor: "94, 110, 137",
-            bgColor: "130, 198, 255", // Assuming a background color picker exists
+            chatWindowBgColor: "15, 15, 15",
+            chatWindowFgColor: "255, 255, 255",
+            bgColor: "204, 238, 191", // Assuming a background color picker exists
             fgColor: "0, 0, 0", // Assuming a background color picker exists
-            sideBgColor: "255, 255, 255", // Assuming a background color picker exists
-            sideFgColor: "67, 67, 67", // Assuming a background color picker exists
-            fontSize: "12px", // Get font size from range input
+            sideBgColor: "33, 33, 33", // Assuming a background color picker exists
+            sideFgColor: "255, 255, 255", // Assuming a background color picker exists
+            fontSize: "14px", // Get font size from range input
             borderRad: "15px", // Get font size from range input
         };
         localStorage.setItem("userSettings", JSON.stringify(userSettings));
@@ -1721,16 +1742,30 @@ document.addEventListener("DOMContentLoaded", () => {
     if (Notification.permission !== "granted") {
         Notification.requestPermission();
     }
-    
+
     if (savedSettings) {
+        const hexToRgb = (hex) => {
+            const bigint = parseInt(hex.slice(1), 16);
+            const r = (bigint >> 16) & 255;
+            const g = (bigint >> 8) & 255;
+            const b = bigint & 255;
+            return `${r}, ${g}, ${b}`;
+        };
+
+        const bgColor = savedSettings.bgColor.startsWith("#") ? hexToRgb(savedSettings.bgColor) : savedSettings.bgColor;
+        const fgColor = savedSettings.fgColor.startsWith("#") ? hexToRgb(savedSettings.fgColor) : savedSettings.fgColor;
+        const sideBgColor = savedSettings.sideBgColor.startsWith("#") ? hexToRgb(savedSettings.sideBgColor) : savedSettings.sideBgColor;
+        const sideFgColor = savedSettings.sideFgColor.startsWith("#") ? hexToRgb(savedSettings.sideFgColor) : savedSettings.sideFgColor;
+        const chatWindowBgColor = savedSettings.chatWindowBgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowBgColor) : savedSettings.chatWindowBgColor;
+        const chatWindowFgColor = savedSettings.chatWindowFgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowFgColor) : savedSettings.chatWindowFgColor;
+
         document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
-        document.documentElement.style.setProperty("--user-bg-color", savedSettings.bgColor);
-        document.documentElement.style.setProperty("--user-fg-color", savedSettings.fgColor);
-        document.documentElement.style.setProperty("--user-side-bg-color", savedSettings.sideBgColor);
-        document.documentElement.style.setProperty("--user-side-fg-color", savedSettings.sideFgColor);
-        document.documentElement.style.setProperty("--user-chat-bg-color", savedSettings.chatWindowBgColor);
-        document.documentElement.style.setProperty("--user-chat-fg-color", savedSettings.chatWindowFgColor);
-        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+        document.documentElement.style.setProperty("--user-bg-color", bgColor);
+        document.documentElement.style.setProperty("--user-fg-color", fgColor);
+        document.documentElement.style.setProperty("--user-side-bg-color", sideBgColor);
+        document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);
+        document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
+        document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
         document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
     }
 });
@@ -1859,17 +1894,15 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-bg-color)); margin: 0 10px;"></span>
             </div>`; 
                }
-
-    // "Unread Messages" tag
     if (data.readLine) {
-        unreadToAdd = `
-            <div class="unread" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
-                <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-chat-bg-color)); margin: 0 10px;"></span>
-                    New Messages
-                <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-chat-bg-color)); margin: 0 10px;"></span>
-            </div>`;
-            // console.log(unreadToAdd)
-    }
+    unreadToAdd = `
+        <div class="unread" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
+            <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-chat-bg-color)); margin: 0 10px;"></span>
+                New Messages
+            <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-chat-bg-color)); margin: 0 10px;"></span>
+        </div>`;
+        // console.log(unreadToAdd)
+    }   
 
     // Main message content
     const reactionMember = data.readUsers
