@@ -1139,7 +1139,7 @@ width: max-content;
     animation: longPressAnimationRightClickPanel 500ms ease-in-out forwards;
 }
 #output{
-    padding-bottom: 200px !important;
+    padding-bottom: 100px !important;
 }
 .reply {
     position: absolute;

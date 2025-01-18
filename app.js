@@ -1,5 +1,6 @@
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
+const crypto = require('crypto');
 
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
@@ -56,19 +57,29 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// phone validation
-function phoneVal(phoneNumber, res) {
-    // Basic server-side validation
-    const phoneRegex = /^[0-9]{10}$/;
+// کلید رمزنگاری مشابه PHP
+const secretKey = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'; // طول 32 بایت
+const algorithm = 'aes-256-cbc';
 
-    if (!phoneRegex.test(phoneNumber)) {
-        return res.status(400).send('Invalid phone number');
-    }
-
-    // Proceed with further logic if valid
-    res.send('Phone number is valid');
+// تابع برای رمزنگاری
+function encrypt(text) {
+    const iv = crypto.randomBytes(16); // تولید IV تصادفی
+    const cipher = crypto.createCipheriv(algorithm, Buffer.from(secretKey), iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return iv.toString('hex') + ':' + encrypted; // IV و متن رمزنگاری شده را باز می‌گرداند
 }
 
+// تابع برای رمزگشایی
+function decrypt(encryptedText) {
+    const [ivHex, encrypted] = encryptedText.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(secretKey), iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
+// console.log(decrypt('ceecef9e277e5197abfb595f7d9b4c63:6569424c53385377506b77746b4d356b2b4556346869686c504c4a6b43306d5762626f6145364f6233706f4a674e48577562375a4d5131447352764a784370493762773050352f765a464f3179573757587a43377a4b79562b6466463175792b367051365a4b3577556f733d'))
 
 const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 mongoose
@@ -286,6 +297,77 @@ app.get("/messages/:roomId", async (req, res) => {
 });
 
 
+app.post('/createRoom', async (req, res) => {
+    const token = req.headers['authorization']?.split(' ')[1]; // استخراج توکن از هدر
+    console.log("Request token :",token)
+    if (!token) {
+        return res.status(400).json({ error: 'Authorization token missing' });
+    }
+    
+    try {
+        // رمزگشایی توکن
+        const decryptedData = decrypt(token);
+        console.log("decrypt token :",decryptedData)
+        req.body = JSON.parse(decryptedData); // ذخیره داده‌های رمزگشایی‌شده در body درخواست
+        next();
+    } catch (err) {
+        return res.status(400).json({ error: 'Invalid token or decryption error' });
+    }
+    console.log("req body :", req.body)
+    try {
+        const { phoneNumbers, title } = req.body;
+
+        if (!Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
+            return res.status(400).json({ error: "Phone numbers must be a non-empty array" });
+        }
+
+        const phoneRegex = /^[0-9]{10}$/;
+        const invalidPhones = phoneNumbers.filter((phone) => !phoneRegex.test(phone));
+        if (invalidPhones.length > 0) {
+            return res.status(400).json({ error: `Invalid phone numbers: ${invalidPhones.join(", ")}` });
+        }
+
+        // Encrypt and process title and phone numbers as needed
+
+        // Generate a unique room ID
+        function generateRoomID() {
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            let roomID = "";
+            for (let i = 0; i < 10; i++) {
+                roomID += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+            }
+            roomID += Date.now().toString(36);
+            return roomID;
+        }
+
+        let uniqueRoomID = generateRoomID();
+
+        // Ensure room ID uniqueness
+        while (await Room.findOne({ roomID: uniqueRoomID })) {
+            uniqueRoomID = generateRoomID();
+        }
+
+        // Create a new room with encrypted data
+        const newRoom = new Room({
+            roomID: uniqueRoomID,
+            roomName: title,
+            admin: phoneNumbers[0], // Assign the first phone number as admin (encrypted)
+            members: phoneNumbers, // Add all encrypted phone numbers to the members list
+        });
+
+        // Save the room to the database
+        await newRoom.save();
+
+        res.status(201).json({
+            success: true,
+            message: "Room created successfully",
+            roomID: 'uniqueRoomID', // Example Room ID
+        });
+    } catch (err) {
+        console.error("Error creating room:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
 // Handle Logout
 app.get("/logout",async function (req, res) {
    
