@@ -31,15 +31,15 @@ const userSchema = new mongoose.Schema({
         default: null, // Optional, will be null if not set
     },
     settings: {
-        bgColor: { type: String, default: "rgb(55, 155, 240)" },
-        fgColor: { type: String, default: "rgb(255, 255, 255)" },
-        sideBgColor: { type: String, default: "rgb(221, 220, 225)" },
-        sideFgColor: { type: String, default: "rgb(80, 129, 188)" },
+        bgColor: { type: String, default: "rgb(204, 238, 191)" },
+        fgColor: { type: String, default: "rgb(0, 0, 0)" },
+        sideBgColor: { type: String, default: "rgb(242, 242, 242)" },
+        sideFgColor: { type: String, default: "rgb(33, 33, 33)" },
         marginLeft: { type: String, default: "10%" },
         marginRight: { type: String, default: "10%" },
         chatWindowBgColor: { type: String, default: "rgb(245, 245, 245)" },
-        chatWindowFgColor: { type: String, default: "rgb(255, 255, 255)" },
-        fontSize: { type: String, default: "13px" },
+        chatWindowFgColor: { type: String, default: "rgb(33, 33, 33)" },
+        fontSize: { type: String, default: "16px" },
         borderRad: { type: String, default: "15px" },
     },
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
