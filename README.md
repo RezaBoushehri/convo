@@ -58,3 +58,11 @@ Connect with me
 
 
  
+npm install -g pm2
+pm2 start app.js
+pm2 start app.js --watch
+pm2 list
+pm2 logs
+pm2 stop app.js
+pm2 startup
+pm2 save

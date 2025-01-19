@@ -107,64 +107,7 @@
                         autocomplete="on">
                         </div>
                     
-                        <script>
-                            const editableMessageText = document.getElementById("editable-message-text"),
-                            replyBox1 = document.getElementById("replyBox");
-                        
-                            // Set placeholder text
-                            const placeholderText = "Message ...";
-                        
-                            // Add the placeholder when the content is empty
-                            function setPlaceholder() {
-                                if (editableMessageText.textContent.trim() === "") {
-                                    editableMessageText.textContent = placeholderText;
-                                    editableMessageText.style.transform = `translateY(0px)`;
-                                    replyBox1.style.transform = `translateY(0px)`;
-
-                                } else if (editableMessageText.textContent === placeholderText) {
-                                    editableMessageText.textContent = "";
-                                }
-                            }
-                        
-                            // Trigger placeholder logic on focus and blur
-                            editableMessageText.addEventListener("focus", function() {
-                                if (editableMessageText.textContent === placeholderText) {
-                                    editableMessageText.textContent = "";
-                                }
-                            });
-                        
-                            editableMessageText.addEventListener("blur", function() {
-                                setPlaceholder();
-                            });
-                        
-                            // Initialize placeholder on page load
-                            setPlaceholder();
-
-
-                            //   // Function to always keep the focus on the editable div
-                            // function keepFocusOnEditableDiv() {
-                            //     const editableDiv = document.getElementById("editable-message-text");
-                            //     if (editableDiv) {
-                            //         editableDiv.focus(); // Programmatically set focus
-                            //         editableDiv.addEventListener("blur", () => {
-                            //             // Re-focus if the element loses focus
-                            //             editableDiv.focus();
-                            //         });
-                            //     }
-                            // }
-
-                            // // Call the function on page load
-                            // document.addEventListener("DOMContentLoaded", keepFocusOnEditableDiv);
-
-                            // Optional: Call again if new elements or dynamic updates occur
-                            // const observer = new MutationObserver(() => {
-                            //     keepFocusOnEditableDiv();
-                            // });
-
-                            // Observe changes in the body to handle dynamic updates
-                            // observer.observe(document.body, { childList: true, subtree: true });
-                        </script>
-                    
+                       
                         <div class="button-container my-3 g-3">
                                 <button id="file-inputBtn" class=" btn  file-button ">
                                     <input type="file" accept="" id="file-input">

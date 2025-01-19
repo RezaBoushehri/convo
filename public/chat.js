@@ -1,6 +1,29 @@
 
 // const socket = io.connect(window.location.hostname),
 const production = false;
+
+const secretKey = CryptoJS.enc.Hex.parse('a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771');
+
+// تابع برای رمزگذاری
+function encryptMessage(message) {
+    const iv = CryptoJS.lib.WordArray.random(16); // تولید IV تصادفی
+    const encrypted = CryptoJS.AES.encrypt(message, secretKey, { iv: iv });
+    return iv.toString(CryptoJS.enc.Hex) + ':' + encrypted.ciphertext.toString(CryptoJS.enc.Hex); // ترکیب IV و متن رمزنگاری‌شده
+}
+
+// تابع برای رمزگشایی
+function decryptMessage(encryptedMessage) {
+    const [ivHex, encryptedHex] = encryptedMessage.split(':');
+    const iv = CryptoJS.enc.Hex.parse(ivHex);
+    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
+    const decrypted = CryptoJS.AES.decrypt({ ciphertext: ciphertext }, secretKey, { iv: iv });
+    return decrypted.toString(CryptoJS.enc.Utf8);
+}
+
+
+
+
+
 const href = production ? window.location.hostname : "172.16.28.166",
     socket = io.connect(`https://172.16.28.166:4000`, {
         transports: ['polling', 'websocket'], // Allows both WebSocket and Polling
@@ -115,11 +138,11 @@ if (roomID != "") {
         document.getElementById('loading').classList.remove("hide");
         document.getElementById('loading').classList.add("show");
     } 
-    socket.emit("joinRoom",({ 
-        roomID: roomID,
-        username: currentUser.username
-        })
-    );
+    var encryptedRoomID =encryptMessage(roomID)
+    var encryptedData =encryptMessage(currentUser.username)
+    console.log({ roomID: encryptedRoomID,username: encryptedData})
+    socket.emit("joinRoom",{ roomID: encryptedRoomID,username: encryptedData})
+    
 }
 
 {/* <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})"> */}
@@ -253,7 +276,42 @@ function toggleEmojiContainer(messageId) {
 
 
 // const message = document.getElementById("editable-message-text");
+// =======================================================
+// fouces inputDiv
+// const replyBox1 = document.getElementById("replyBox");
 
+// Set placeholder text
+var placeholderText = "Message ...";
+
+// Add the placeholder when the content is empty
+function setPlaceholder() {
+    if (message.textContent.trim() === "") {
+        message.textContent = placeholderText;
+        message.style.transform = `translateY(0px)`;
+        replyBox.style.transform = `translateY(0px)`;
+
+    } else if (message.textContent === placeholderText) {
+        message.textContent = "";
+    }
+}
+
+// Trigger placeholder logic on focus and blur
+message.addEventListener("focus", function() {
+    if (message.textContent === placeholderText) {
+        message.textContent = "";
+    }
+});
+
+message.addEventListener("blur", function() {
+    setPlaceholder();
+});
+
+// Initialize placeholder on page load
+setPlaceholder();
+
+
+
+// =======================================================
 message.addEventListener("input", function () {
     this.style.height = "auto"; // Reset height to calculate content height
     this.style.height = `${this.scrollHeight}px`; // Set height based on content
@@ -727,6 +785,7 @@ socket.on("newconnection", (data) => {
 //=================================================================
 //Handle User joined the room event
 socket.on("joined", (data) => {
+    // const data = decryptMessage(encryptedData)
     // console.log("User joined room:", data);
 
     // Ensure required fields exist
@@ -977,7 +1036,8 @@ socket.on("userJoined", (data) => {
     alerting(`${data} has join the room`);
 });
 socket.on("members", (data) => {
-    console.log(data);
+    
+    // console.log(data);
     const colors = ["#d95574","#5CAFFA", "#D45246", "#F68136", "#a7eb6e", "#ff86a6"]; // Array of colors
     data.forEach((member, index) => {
         let color = localStorage.getItem(`--color-peer-${member}`);
@@ -1251,7 +1311,44 @@ const copyId = (id) => {
 //=================================================================
 // Function to add messages to the chat UI
 
-socket.on("restoreMessages", (data) => {
+socket.on("restoreMessages", async  (data) => {
+    // بررسی اگر data.messages یک آرایه است
+   
+
+        const decryptedMessages = await Promise.all(
+            data.messages.map(async (msg) => {
+                // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
+                const decryptedMsg = {
+                    ...msg,
+                    message: msg.message ? decryptMessage(msg.message) : msg.message, // رمزگشایی message فقط اگر وجود داشته باشد
+                    // sender: msg.sender ? decryptMessage(msg.sender) : msg.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
+                    // handle: msg.handle ? decryptMessage(msg.handle) : msg.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
+                    readUsers: await Promise.all(
+                        (msg.readUsers || []).map((readEntry) => {
+                            return {
+                                username: readEntry.username ? (readEntry.username) : readEntry.username, // رمزگشایی username فقط اگر وجود داشته باشد
+                                name: readEntry.name ? (readEntry.name) : readEntry.name, // رمزگشایی name فقط اگر وجود داشته باشد
+                                reaction: readEntry.reaction ? (readEntry.reaction) : '', // رمزگشایی reaction فقط اگر وجود داشته باشد
+                                time: readEntry.time ? (readEntry.time) : readEntry.time, // رمزگشایی time فقط اگر وجود داشته باشد
+                            };
+                        })
+                    ),
+                    reply: msg.reply ? {
+                        ...msg.reply,
+                        message: msg.reply.message ? decryptMessage(msg.reply.message) : msg.reply.message, // رمزگشایی message در reply فقط اگر وجود داشته باشد
+                        sender: msg.reply.sender ? decryptMessage(msg.reply.sender) : msg.reply.sender, // رمزگشایی sender در reply فقط اگر وجود داشته باشد
+                    } : null,
+                };
+        
+                return decryptedMsg;
+            })
+        );
+        
+
+        // در اینجا می‌توانید از decryptedMessages استفاده کنید
+        // console.log(decryptedMessages);
+   
+      
     if(document.getElementById('loading').classList.contains('hide')){
         document.getElementById('loading').classList.remove("hide");
         document.getElementById('loading').classList.add("show");
@@ -1327,11 +1424,11 @@ socket.on("restoreMessages", (data) => {
     let FirstMessage;
     let LastMessage;
     if(data.prepend){
-        FirstMessage = data.messages[data.messages.length - 1].id ;
-        LastMessage = data.messages[0].id;
+        FirstMessage = decryptedMessages[decryptedMessages.length - 1].id;
+        LastMessage = decryptedMessages[0].id;
     }else{
-        LastMessage = data.messages[data.messages.length - 1].id;
-        FirstMessage = data.messages[0].id ;
+        LastMessage = decryptedMessages[decryptedMessages.length - 1].id;
+        FirstMessage = decryptedMessages[0].id ;
 
         
     }
@@ -1343,7 +1440,7 @@ socket.on("restoreMessages", (data) => {
     }else{
     output.insertAdjacentHTML('beforeend',MessagePack)
     }
-    data.messages.forEach((message, index) => {
+    decryptedMessages.forEach((message, index) => {
         try {
             if (!message || !message.timestamp || !message.sender ) {
                 throw new Error(`Missing required fields in message at index ${index}`);
@@ -1353,10 +1450,10 @@ socket.on("restoreMessages", (data) => {
             let isFirstMessage ;
             let isLastMessage ;
             if(data.prepend){
-                 isFirstMessage = index === data.messages.length - 1;
+                 isFirstMessage = index === decryptedMessages.length - 1;
                  isLastMessage = index === 0;
             }else{
-                isLastMessage = index === data.messages.length - 1;
+                isLastMessage = index === decryptedMessages.length - 1;
                 isFirstMessage = index === 0;
                 
             }
@@ -1723,6 +1820,8 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             } else {
                 console.error("Invalid ID format. Ensure message IDs are in the correct format, e.g., 'Message-123'.");
             }
+        }else{
+            data.id = roomID+"-"+1000000
         }
         // console.log("Next message ID:", data.id);
     }
@@ -2054,7 +2153,14 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
 
 
-  
+        // If MessagePack is empty, create a new container
+    if (MessagePack.length === 0) {
+        const newMessagePack = document.createElement('div');
+        newMessagePack.classList.add('MessagePack');
+        output.appendChild(newMessagePack);
+        MessagePack = output.querySelectorAll('.MessagePack'); // Update the reference
+    }
+    
     if (prepend) {
         MessagePack[0].insertAdjacentHTML("afterbegin", contentToAdd);
         if (dateToAdd) MessagePack[0].insertAdjacentHTML("afterbegin", dateToAdd);
@@ -2658,7 +2764,7 @@ function replyMessage(messageId) {
     // Construct the reply box content
     const replyBox = document.getElementById('replyBox');
     replyBox.innerHTML = `
-        <h5 style="font-style: italic; font-size: 0.6rem;"><i class="bi bi-reply"></i> Reply message to ${sender} : </h5>
+        <h5 style="font-style: italic; font-size: 0.6rem;"><i class="bi bi-reply"></i></h5>
 
         <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row; margin-right: 3em !important ;   justify-content: space-between;' replyid="Message-${messageId}">
             <p dir="auto" id="messageReplied" style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">

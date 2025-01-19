@@ -57,29 +57,23 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// کلید رمزنگاری مشابه PHP
-const secretKey = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'; // طول 32 بایت
-const algorithm = 'aes-256-cbc';
+// کلید و توکن نمونه
+const secretKey = '9e107d9d372bb6826bd81d3542a419d6cc64ff4ab6356cd63a54d865b40a8c4a';
 
+const algorithm = 'AES-256-CBC';
+// console.log(secretKey)
 // تابع برای رمزنگاری
 function encrypt(text) {
     const iv = crypto.randomBytes(16); // تولید IV تصادفی
-    const cipher = crypto.createCipheriv(algorithm, Buffer.from(secretKey), iv);
+    const key = crypto.createHash('sha256').update(secretKey).digest(); // تولید کلید 32 بایتی از SHA-256
+    const cipher = crypto.createCipheriv(algorithm, key, iv); // استفاده از کلید و IV
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     return iv.toString('hex') + ':' + encrypted; // IV و متن رمزنگاری شده را باز می‌گرداند
 }
 
-// تابع برای رمزگشایی
-function decrypt(encryptedText) {
-    const [ivHex, encrypted] = encryptedText.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(secretKey), iv);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-}
-// console.log(decrypt('ceecef9e277e5197abfb595f7d9b4c63:6569424c53385377506b77746b4d356b2b4556346869686c504c4a6b43306d5762626f6145364f6233706f4a674e48577562375a4d5131447352764a784370493762773050352f765a464f3179573757587a43377a4b79562b6466463175792b367051365a4b3577556f733d'))
+
+
 
 const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 mongoose
@@ -148,6 +142,7 @@ app.use(function (req, res, next) {
     res.locals.currentUser = req.user;
     next();
 });
+app.use(express.json());
 
 // Routes
 app.get("/", middleware.isLoggedIn, (req, res) => {
@@ -221,7 +216,7 @@ app.post("/login", async (req, res, next) => {
                         console.error("Error saving session:", err);
                     }
                 });
-               if(req.session.redirectUrl !== "/") res.redirect(req.session.redirectUrl); // Redirect after login
+               if(req.session.redirectUrl !== "/"||req.session.redirectUrl !== "/login") res.redirect(req.session.redirectUrl); // Redirect after login
                 else{res.redirect("/");} // Redirect after login
             });
         })(req, res, next);
@@ -278,94 +273,103 @@ app.post("/upload", (req, res) => {
 // });
 
 // Fetch Messages for Display
-app.get("/messages/:roomId", async (req, res) => {
-    try {
-        const { roomId } = DOMPurify.sanitize(req.params);
+// app.get("/messages/:roomId", async (req, res) => {
+//     try {
+//         const { roomId } = DOMPurify.sanitize(req.params);
 
-        // Fetch messages for the given room ID
-        const messages = await Message.find({ roomID: roomId }).sort({ createdAt: 1 });
+//         // Fetch messages for the given room ID
+//         const messages = await Message.find({ roomID: roomId }).sort({ createdAt: 1 });
 
-        if (messages.length > 0) {
-            res.status(200).json(messages); // Return all messages
-        } else {
-            res.status(404).json({ error: "No messages found for this room" });
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
+//         if (messages.length > 0) {
+//             res.status(200).json(messages); // Return all messages
+//         } else {
+//             res.status(404).json({ error: "No messages found for this room" });
+//         }
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ error: "Internal server error" });
+//     }
+// });
 
 
+// تابع رمزگشایی
+function decrypt(data, key) {
+    const [iv, encryptedData] = data.split(':').map((part) => Buffer.from(part, 'hex'));
+    const decipher = crypto.createDecipheriv('aes-256-cbc', crypto.createHash('sha256').update(key).digest(), iv);
+    let decrypted = decipher.update(encryptedData, null, 'utf8');
+    decrypted += decipher.final('utf8');
+    return JSON.parse(decrypted);
+}
+
+// ایجاد Room
 app.post('/createRoom', async (req, res) => {
-    const token = req.headers['authorization']?.split(' ')[1]; // استخراج توکن از هدر
-    console.log("Request token :",token)
-    if (!token) {
-        return res.status(400).json({ error: 'Authorization token missing' });
-    }
-    
     try {
+        // استخراج توکن از هدر
+        const token = req.headers['authorization']?.split(' ')[1];
+        if (!token) {
+            return res.status(400).json({ error: 'Authorization token missing' });
+        }
+
         // رمزگشایی توکن
-        const decryptedData = decrypt(token);
-        console.log("decrypt token :",decryptedData)
-        req.body = JSON.parse(decryptedData); // ذخیره داده‌های رمزگشایی‌شده در body درخواست
-        next();
-    } catch (err) {
-        return res.status(400).json({ error: 'Invalid token or decryption error' });
-    }
-    console.log("req body :", req.body)
-    try {
-        const { phoneNumbers, title } = req.body;
+        const decryptedToken = decrypt(token, secretKey);
+        console.log("Decrypted Token:", decryptedToken);
+
+        // رمزگشایی داده‌های رمزگذاری‌شده
+        const encryptedData = req.body.data;
+        const decryptedData = decrypt(encryptedData, secretKey);
+        console.log("Decrypted Data:", decryptedData);
+
+        const { phoneNumbers, roomName } = decryptedData;
 
         if (!Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
             return res.status(400).json({ error: "Phone numbers must be a non-empty array" });
         }
 
-        const phoneRegex = /^[0-9]{10}$/;
+        const phoneRegex = /^[0-9]{11}$/; // شماره تلفن 11 رقمی
         const invalidPhones = phoneNumbers.filter((phone) => !phoneRegex.test(phone));
         if (invalidPhones.length > 0) {
             return res.status(400).json({ error: `Invalid phone numbers: ${invalidPhones.join(", ")}` });
         }
 
-        // Encrypt and process title and phone numbers as needed
-
-        // Generate a unique room ID
         function generateRoomID() {
             const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
             let roomID = "";
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < 10; i++) { // Generate a 10-character ID
                 roomID += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
             }
-            roomID += Date.now().toString(36);
+            // Append a timestamp to ensure uniqueness
+            roomID += Date.now().toString(36); // Convert timestamp to base 36
             return roomID;
         }
-
-        let uniqueRoomID = generateRoomID();
-
-        // Ensure room ID uniqueness
-        while (await Room.findOne({ roomID: uniqueRoomID })) {
-            uniqueRoomID = generateRoomID();
+        
+        // Usage example:
+        const uniqueRoomID = generateRoomID();
+        console.log("Unique Room ID:", uniqueRoomID);
+        
+        // Ensure room name uniqueness
+        while (await Room.findOne({ roomID : uniqueRoomID })) {
+            roomID = `${uniqueRoomID}-${Math.floor(Math.random() * 1000)}`; // Generate a unique name
         }
-
-        // Create a new room with encrypted data
-        const newRoom = new Room({
-            roomID: uniqueRoomID,
-            roomName: title,
-            admin: phoneNumbers[0], // Assign the first phone number as admin (encrypted)
-            members: phoneNumbers, // Add all encrypted phone numbers to the members list
+    
+        const room = new Room({
+            roomID : uniqueRoomID,
+            roomName : roomName,
+            admin: phoneNumbers[0],
+            members: phoneNumbers, // Initialize the members array
         });
-
-        // Save the room to the database
-        await newRoom.save();
-
+    
+        await room.save(); // Save the room to the database
+    
+        console.log("Room Created:", room);
+   
         res.status(201).json({
             success: true,
             message: "Room created successfully",
-            roomID: 'uniqueRoomID', // Example Room ID
+            roomID: uniqueRoomID,
         });
     } catch (err) {
-        console.error("Error creating room:", err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error:", err.message);
+        res.status(400).json({ error: 'Decryption error or invalid data' });
     }
 });
 // Handle Logout
@@ -465,6 +469,40 @@ const updateUserSocketId = async (username, socketId) => {
 };
 
 
+
+// =====================================================================================================
+// =====================================================================================================
+// =====================================================================================================
+// =====================================================================================================
+// =====================================================================================================
+// =====================================================================================================
+// =====================================================================================================
+
+// SOCKET UNIT
+
+const socketSecretKey = Buffer.from('a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771', 'hex');
+
+// تابع برای رمزگذاری
+function socketEncrypt(text) {
+    const iv = crypto.randomBytes(16); // تولید IV تصادفی
+    const cipher = crypto.createCipheriv('aes-256-cbc', socketSecretKey, iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return iv.toString('hex') + ':' + encrypted; // ترکیب IV و متن رمزنگاری‌شده
+}
+
+// تابع برای رمزگشایی
+function socketDecrypt(encryptedText) {
+    const [ivHex, encryptedHex] = encryptedText.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', socketSecretKey, iv);
+
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
+
+
 io.on("connection", (socket) => {
     const socketId = socket.id;
     let currentUsername ;
@@ -498,6 +536,7 @@ io.on("connection", (socket) => {
     });
     
     socket.on("createRoom", async ({ handle, roomName }) => {
+        if(true) return
         roomName = roomName;
         function generateRoomID() {
             const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -600,8 +639,13 @@ io.on("connection", (socket) => {
     //         socket.emit("error", { message: error.message });
     //     }
     // });
-    socket.on("joinRoom", async ({ roomID, username }) => {
+    socket.on("joinRoom", async (data) => {
         try {
+            console.log(data)
+            console.log(data.roomID)
+
+            roomID = socketDecrypt(data.roomID)
+            username = socketDecrypt(data.username)
             const user = await User.findOne({ username });
             console.log(`User ${username} is trying to join room ${roomID}`);
             // Emit user settings
@@ -694,8 +738,11 @@ io.on("connection", (socket) => {
                 if(type=='latest'){
                     const lastMessages = await getMessagesByLimit(roomID, 50);
                     const processedLatestMessages = await Promise.all(
-                        lastMessages.map(async (msg) => await processMessage(msg))
+                        lastMessages.map(async (msg) => {
+                            return await processMessage(msg); // پردازش پیام رمزنگاری‌شده
+                        })
                     );
+                    
                     console.log("Sending latest messages.");
                     socket.emit("restoreMessages", { messages: processedLatestMessages, prepend: true , Latest:true});
                 }
@@ -844,42 +891,44 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
     
     // Process a single message (convert sender and read users to human-readable form)
+
     async function processMessage(msg) {
         const user = await User.findOne({ username: msg.sender }).select("first_name last_name").lean();
         const readUsers = await Promise.all(
             (msg.read || []).map(async (readEntry) => {
                 const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
                 return {
-                    username: readEntry.username,
-                    name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
-                    reaction: readEntry.reaction ? readEntry.reaction :'' ,
-                    time: readEntry.time,
-                    
+                    username: socketEncrypt(readEntry.username), // رمزنگاری username
+                    name: userRead ? `${userRead.first_name} ${userRead.last_name}` : (readEntry.username), // رمزنگاری name
+                    reaction: readEntry.reaction ? (readEntry.reaction) : '', // رمزنگاری reaction
+                    time: readEntry.time.toString(), // رمزنگاری time
                 };
             })
         );
+
         let replyMessage;
-        if(msg.quote !== null){
-            // console.log(msg)
+        if (msg.quote !== null) {
             replyMessage = await Message.findOne({ id: msg.quote }).select("sender message file").lean();
-            const replyname = replyMessage ? await User.findOne({ username: replyMessage.sender }).select("first_name last_name").lean():'';
+            const replyname = replyMessage ? await User.findOne({ username: replyMessage.sender }).select("first_name last_name").lean() : '';
             replyMessage = {
                 ...replyMessage,
                 handle: replyname ? `${replyname.first_name} ${replyname.last_name}` : null,
-
+                sender: socketEncrypt(replyMessage.sender), // رمزنگاری sender
+                message: socketEncrypt(replyMessage.message), // رمزنگاری message
             }
-            // console.log("reply: ",replyMessage)
         }
+
         return {
             ...msg,
-            reply: replyMessage||null,
-            // sender: user ? `${user.first_name} ${user.last_name}` : msg.sender,
-            handle: user ? `${user.first_name} ${user.last_name}` : msg.sender,
+            message: socketEncrypt(msg.message), // رمزنگاری message
+            reply: replyMessage || null,
+            handle: user ? `${user.first_name} ${user.last_name}` : socketEncrypt(msg.sender), // رمزنگاری handle
             readUsers,
             readLine: false, // Mark unread messages with a readLine
         };
     }
-    
+
+        
     
     
     socket.on("chat", async (data , callback) => {
