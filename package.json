@@ -4,7 +4,8 @@
   "description": "[![](https://img.shields.io/static/v1?message=Back-end&label=NodeJS&logo=javascript&color=orange&style=for-the-badge)](https://nodejs.org/en/)\r [![](https://img.shields.io/static/v1?message=Database&label=MongoDB&logo=mongodb&color=blue&style=for-the-badge)](https://www.mongodb.com/)\r [![License: MIT](https://img.shields.io/github/license/SparshJain2000/convo?style=for-the-badge&color=green&logo=github)](https://opensource.org/licenses/MIT)",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack --config webpack.config.js"
   },
   "author": "sparsh jain",
   "license": "ISC",
@@ -15,7 +16,6 @@
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dompurify": "^3.2.3",
-    "dotenv": "^8.6.0",
     "ejs": "^3.1.2",
     "express": "^4.21.2",
     "express-session": "^1.17.1",
@@ -35,7 +35,11 @@
     "uuid": "^11.0.3"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "dotenv": "^16.4.7",
+    "dotenv-webpack": "^8.1.0",
+    "nodemon": "^2.0.22",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
   },
   "keywords": []
 }

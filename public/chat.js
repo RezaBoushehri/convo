@@ -26,10 +26,10 @@ function decryptMessage(encryptedMessage) {
 
 const href = production ? window.location.hostname : "172.16.28.166",
     socket = io.connect(`https://172.16.28.166:4000`, {
-        transports: ['polling', 'websocket'], // Allows both WebSocket and Polling
+        transports: ['polling','websocket'], // Allows both WebSocket and Polling
         secure: true, // Ensures that the connection uses HTTPS
         withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
-        rejectUnauthorized: false, // Bypass SSL verification for self-signed certificates (use with caution)
+        rejectUnauthorized: true, // Bypass SSL verification for self-signed certificates (use with caution)
     }),
 
     name = document.getElementById("dropdownMenuButton"),
@@ -553,12 +553,21 @@ button.addEventListener("click", () => {
     }, 3000);
     return;
     }
-    const data = {
+    let data = {
         username: currentUser.username,
         handle: name.textContent.trim(),
         roomID: roomID,
         quote:quote,
         message: text == 'message ...' ?' ': text,
+        file: fileData || null,
+        date: new Date(),
+    };
+    let dataEncrypt = {
+        username: encryptMessage(currentUser.username),
+        handle:  encryptMessage(name.textContent.trim()),
+        roomID:  encryptMessage(roomID),
+        quote: encryptMessage(quote),
+        message: text == 'message ...' ?' ': encryptMessage(text),
         file: fileData || null,
         date: new Date(),
     };
@@ -671,7 +680,7 @@ button.addEventListener("click", () => {
     });
     if(document.querySelector('.unread')) document.querySelector('.unread').remove()
 
-    socket.emit("chat", data, (ack) => {
+    socket.emit("chat", dataEncrypt, (ack) => {
         // Callback is triggered when the server acknowledges receipt
         
         // Remove the "sending" placeholder
@@ -859,7 +868,29 @@ function updateNotifCount(count) {
     }
 }
 
-socket.on("chat",(data , ack) => {
+socket.on("chat",async(data , ack) => {
+    const decryptedMessage = await {
+            // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
+                ...data,
+                message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
+                // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
+                // handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
+                readUsers: await Promise.all(
+                    (data.readUsers || []).map((readEntry) => {
+                        return {
+                            username: readEntry.username ? (readEntry.username) : readEntry.username, // رمزگشایی username فقط اگر وجود داشته باشد
+                            name: readEntry.name ? (readEntry.name) : readEntry.name, // رمزگشایی name فقط اگر وجود داشته باشد
+                            reaction: readEntry.reaction ? (readEntry.reaction) : '', // رمزگشایی reaction فقط اگر وجود داشته باشد
+                            time: readEntry.time ? (readEntry.time) : readEntry.time, // رمزگشایی time فقط اگر وجود داشته باشد
+                        };
+                    })
+                ),
+                reply: data.reply ? {
+                    ...data.reply,
+                    message: data.reply.message ? decryptMessage(data.reply.message) : data.reply.message, // رمزگشایی message در reply فقط اگر وجود داشته باشد
+                    sender: data.reply.sender ? decryptMessage(data.reply.sender) : data.reply.sender, // رمزگشایی sender در reply فقط اگر وجود داشته باشد
+                } : null, 
+            };
     if (ack.success) {
    
         
@@ -918,9 +949,9 @@ socket.on("chat",(data , ack) => {
 
             if (rect.bottom >= -threshold 
                 &&rect.top <= window.innerHeight+threshold) {
-                if(data.sender != currentUser.username){
-                    addMessageToChatUI(data)
-                    // console.log(data.sender)
+                if(decryptedMessage.sender != currentUser.username){
+                    addMessageToChatUI(decryptedMessage)
+                    // console.log(decryptedMessage.sender)
                 }
                 scrollDown()
 
@@ -928,17 +959,17 @@ socket.on("chat",(data , ack) => {
                     unreadedScroll += 1;
                     updateNotifCount(unreadedScroll)
                     console.log('unreaded:',unreadedScroll)
-                    if(data.sender != currentUser.username){
+                    if(decryptedMessage.sender != currentUser.username){
                         if(output.querySelectorAll('.unread').length == 0){
-                            data = {
-                                ...data,
+                            decryptedMessage = {
+                                ...decryptedMessage,
                                 readLine:true
                             }
                         }else{
                             
                             // console.log(output.querySelectorAll('.unread'))
                         }
-                        addMessageToChatUI(data)
+                        addMessageToChatUI(decryptedMessage)
                         hasScrolledDown = false
                     }
                 }
@@ -951,8 +982,8 @@ socket.on("chat",(data , ack) => {
     setTimeout(() => {
         applyShowMore();
     },100);
-    if(data.sender != currentUser.username){
-        showBrowserNotification(data.handle,data.message)
+    if(decryptedMessage.sender != currentUser.username){
+        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message)
         playNotificationSound()
     }
 
@@ -1936,6 +1967,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const reactionMember = data.readUsers
     ? data.readUsers
         .map((r) => {
+            r.username= decryptMessage(r.username)
           return r.reaction
             ? `<span class='${r.username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' ${r.username == currentUser.username ? `onClick="addStickerReaction('',${messageId})"`:''} user-id="${r.username}">${r.reaction}</span>`
             : "";

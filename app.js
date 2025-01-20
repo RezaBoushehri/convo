@@ -50,6 +50,7 @@ env.config();
 
 // Set up CORS (if needed for front-end)
 const corsOptions = {
+    
     origin: 'https://localhost:4000', // replace with your front-end domain
     methods: ['GET', 'POST'],
     credentials: true
@@ -58,7 +59,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // کلید و توکن نمونه
-const secretKey = '9e107d9d372bb6826bd81d3542a419d6cc64ff4ab6356cd63a54d865b40a8c4a';
+const secretKey = process.env.SECRETKEY;
 
 const algorithm = 'AES-256-CBC';
 // console.log(secretKey)
@@ -73,7 +74,7 @@ function encrypt(text) {
 }
 
 
-
+console.log(process.env.SESSION_SECRET)
 
 const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 mongoose
@@ -186,7 +187,7 @@ app.post("/login", async (req, res, next) => {
     try {
         const user = await User.findByUsername(DOMPurify.sanitize(req.body.username));
         if (!user) {
-            return res.redirect("/login");
+            return res.redirect("/");
         }
 
         passport.authenticate("local", async (err, authenticatedUser, info) => {
@@ -195,7 +196,7 @@ app.post("/login", async (req, res, next) => {
             }
 
             if (!authenticatedUser) {
-                return res.redirect("/login");
+                return res.redirect("/");
             }
 
             req.logIn(authenticatedUser, async (err) => {
@@ -216,7 +217,7 @@ app.post("/login", async (req, res, next) => {
                         console.error("Error saving session:", err);
                     }
                 });
-               if(req.session.redirectUrl !== "/"||req.session.redirectUrl !== "/login") res.redirect(req.session.redirectUrl); // Redirect after login
+               if(req.session.redirectUrl !== "/"|| req.session.redirectUrl !== "/login") res.redirect(req.session.redirectUrl); // Redirect after login
                 else{res.redirect("/");} // Redirect after login
             });
         })(req, res, next);
@@ -372,6 +373,17 @@ app.post('/createRoom', async (req, res) => {
         res.status(400).json({ error: 'Decryption error or invalid data' });
     }
 });
+
+// یک endpoint برای کلاینت ایجاد کنید
+// app.get('/SECRETKEY', (req, res) => {
+//     if (!process.env.SOCKET_SECRET_KEY) {
+//         return res.status(500).json({ error: 'Secret key not configured' });
+//     }
+//     // داده‌ای که نیاز است را برگردانید
+//     res.json({ message: 'The data is secured', key: process.env.SOCKET_SECRET_KEY });
+// });
+
+
 // Handle Logout
 app.get("/logout",async function (req, res) {
    
@@ -480,7 +492,7 @@ const updateUserSocketId = async (username, socketId) => {
 
 // SOCKET UNIT
 
-const socketSecretKey = Buffer.from('a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771', 'hex');
+const socketSecretKey = Buffer.from(process.env.SOCKET_SECRET_KEY, 'hex');
 
 // تابع برای رمزگذاری
 function socketEncrypt(text) {
@@ -504,7 +516,7 @@ function socketDecrypt(encryptedText) {
 
 
 io.on("connection", (socket) => {
-    const socketId = socket.id;
+    let socketId = socket.id;
     let currentUsername ;
     console.log(`Socket connected: ${socketId}`);
     let roomID ; // Make sure you're getting socketId properly
@@ -933,7 +945,11 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("chat", async (data , callback) => {
         try {
-            const { username, message, file , quote } = data;
+            console.log(data)
+            let { username, message, file , quote } = data;
+            username = socketDecrypt(username);
+            message = socketDecrypt(message);
+            quote = socketDecrypt(quote);
             let fileDetails = null;
 
             if (file !== null && file !== undefined) {
@@ -980,6 +996,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 message: clean ? clean : '',
                 file: fileDetails, // Map over the uploaded file to structure them correctly
                 read: [],
+                members: [username],
                 timestamp,
             });
             // console.log("message : ",newMessage.file)

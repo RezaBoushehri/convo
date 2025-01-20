@@ -143,14 +143,31 @@
     </div>
 
     <% } %>
-</body>
-<script>
-    // Request notification permission when the page loads
-if (Notification.permission !== "granted") {
-    Notification.requestPermission();
-}
+    <div id="offlineMessage">You're offline</div>
 
+    <script>
+        function updateOfflineStatus() {
+            const offlineMessage = document.getElementById('offlineMessage');
+            if (!navigator.onLine) {
+                offlineMessage.classList.add('show');
+            } else {
+                offlineMessage.classList.remove('show');
+            }
+        }
 
+        // Listen for changes in the network status
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
 
-</script>
+        // Initial check
+        updateOfflineStatus();
+        // Request notification permission when the page loads
+        if (Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+        
+        
+        
+    </script>
+        </body>
 </html>
