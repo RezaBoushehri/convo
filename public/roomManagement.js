@@ -19,30 +19,29 @@ const createRoom = () => {
 };
 
 const joinRoom = () => {
-    const roomID = document.getElementById('joinRoomName').value.trim();  // Ensure this matches the actual input field ID
+    const roomID = document.getElementById('joinRoomName').value.trim(); // Ensure this matches the actual input field ID
     
     if (!roomID) {
-        alerting("Please enter a room ID.",'danger');  // Validation: Ensure the room ID is not empty
+        alerting("Please enter a room ID.", 'danger'); // Validation: Ensure the room ID is not empty
         return;
-    }else{
-        // console.log(roomID)
+    } else {
+        // Optional logging for debugging
+        console.log(`Joining room with ID: ${roomID}`);
     }
-    document.querySelector("#roomID").textContent= roomID
-     if(document.getElementById('loading').classList.contains('hide')){
-            document.getElementById('loading').classList.remove("hide");
-            document.getElementById('loading').classList.add("show");
-        } 
-    socket.emit("joinRoom",({ 
-        roomID: roomID,
-        username: currentUser.username
-        })
-    );
 
-    // // Optionally, listen for errors from the server
-    // socket.on("error", (data) => {
-    //     alert.innerHTML=(data.error);  // Show the error message received from the server
-    // });
+    // Update room ID on the UI (if needed)
+    document.querySelector("#roomID").textContent = roomID;
+
+    // Show loading animation if applicable
+    if (document.getElementById('loading').classList.contains('hide')) {
+        document.getElementById('loading').classList.remove("hide");
+        document.getElementById('loading').classList.add("show");
+    }
+
+    // Redirect to the new URL with roomID
+    window.location.href = `/join/${roomID}`;
 };
+
 
 
 const leaveRoom = () => {

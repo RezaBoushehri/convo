@@ -21,7 +21,7 @@ function decryptMessage(encryptedMessage) {
 }
 
 
-
+if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
 
 
 const href = production ? window.location.hostname : "172.16.28.166",
