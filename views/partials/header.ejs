@@ -40,6 +40,8 @@
 </head>
 
 <body>
+    <div class="backgroundImg"></div>
+
     <audio id="notification-sound" src="/sound/notif.wav" preload="auto"></audio>
 
 
@@ -47,7 +49,7 @@
         <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
                 <span>Loading, please wait...</span>
     </div>
-    <nav class="navbar navbar-dark bg-dark">
+    <nav class="headerMain navbar navbar-dark bg-dark">
         <a class="navbar-brand" href='/'><img class='img-fluid' src='../svg/logo.svg' width='45px'><span class='my-auto'>&nbspMETA CHAT</span></a>
         <% if(!currentUser){ %>
             <a class="btn btn-primary btn align-right text-white" href='/login'>login <i class='fa fa-user'></i></a>

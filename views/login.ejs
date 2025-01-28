@@ -1,95 +1,150 @@
 <%-include('partials/header.ejs') %>
-
-    <div id="form" class="p-3 pr-4 pl-4 rounded">
-        <form method="POST" action='/login'>
-            <div class="form-group">
-                <input 
-                    type="tel" 
-                    class="form-control phone-input" 
-                    name="username" 
-                    placeholder="Phone number">
-                <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
-
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" class="form-control" name="password" placeholder="Password">
-            </div>
-            <div class="form-group">
-                New to <span style="font-family: 'Pacifico';">meta chat</span> ?
-                <a class="badge badge-lg badge-success" data-toggle="modal" data-target="#signup">Sign Up</a>
-            </div>
-            <button type="submit" class="btn btn-primary">Submit</button>
-        </form>
-
+</nav>
+<div class="container row g-3 col-md-12  m-auto">
+    <div class="col-md-8">
+        <div id="message-container" class="text-left">
+                <p id="message"></p>
+        </div>
     </div>
+    <div class="col-md-4 ">
+        <div id="form" class=" p-5 rounded ">
+            <form method="POST" action='/login'>
+                <div class="form-group">
+                    <label for="username">Phone Number:</label>
 
-    <div class="modal fade" id="signup" tabindex="-1" role="dialog" aria-labelledby="label" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="label">Sign up</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                    <input 
+                        type="tel" 
+                        class="form-control phone-input" 
+                        name="username" 
+                        placeholder="Phone number">
+                    <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
+
                 </div>
-                <form method="POST" action='/register'>
-                    <div class="modal-body px-5">
 
-                        <div class="row">
-                            <div class="form-group col-md-6 col-md-xs-6">
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" class="form-control" name="password" placeholder="Password">
+                </div>
+                <div class="form-group">
+                    New to <span style="font-family: 'Pacifico';">meta chat</span> ?
+                    <a class="badge badge-lg badge-success p-2" data-toggle="modal" style="cursor: pointer;" data-target="#signup">Sign Up</a>
+                </div>
+                <button type="submit" class="col-md-12 btn btn-primary">Submit</button>
+            </form>
 
-                                <input type="text" class="form-control" name="first_name" placeholder="First Name">
-                            </div>
-                            <div class="form-group  col-md-6 col-md-xs-6">
-                                <!-- <label for="last_name">Last Name</label> -->
-                                <input type="text" class="form-control" name="last_name" placeholder="Last Name">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <!-- <label for="email">Email address</label> -->
-                            <input 
-                                type="tel" 
-                                class="form-control phone-input" 
-                                name="username" 
-                                placeholder="Phone number">
-                            <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
+        </div>
 
-                        </div>
-
-                        <div class="form-group">
-                            <!-- <label for="password">Password</label> -->
-                            <input type="password" class="form-control" name="password" placeholder="Password">
-                        </div>
-                        <div class="form-group">
-                            Already a user ?
-                            <a href='/login'>Login</a>
-                        </div>
+        <div class="modal fade" id="signup" tabindex="-1" role="dialog" aria-labelledby="label" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="label">Sign up</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
                     </div>
-                    <div class="modal-footer">
+                    <form method="POST"  id="registrationForm" action='/register'>
+                        <div class="modal-body px-5">
 
-                        <button type="submit" class="btn btn-primary">Submit</button>
-                    </div>
-                </form>
+                            <div class="row">
+                                <div class="form-group col-md-6 col-md-xs-6">
+
+                                    <input type="text" class="form-control" name="first_name" placeholder="First Name">
+                                </div>
+                                <div class="form-group  col-md-6 col-md-xs-6">
+                                    <!-- <label for="last_name">Last Name</label> -->
+                                    <input type="text" class="form-control" name="last_name" placeholder="Last Name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <!-- <label for="email">Email address</label> -->
+                                <input 
+                                    type="tel" 
+                                    class="form-control phone-input" 
+                                    name="username" 
+                                    id="username"
+                                    placeholder="Phone number 09XXXXXXXXX">
+                                <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
+
+                            </div>
+
+                            <div class="form-group">
+                                <!-- <label for="password">Password</label> -->
+                                <input id="password" type="password" class="form-control mb-2" name="password" placeholder="Password">
+                                <input id="passwordCheck" type="password" class="form-control" name="passwordCheck" placeholder="Confirm Password">
+                            </div>
+                            <div class="form-group">
+                                Already a user ?
+                                <a href='/login'>Login</a>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+
+                            <button type="submit" class="btn btn-primary">Submit</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-    <script>
-       const phoneInput = document.querySelector(".phone-input");
-        const errorMessage = document.querySelector(".error-message");
 
-        phoneInput.addEventListener("input", () => {
-            const phoneRegex = /^[0-9]{11}$/; // Adjust regex for your specific needs
-            if (!phoneRegex.test(phoneInput.value)) {
-                errorMessage.style.display = "block";
-            } else {
-                errorMessage.style.display = "none";
-            }
-        });
+</div>
+<script>
+const message = "Welcome to the <strong>World of Unlimited Messages</strong>! Where your texts are faster than your Wi-Fi and your emoji game is stronger than your coffee. Log in, because let’s be real, you’re already checking your phone anyway. Grab a seat, make yourself comfortable, and let’s start chatting — just remember, no pressure. It's just a <strong>global</strong> conversation, no biggie.";
+const message2 = "Welcome to the World of Unlimited Messages! Where your texts are faster than your Wi-Fi and your emoji game is stronger than your coffee. Log in, because let’s be real, you’re already checking your phone anyway. Grab a seat, make yourself comfortable, and let’s start chatting — just remember, no pressure. It's just a global conversation, no biggie.";
 
-    </script>
-    <%-include('partials/footer.ejs')%>
-        </body>
+    let currentIndex = 0;
+    const messageElement = document.getElementById("message");
 
-        </html>
+
+    function typeMessage() {
+        // Convert markdown to HTML before typing it out
+        
+        if (currentIndex < message2.length) {
+            messageElement.innerHTML += message2.charAt(currentIndex);
+            currentIndex++;
+            setTimeout(typeMessage, 5); // Adjust typing speed here
+        }else{
+        
+            messageElement.innerHTML = message;
+            messageElement.innerHTML += "<br>--BB";
+            messageElement.innerHTML += "<img src='img/merlin.gif' title='Idea from: Mr.Moezi' style='width: 150px;'></img>";
+    
+        }
+    }
+typeMessage();
+
+    document.getElementById('registrationForm').addEventListener('submit', function(event) {
+        var password = document.getElementById('password').value;
+        var passwordCheck = document.getElementById('passwordCheck').value;
+        var username = document.getElementById('username').value;
+        var Regex = /^[0-9]{11}$/; // Adjust regex for your specific needs
+        if (!Regex.test(username.value)) {
+            errorMessage.style.display = "block";
+            alert('You must enter a valid phone number.');
+            event.preventDefault();  // Prevent form submission
+        } else {
+            errorMessage.style.display = "none";
+        }
+        if (password !== passwordCheck) {
+            alert('Passwords do not match.');
+            event.preventDefault();  // Prevent form submission
+        }
+    });
+    const phoneInput = document.querySelector(".phone-input");
+    const errorMessage = document.querySelector(".error-message");
+
+    phoneInput.addEventListener("input", () => {
+        const phoneRegex = /^[0-9]{11}$/; // Adjust regex for your specific needs
+        if (!phoneRegex.test(phoneInput.value)) {
+            errorMessage.style.display = "block";
+        } else {
+            errorMessage.style.display = "none";
+        }
+    });
+
+</script>
+<%-include('partials/footer.ejs')%>
+    </body>
+
+    </html>

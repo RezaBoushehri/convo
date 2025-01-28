@@ -31,7 +31,7 @@ const express = require("express"),
     { v4: uuidv4 } = require('uuid'),
     Message = require("./models/message"),
     server = https.createServer(options, app),
-    { addUser, getUsers, deleteUser, getRoomUsers   } = require("./users/users"),
+    { getUsers } = require("./users/users"),
     rooms = [],
      
     io = socket(server, {
@@ -76,7 +76,8 @@ function encrypt(text) {
 
 console.log(process.env.SESSION_SECRET)
 
-const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
+// const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
+const mongoURI = "mongodb://adminChat:XMUZWqR4CnOwf@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 mongoose
     .connect(mongoURI, {})
     .then(() => console.log("MongoDB connected"))
@@ -101,17 +102,20 @@ const sessionMiddleware = session({
 app.use(
     session({
         store: new MemoryStore({
-            checkPeriod: 86400000 // prune expired entries every 24h
+            checkPeriod: 86400000, // بررسی هر 24 ساعت (1 روز)
         }),
         secret:
             process.env.SESSION_SECRET ||
             "a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771",
         resave: false,
         saveUninitialized: true,
-        cookie: { secure: true }, // Set to true in production
+        cookie: { 
+            secure: true, // فقط در HTTPS
+            maxAge: 3 * 30 * 24 * 60 * 60 * 1000 // زمان انقضا: 3 ماه
+        },
     })
-    
 );
+
 // Apply session middleware for socket.io
 io.use((socket, next) => {
     sessionMiddleware(socket.request, socket.request.res || {}, (err) => {

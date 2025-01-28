@@ -25,7 +25,7 @@ function decryptMessage(encryptedMessage) {
 
 
 const href = production ? window.location.hostname : "172.16.28.166",
-    socket = io.connect(`https://172.16.28.166:4000`, {
+    socket = io.connect(`https://172.16.28.29:4000`, {
         transports: ['polling','websocket'], // Allows both WebSocket and Polling
         secure: true, // Ensures that the connection uses HTTPS
         withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
