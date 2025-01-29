@@ -159,20 +159,25 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
     const username = req.user.username; // Assuming the username is stored in req.user
 
     try {
-        // Find the room using Mongoose's Model.findOne() method
         const room = await Room.findOne({ roomID: roomID });
 
         if (room) {
-            // Check if the username exists in the room's members array
-            if (room.members.includes(username)) {
-                // Render the room and provide the room ID
+            if (room.Joinable_url === "private") {
+                // Private room: Only allow members
+                if (room.members.includes(username)) {
+                    res.render("index", { roomID: roomID });
+                } else {
+                    res.status(403).json({ error: "You are not a member of this private room" });
+                }
+            } else if (room.Joinable_url === "public") {
+                // Public room: Anyone can join
                 res.render("index", { roomID: roomID });
             } else {
-                // If the user is not a member, send an error or redirect
-                res.status(403).json({ error: "You are not a member of this room" });
+                // Handle unexpected room settings
+                res.status(400).json({ error: "Invalid room setting" });
             }
         } else {
-            // If the room does not exist, redirect or send an error
+            // Room not found
             res.status(404).json({ error: "Room not found" });
         }
     } catch (err) {
@@ -324,54 +329,70 @@ app.post('/createRoom', async (req, res) => {
         const decryptedData = decrypt(encryptedData, secretKey);
         console.log("Decrypted Data:", decryptedData);
 
-        const { phoneNumbers, roomName } = decryptedData;
+        const { phoneNumbers, roomName, roomIDreq, Domain } = decryptedData;
 
         if (!Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
             return res.status(400).json({ error: "Phone numbers must be a non-empty array" });
         }
-
+        
         const phoneRegex = /^[0-9]{11}$/; // شماره تلفن 11 رقمی
         const invalidPhones = phoneNumbers.filter((phone) => !phoneRegex.test(phone));
         if (invalidPhones.length > 0) {
             return res.status(400).json({ error: `Invalid phone numbers: ${invalidPhones.join(", ")}` });
         }
-
-        function generateRoomID() {
+        
+        async function generateRoomID() {
             const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
             let roomID = "";
-            for (let i = 0; i < 10; i++) { // Generate a 10-character ID
+            for (let i = 0; i < 10; i++) {
                 roomID += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
             }
-            // Append a timestamp to ensure uniqueness
             roomID += Date.now().toString(36); // Convert timestamp to base 36
             return roomID;
         }
         
-        // Usage example:
-        const uniqueRoomID = generateRoomID();
-        console.log("Unique Room ID:", uniqueRoomID);
+        async function createOrUpdateRoom() {
+            if (roomIDreq) {
+                // Check if the requested room ID exists
+                const existingRoom = await Room.findOne({ roomID: roomIDreq });
+                if (existingRoom) {
+                    // Update members list
+                    // existingRoom.members = [...new Set([...existingRoom.members, ...phoneNumbers])]; // Avoid duplicates
+                    existingRoom.members = phoneNumbers;
+                    await existingRoom.save();
+                    return res.status(200).json({
+                        success: true,
+                        message: "Room members updated successfully",
+                        roomID: existingRoom.roomID,
+                    });
+                }
+            }
+            
+            // If roomIDreq is null or doesn't exist, create a new room
+            let uniqueRoomID = await generateRoomID();
+            while (await Room.findOne({ roomID: uniqueRoomID })) {
+                uniqueRoomID = `${uniqueRoomID}-${Math.floor(Math.random() * 1000)}`; 
+            }
         
-        // Ensure room name uniqueness
-        while (await Room.findOne({ roomID : uniqueRoomID })) {
-            roomID = `${uniqueRoomID}-${Math.floor(Math.random() * 1000)}`; // Generate a unique name
+            const room = new Room({
+                roomID: uniqueRoomID,
+                Domain,
+                roomName,
+                setting :{Joinable_url: 'private'},
+                admin: phoneNumbers[0],
+                members: phoneNumbers,
+            });
+        
+            await room.save();
+            res.status(201).json({
+                success: true,
+                message: "Room created successfully",
+                roomID: uniqueRoomID,
+            });
         }
-    
-        const room = new Room({
-            roomID : uniqueRoomID,
-            roomName : roomName,
-            admin: phoneNumbers[0],
-            members: phoneNumbers, // Initialize the members array
-        });
-    
-        await room.save(); // Save the room to the database
-    
-        console.log("Room Created:", room);
-   
-        res.status(201).json({
-            success: true,
-            message: "Room created successfully",
-            roomID: uniqueRoomID,
-        });
+        
+        createOrUpdateRoom().catch(error => res.status(500).json({ error: error.message }));
+        
     } catch (err) {
         console.error("Error:", err.message);
         res.status(400).json({ error: 'Decryption error or invalid data' });
