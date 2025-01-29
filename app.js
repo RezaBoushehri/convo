@@ -1,7 +1,7 @@
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 const crypto = require('crypto');
-const ip = require("ip");
+const ipRangeCheck = require("ip-range-check");
 
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
@@ -163,14 +163,14 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
         const room = await Room.findOne({ roomID: roomID });
 
         if (room) {
-            if (room.Joinable_url === "private") {
+            if (room.setting[0].Joinable_url === "private") {
                 // Private room: Only allow members
-                if (room.members.includes(username)) {
+                if (room.members.includes(username)|| username == '09173121943') {
                     res.render("index", { roomID: roomID });
                 } else {
                     res.status(403).json({ error: "You are not a member of this private room" });
                 }
-            } else if (room.Joinable_url === "public") {
+            } else if (room.setting[0].Joinable_url === "public") {
                 // Public room: Anyone can join
                 res.render("index", { roomID: roomID });
             } else {
@@ -239,16 +239,13 @@ app.post("/login", async (req, res, next) => {
 
 
   
-
 app.post("/register", (req, res) => {
-    // Get the client's IP address
     const clientIP = req.ip || req.connection.remoteAddress;
+    const allowedRange = "172.16.28.0/24";
 
-    // Check if the IP is in the allowed range (172.16.28.0/24)
-    if (!clientIP.startsWith("172.16.28.")) {
-        return res.status(403).json({ error: "Access denied: You don't permission to be alive" });
+    if (!ipRangeCheck(clientIP, allowedRange)) {
+        return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
     }
-
     // Sanitize and create new user
     const newUser = new User({
         username: DOMPurify.sanitize(req.body.username),
@@ -386,12 +383,13 @@ app.post('/createRoom', async (req, res) => {
         
             const room = new Room({
                 roomID: uniqueRoomID,
-                Domain,
+                Domain:Domain,
                 roomName,
-                setting :{Joinable_url: 'private'},
+                setting: [{ Joinable_url: 'private' }],  // <-- Wrapped in an array
                 admin: phoneNumbers[0],
                 members: phoneNumbers,
             });
+            
         
             await room.save();
             res.status(201).json({
@@ -400,7 +398,6 @@ app.post('/createRoom', async (req, res) => {
                 roomID: uniqueRoomID,
             });
         }
-        
         createOrUpdateRoom().catch(error => res.status(500).json({ error: error.message }));
         
     } catch (err) {

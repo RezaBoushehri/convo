@@ -21,7 +21,6 @@ function decryptMessage(encryptedMessage) {
 }
 
 
-if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
 
 
 const href = production ? window.location.hostname : "172.16.28.166",
@@ -802,6 +801,8 @@ socket.on("joined", (data) => {
     //     console.error("Invalid data received in 'joined' event:", data);
     //     return;
     // }
+    if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
+
     if(document.querySelector(".close")) document.querySelector(".close").click();
     document.querySelector("#roomInfo").innerHTML = `
         <div class=" mx-3">
