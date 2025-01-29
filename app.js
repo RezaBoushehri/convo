@@ -1,6 +1,7 @@
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 const crypto = require('crypto');
+const ip = require("ip");
 
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
@@ -240,7 +241,15 @@ app.post("/login", async (req, res, next) => {
   
 
 app.post("/register", (req, res) => {
-    // phoneVal(req.body.username,res)
+    // Get the client's IP address
+    const clientIP = req.ip || req.connection.remoteAddress;
+
+    // Check if the IP is in the allowed range (172.16.28.0/24)
+    if (!clientIP.startsWith("172.16.28.")) {
+        return res.status(403).json({ error: "Access denied: You don't permission to be alive" });
+    }
+
+    // Sanitize and create new user
     const newUser = new User({
         username: DOMPurify.sanitize(req.body.username),
         first_name: DOMPurify.sanitize(req.body.first_name),
@@ -259,6 +268,7 @@ app.post("/register", (req, res) => {
         });
     });
 });
+
 app.post("/upload", (req, res) => {
    
 });
