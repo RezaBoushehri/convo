@@ -45,36 +45,38 @@ const joinRoom = () => {
 
 
 const leaveRoom = () => {
-    const roomID = document.querySelector("#roomID").textContent.trim()
-    socket.emit("leaveRoom",{username : currentUser.username , roomID : roomID});
-    // Leave room event
+    // const roomID = document.querySelector("#roomID").textContent.trim()
+    // socket.emit("leaveRoom",{username : currentUser.username , roomID : roomID});
+    // // Leave room event
 
-    // Success feedback
-    socket.on("leftRoom", ({ roomID }) => {
-        // console.log(`You have left room: ${roomID}`);
-        // Update the UI to reflect the user leaving the room
-    });
+    // // Success feedback
+    // socket.on("leftRoom", ({ roomID }) => {
+    //     // console.log(`You have left room: ${roomID}`);
+    //     // Update the UI to reflect the user leaving the room
+    // });
 
-    // Error feedback
-    socket.on("error", ({ error }) => {
-        console.error("Error:", error);
-    });
+    // // Error feedback
+    // socket.on("error", ({ error }) => {
+    //     console.error("Error:", error);
+    // });
 
-    // Notify other users when someone leaves
-    socket.on("userLeft", ({ username, roomID }) => {
-        // console.log(`${username} has left the room: ${roomID}`);
-        // Update the UI to reflect the user's departure
-    });
-    // Notify other users when someone leaves
+    // // Notify other users when someone leaves
+    // socket.on("userLeft", ({ username, roomID }) => {
+    //     // console.log(`${username} has left the room: ${roomID}`);
+    //     // Update the UI to reflect the user's departure
+    // });
+    // // Notify other users when someone leaves
 
 
-    document.querySelector("#roomInfo").innerHTML = "";
-    document.getElementById("chat-window").style.display = "none";
-    document.querySelector(".form-inline").style.display = "none";
-    document.getElementById("btns").style.display = "block";
-    document.querySelector("footer").style.display = "block";
-    // Refresh the page after leaving the room
-    window.location.reload(); // This will refresh the page and reset the UI
+    // document.querySelector("#roomInfo").innerHTML = "";
+    // document.getElementById("chat-window").style.display = "none";
+    // document.querySelector(".form-inline").style.display = "none";
+    // document.getElementById("btns").style.display = "block";
+    // document.querySelector("footer").style.display = "block";
+    // // Refresh the page after leaving the room
+    // window.location.reload(); // This will refresh the page and reset the UI
+    window.location.href = `/`;
+
 };
 
 document.querySelector(".roomNameInput").addEventListener("keyup", (event) => {
