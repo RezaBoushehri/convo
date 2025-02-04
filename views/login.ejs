@@ -7,31 +7,50 @@
         </div>
     </div>
     <div class="col-md-4 ">
-        <div id="form" class=" p-5 rounded ">
-            <form method="POST" action='/login'>
+        <!-- Two-Step Verification Modal -->
+        <div class="modal fade" id="twoStepVerification" tabindex="-1" role="dialog" aria-labelledby="verifyLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="verifyLabel">Two-Step Verification</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>A verification code has been sent to your phone number.</p>
+                        <div class="form-group">
+                            <label for="verificationCode">Enter Verification Code:</label>
+                            <input type="text" id="verificationCode" class="form-control" placeholder="Enter 6-digit code">
+                            <span class="error-message" style="color: red; display: none;">Invalid code</span>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="verifyCode" class="btn btn-success">Verify</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Form -->
+        <div id="form" class="p-5 rounded">
+            <form method="POST" id="loginForm" action='/login'>
                 <div class="form-group">
                     <label for="username">Phone Number:</label>
-
-                    <input 
-                        type="tel" 
-                        class="form-control phone-input" 
-                        name="username" 
-                        placeholder="Phone number">
+                    <input type="tel" id="userPhone" class="form-control phone-input" name="username" placeholder="Phone number">
                     <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
-
                 </div>
 
                 <div class="form-group">
                     <label for="password">Password:</label>
-                    <input type="password" class="form-control" name="password" placeholder="Password">
+                    <input type="password" id="userPassword" class="form-control" name="password" placeholder="Password">
                 </div>
                 <div class="form-group">
                     New to <span style="font-family: 'Pacifico';">meta chat</span> ?
                     <a class="badge badge-lg badge-success p-2" data-toggle="modal" style="cursor: pointer;" data-target="#signup">Sign Up</a>
                 </div>
-                <button type="submit" class="col-md-12 btn btn-primary">Submit</button>
+                <button type="button" id="sendSMSlogin" class="col-md-12 btn btn-primary">Log in</button>
             </form>
-
         </div>
 
         <div class="modal fade" id="signup" tabindex="-1" role="dialog" aria-labelledby="label" aria-hidden="true">
@@ -80,7 +99,7 @@
                         </div>
                         <div class="modal-footer">
 
-                            <button type="submit" class="btn btn-primary">Submit</button>
+                            <button type="button" id="sendSMSregistration" data-dismiss="modal" aria-label="Close" class=" btn btn-primary">Validaton</button>
                         </div>
                     </form>
                 </div>
@@ -112,7 +131,101 @@ const message2 = "Welcome to the World of Unlimited Messages! Where your texts a
     
         }
     }
-typeMessage();
+    typeMessage();
+    $(document).ready(function() {
+        let verificationCode = "";
+        let formChoosed =''
+        // Generate and send SMS when user submits
+        $('#sendSMSlogin').click(function() {
+            var mobileSMS = $('#userPhone').val();
+            if (!/^\d{10,15}$/.test(mobileSMS)) { // Basic phone number validation
+                alert("Please enter a valid phone number!");
+                return;
+            }
+            verificationCode = Math.floor(100000 + Math.random() * 900000); // Generate 6-digit code
+            var messageSMS = `Metachater, Your verification code is: ${verificationCode}`;
+            var username = "fara";
+            var password = "farahoosh";
+            var base64Credentials = btoa(username + ":" + password);
+
+            // Send SMS via AJAX
+            $.ajax({
+                url: 'https://portal.mellicloud.com/smss/smsService.php',
+                type: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({  // Stringify the data
+                    mobileSMS: mobileSMS,
+                    messageSMS: messageSMS
+                }),
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        $('#twoStepVerification').modal('show'); // نمایش مدال تأیید
+                        formChoosed = 'login'
+                    } else {
+                        alert('Error sending SMS: ' + response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('AJAX Error: ' + error + "\nStatus: " + status + "\nResponse: " + xhr.responseText);
+                }
+            });
+
+        });
+        $('#sendSMSregistration').click(function() {
+            var mobileSMS = $('#username').val();
+            if (!/^\d{10,15}$/.test(mobileSMS)) { // Basic phone number validation
+                alert("Please enter a valid phone number!");
+                return;
+            }
+            verificationCode = Math.floor(100000 + Math.random() * 900000); // Generate 6-digit code
+            var messageSMS = `Metachater, Your verification code is: ${verificationCode}`;
+            var username = "fara";
+            var password = "farahoosh";
+            var base64Credentials = btoa(username + ":" + password);
+
+            // Send SMS via AJAX
+            $.ajax({
+                url: 'https://portal.mellicloud.com/smss/smsService.php',
+                type: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({  // Stringify the data
+                    mobileSMS: mobileSMS,
+                    messageSMS: messageSMS
+                }),
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        $('#twoStepVerification').modal('show'); // نمایش مدال تأیید
+                        formChoosed = 'registration'
+                    } else {
+                        alert('Error sending SMS: ' + response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('AJAX Error: ' + error + "\nStatus: " + status + "\nResponse: " + xhr.responseText);
+                }
+            });
+
+        });
+
+        // Verify code input
+        $('#verifyCode').click(function() {
+            var enteredCode = $('#verificationCode').val();
+            if (enteredCode == verificationCode) {
+                // alert("Verification successful!");
+                $('#twoStepVerification').modal('hide');
+                if(formChoosed=='login') $('#loginForm').submit(); // Submit the form after successful verification
+                if(formChoosed=='registration') $('#registrationForm').submit(); // Submit the form after successful verification
+            } else {
+                $('.error-message').show().text("Incorrect verification code");
+            }
+        });
+    });
 
     document.getElementById('registrationForm').addEventListener('submit', function(event) {
         var password = document.getElementById('password').value;

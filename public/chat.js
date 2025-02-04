@@ -1825,6 +1825,24 @@ document.addEventListener("DOMContentLoaded", () => {
         document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
         document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
         document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
+    }else{
+        const userSettings = {
+            marginLeft: "10%",
+            marginRight: "%10",
+            chatWindowBgColor: "245, 245, 245",
+            chatWindowFgColor: "33, 33, 33",
+            bgColor: "204, 238, 191", // Assuming a background color picker exists
+            fgColor: "0, 0, 0", // Assuming a background color picker exists
+            sideBgColor: "242, 242, 242", // Assuming a background color picker exists
+            sideFgColor: "33, 33, 33", // Assuming a background color picker exists
+            fontSize: "16px", // Get font size from range input
+            borderRad: "17px", // Get font size from range input
+        };
+        localStorage.setItem("userSettings", JSON.stringify(userSettings));
+
+        // Optionally save settings to the server
+        socket.emit("saveSettings", userSettings , currentUser.username);
+    
     }
 });
 

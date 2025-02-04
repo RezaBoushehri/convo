@@ -151,6 +151,13 @@ app.use(function (req, res, next) {
 app.use(express.json());
 
 // Routes
+app.get("/:path", (req, res, next) => {
+    if (req.params.path === 'undefined') {
+        return res.redirect('/');  // Redirect to the root route if path is 'undefined'
+    }
+    next();  // Proceed with the normal flow if path is not 'undefined'
+});
+
 app.get("/", middleware.isLoggedIn, (req, res) => {
     res.render("index", { roomID: "" });
 });
@@ -227,8 +234,12 @@ app.post("/login", async (req, res, next) => {
                         console.error("Error saving session:", err);
                     }
                 });
-               if(req.session.redirectUrl !== "/"|| req.session.redirectUrl !== "/login") res.redirect(req.session.redirectUrl); // Redirect after login
-                else{res.redirect("/");} // Redirect after login
+                if (req.session.redirectUrl && req.session.redirectUrl.startsWith("/join/")) {
+                    res.redirect(req.session.redirectUrl); // Redirect to the URL starting with /join/
+                } else {
+                    res.redirect("/"); // Default redirect after login
+                }
+                
             });
         })(req, res, next);
     } catch (err) {
@@ -241,11 +252,18 @@ app.post("/login", async (req, res, next) => {
   
 app.post("/register", (req, res) => {
     const clientIP = req.ip || req.connection.remoteAddress;
-    const allowedRange = "172.16.28.0/24";
-
-    if (!ipRangeCheck(clientIP, allowedRange)) {
+    const allowedRanges = [
+        "172.16.28.0/24",  // existing range
+        "94.74.128.194",   // additional IP
+        "94.74.128.193"    // additional IP
+    ];
+    
+    const ipIsAllowed = allowedRanges.some(range => ipRangeCheck(clientIP, range));
+    
+    if (!ipIsAllowed) {
         return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
     }
+    
     // Sanitize and create new user
     const newUser = new User({
         username: DOMPurify.sanitize(req.body.username),
@@ -405,6 +423,8 @@ app.post('/createRoom', async (req, res) => {
         res.status(400).json({ error: 'Decryption error or invalid data' });
     }
 });
+
+
 
 // یک endpoint برای کلاینت ایجاد کنید
 // app.get('/SECRETKEY', (req, res) => {
