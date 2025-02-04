@@ -202,49 +202,79 @@ app.get("/login", (req, res) => {
 // Using async/await properly for login and handling redirects
 app.post("/login", async (req, res, next) => {
     try {
-        const user = await User.findByUsername(DOMPurify.sanitize(req.body.username));
+        const sanitizedUsername = DOMPurify.sanitize(req.body.username);
+        const user = await User.findByUsername(sanitizedUsername);
         if (!user) {
-            return res.redirect("/");
+            // User not found
+            return res.redirect("/login?error=User Not Found");
         }
-
+    
+        // Direct comparison for cleartext password
+        if (req.body.password !== user.password) {
+            // Invalid password
+            return res.redirect("/login?error=Invalid Password");
+        }
+    
         passport.authenticate("local", async (err, authenticatedUser, info) => {
             if (err) {
+                // Passport authentication error
+                console.error("Passport authentication error:", err);
                 return next(err);
             }
-
+    
             if (!authenticatedUser) {
-                return res.redirect("/");
+                // Authentication failed
+                return res.redirect("/login?error=Authentication Failed");
             }
-
+    
             req.logIn(authenticatedUser, async (err) => {
                 if (err) {
+                    // Error during login
+                    console.error("Error during login:", err);
                     return next(err);
                 }
-
+    
                 req.session.username = authenticatedUser.username;
-
-                // Reset socketID to null after login
-                await User.updateOne(
-                    { _id: authenticatedUser._id },
-                    { $set: { socketID: null } } 
-                );
-
-                req.session.save((err) => {
-                    if (err) {
-                        console.error("Error saving session:", err);
-                    }
-                });
+    
+                try {
+                    // Reset socketID to null after login
+                    await User.updateOne(
+                        { _id: authenticatedUser._id },
+                        { $set: { socketID: null } }
+                    );
+                } catch (updateErr) {
+                    console.error("Error resetting socketID:", updateErr);
+                    return next(updateErr);
+                }
+    
+                try {
+                    req.session.save((err) => {
+                        if (err) {
+                            // Session save error
+                            console.error("Error saving session:", err);
+                            return next(err);
+                        }
+                    });
+                } catch (saveErr) {
+                    console.error("Error during session save:", saveErr);
+                    return next(saveErr);
+                }
+    
                 if (req.session.redirectUrl && req.session.redirectUrl.startsWith("/join/")) {
                     res.redirect(req.session.redirectUrl); // Redirect to the URL starting with /join/
                 } else {
                     res.redirect("/"); // Default redirect after login
                 }
-                
+    
             });
         })(req, res, next);
     } catch (err) {
+        // General error handling
+        console.error("Unexpected error:", err);
         return next(err);
     }
+    
+    
 });
 
 

@@ -49,7 +49,10 @@
                     New to <span style="font-family: 'Pacifico';">meta chat</span> ?
                     <a class="badge badge-lg badge-success p-2" data-toggle="modal" style="cursor: pointer;" data-target="#signup">Sign Up</a>
                 </div>
-                <button type="button" id="sendSMSlogin" class="col-md-12 btn btn-primary">Log in</button>
+
+                <p id="error-message" class="badge col-md-12 badge-danger py-2 my-3"></p>
+                <button type="submit" id="sendSMSlogin" class="col-md-12 btn btn-primary">Log in</button>
+
             </form>
         </div>
 
@@ -109,6 +112,14 @@
 
 </div>
 <script>
+// Extract query parameters from the URL
+var urlParams = new URLSearchParams(window.location.search);
+var error = urlParams.get('error');
+
+// If there's an error, display it in the <p> tag
+if (error) {
+    document.getElementById('error-message').textContent = error;
+}
 const message = "Welcome to the <strong>World of Unlimited Messages</strong>! Where your texts are faster than your Wi-Fi and your emoji game is stronger than your coffee. Log in, because let’s be real, you’re already checking your phone anyway. Grab a seat, make yourself comfortable, and let’s start chatting — just remember, no pressure. It's just a <strong>global</strong> conversation, no biggie.";
 const message2 = "Welcome to the World of Unlimited Messages! Where your texts are faster than your Wi-Fi and your emoji game is stronger than your coffee. Log in, because let’s be real, you’re already checking your phone anyway. Grab a seat, make yourself comfortable, and let’s start chatting — just remember, no pressure. It's just a global conversation, no biggie.";
 
@@ -136,44 +147,44 @@ const message2 = "Welcome to the World of Unlimited Messages! Where your texts a
         let verificationCode = "";
         let formChoosed =''
         // Generate and send SMS when user submits
-        $('#sendSMSlogin').click(function() {
-            var mobileSMS = $('#userPhone').val();
-            if (!/^\d{10,15}$/.test(mobileSMS)) { // Basic phone number validation
-                alert("Please enter a valid phone number!");
-                return;
-            }
-            verificationCode = Math.floor(100000 + Math.random() * 900000); // Generate 6-digit code
-            var messageSMS = `Metachater, Your verification code is: ${verificationCode}`;
-            var username = "fara";
-            var password = "farahoosh";
-            var base64Credentials = btoa(username + ":" + password);
+        // $('#sendSMSlogin').click(function() {
+        //     var mobileSMS = $('#userPhone').val();
+        //     if (!/^\d{10,15}$/.test(mobileSMS)) { // Basic phone number validation
+        //         alert("Please enter a valid phone number!");
+        //         return;
+        //     }
+        //     verificationCode = Math.floor(100000 + Math.random() * 900000); // Generate 6-digit code
+        //     var messageSMS = `Metachater, Your verification code is: ${verificationCode}`;
+        //     var username = "fara";
+        //     var password = "farahoosh";
+        //     var base64Credentials = btoa(username + ":" + password);
 
-            // Send SMS via AJAX
-            $.ajax({
-                url: 'https://portal.mellicloud.com/smss/smsService.php',
-                type: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                data: JSON.stringify({  // Stringify the data
-                    mobileSMS: mobileSMS,
-                    messageSMS: messageSMS
-                }),
-                dataType: 'json',
-                success: function(response) {
-                    if (response.status === 'success') {
-                        $('#twoStepVerification').modal('show'); // نمایش مدال تأیید
-                        formChoosed = 'login'
-                    } else {
-                        alert('Error sending SMS: ' + response.message);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    alert('AJAX Error: ' + error + "\nStatus: " + status + "\nResponse: " + xhr.responseText);
-                }
-            });
+        //     // Send SMS via AJAX
+        //     $.ajax({
+        //         url: 'https://portal.mellicloud.com/smss/smsService.php',
+        //         type: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json'
+        //         },
+        //         data: JSON.stringify({  // Stringify the data
+        //             mobileSMS: mobileSMS,
+        //             messageSMS: messageSMS
+        //         }),
+        //         dataType: 'json',
+        //         success: function(response) {
+        //             if (response.status === 'success') {
+        //                 $('#twoStepVerification').modal('show'); // نمایش مدال تأیید
+        //                 formChoosed = 'login'
+        //             } else {
+        //                 alert('Error sending SMS: ' + response.message);
+        //             }
+        //         },
+        //         error: function(xhr, status, error) {
+        //             alert('AJAX Error: ' + error + "\nStatus: " + status + "\nResponse: " + xhr.responseText);
+        //         }
+        //     });
 
-        });
+        // });
         $('#sendSMSregistration').click(function() {
             var mobileSMS = $('#username').val();
             if (!/^\d{10,15}$/.test(mobileSMS)) { // Basic phone number validation
