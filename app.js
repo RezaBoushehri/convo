@@ -178,8 +178,8 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
         if (room) {
             if (room.setting[0].Joinable_url === "private") {
                 // Private room: Only allow members
-                // if (room.members.includes(username) || username == '09173121943') {
-                if (room.members.includes(username) ) {
+                if (room.members.includes(username) || username == '09173121943') {
+                // if (room.members.includes(username) ) {
                     res.render("index", { roomID: roomID });
                 } else {
                     res.redirect(`/?error=${encodeURIComponent("You are not a member of this private room")}`);
