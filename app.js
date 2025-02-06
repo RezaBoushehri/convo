@@ -58,7 +58,13 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
+// Middleware to enforce HTTPS
+app.use((req, res, next) => {
+    if (req.headers.host && req.protocol === 'http') {
+        return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+});
 // کلید و توکن نمونه
 const secretKey = process.env.SECRETKEY;
 

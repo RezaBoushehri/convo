@@ -1,6 +1,6 @@
 
 // const socket = io.connect(window.location.hostname),
-const production = false;
+const production = true;
 
 const secretKey = CryptoJS.enc.Hex.parse('a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771');
 
@@ -23,8 +23,8 @@ function decryptMessage(encryptedMessage) {
 
 
 
-const href = production ? window.location.hostname : "172.16.28.166",
-    socket = io.connect(`https://172.16.28.29:4000`, {
+const href = production ? `https://${window.location.hostname}:4000` : "https://94.74.128.194:4000",
+    socket = io.connect(href, {
         transports: ['polling','websocket'], // Allows both WebSocket and Polling
         secure: true, // Ensures that the connection uses HTTPS
         withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
@@ -57,7 +57,7 @@ let sentMessagesId=[],
     loadedForClicking=false
     , hasScrolledDown = false; // Flag to track if the scroll has already occurred
     let scrolling = true;
-
+console.log("URL: ",href)
 // =====================
 // for right click menu
 const windowWidth = window.innerWidth;
