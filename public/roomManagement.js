@@ -82,3 +82,23 @@ const leaveRoom = () => {
 document.querySelector(".roomNameInput").addEventListener("keyup", (event) => {
     if (event.keyCode === 13) joinRoom();
 });
+
+// Function to get URL parameters
+function getQueryParam(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+}
+
+// Check for 'error' in URL and show alert
+const errorMessage = getQueryParam('error');
+if (errorMessage) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: errorMessage,
+        confirmButtonColor: '#d33',
+        customClass: {
+            popup: 'backdrop-blur-chat-bg userFg-color' // Add custom class here
+        }
+    });
+}

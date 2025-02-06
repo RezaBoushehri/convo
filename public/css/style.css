@@ -1293,6 +1293,9 @@ width: max-content;
     top: 0px;
     left: 0px;
 }
+.userFg-color{
+    color: whitesmoke;
+}
 .headerMain{
     background-color: #343a405d!important;
     backdrop-filter: blur(5px);

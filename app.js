@@ -170,7 +170,7 @@ app.get("/", middleware.isLoggedIn, (req, res) => {
 
 app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
     const roomID = DOMPurify.sanitize(req.params.id);
-    const username = req.user.username; // Assuming the username is stored in req.user
+    const username = req.user.username; // Assuming username is stored in req.user
 
     try {
         const room = await Room.findOne({ roomID: roomID });
@@ -178,25 +178,24 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
         if (room) {
             if (room.setting[0].Joinable_url === "private") {
                 // Private room: Only allow members
-                if (room.members.includes(username)|| username == '09173121943') {
+                // if (room.members.includes(username) || username == '09173121943') {
+                if (room.members.includes(username) ) {
                     res.render("index", { roomID: roomID });
                 } else {
-                    res.status(403).json({ error: "You are not a member of this private room" });
+                    res.redirect(`/?error=${encodeURIComponent("You are not a member of this private room")}`);
                 }
             } else if (room.setting[0].Joinable_url === "public") {
                 // Public room: Anyone can join
                 res.render("index", { roomID: roomID });
             } else {
-                // Handle unexpected room settings
-                res.status(400).json({ error: "Invalid room setting" });
+                res.redirect(`/?error=${encodeURIComponent("Invalid room setting")}`);
             }
         } else {
-            // Room not found
-            res.status(404).json({ error: "Room not found" });
+            res.redirect(`/?error=${encodeURIComponent("Room not found")}`);
         }
     } catch (err) {
         console.error("Error fetching room:", err);
-        res.status(500).json({ error: "Internal server error" });
+        res.redirect(`/?error=${encodeURIComponent("Internal server error")}`);
     }
 });
 
