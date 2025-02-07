@@ -987,7 +987,29 @@ socket.on("chat",async(data , ack) => {
         showBrowserNotification(decryptedMessage.handle,decryptedMessage.message)
         playNotificationSound()
     }
+    const messages = document.querySelectorAll(".messageRead"); // Class of each message div
 
+    if(!document.hidden){
+        const visibleMessages = [];
+
+        messages.forEach((message) => {
+            const rect = message.getBoundingClientRect();
+            let messageId = message.getAttribute('data-id');
+            messageId = roomID +"-"+ messageId.split('-')[1]
+            // Check if the message is in the viewport (visible)
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+                if (messageId && !visibleMessages.includes(messageId)) {
+                    visibleMessages.push(messageId);  // Add the data-id of visible messages
+                    // console.log(messageId)
+                }
+            }
+        });
+    
+        // Emit the IDs of visible messages to the server
+        if (visibleMessages.length > 0) {
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+        }
+    }
 });
 
 //=================================================================
