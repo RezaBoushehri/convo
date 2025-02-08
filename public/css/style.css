@@ -1,15 +1,20 @@
 html,
 body {
     background-color: #232323;
-    /* overflow-y: hidden; */
+    overflow-y: hidden;
     overflow-x: hidden;
     font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Apple Color Emoji", "Segoe UI", Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-    /* height: 100%; */
+    height: 100vh;
     width:  100%;
     text-align: unset;
     
 }
-
+#alert{
+    position: fixed;
+    top: 50%;
+    /* left: 10%; */
+    z-index: 999999;
+}
 #message-container {
     text-align: center;
     padding: 20px;
@@ -195,9 +200,9 @@ body {
     color: rgb(var(--user-chat-fg-color),0.9);
 }
 #feedback{
-    position: relative;
-    top: -20px;
-}
+    position: fixed;
+    bottom: 30px
+;}
 #editable-message-text {
     color: #666; /* Grey color for placeholder text */
     border: none;
@@ -831,8 +836,8 @@ width: max-content;
     /* position: fixed;
     bottom: 20dvh; */
     z-index: 9;
-    position: absolute;
-    left: 24px;
+    /* position: absolute; */
+    /* left: 24px; */
     background-color: rgb(var(--user-bg-color));
     color: rgb(var(--user-fg-color));
     border: none;
@@ -868,6 +873,8 @@ width: max-content;
     max-height: 0;
     transition: max-height 0.3s ease-out, opacity 0.3s ease-out, transform 0.3s ease-out; /* Transition for move up/down */
     position: relative; /* Allows top positioning */
+    display: none; /* Initially hidden */
+
 }
 
 #replyBox.show {
@@ -877,13 +884,16 @@ width: max-content;
     opacity: 1;
     transform: translateY(0); /* Reset vertical position */
     align-items: stretch !important;
+    display: flex;
 }
 
 #replyBox.hide {
     max-height: 0;
     opacity: 0;
+    display: none;
     bottom: 60px;
     transform: translateY(40px); /* Move the box down */
+    display: none;
 }
 
 
@@ -909,14 +919,14 @@ width: max-content;
     background-color: rgb(var(--user-chat-bg-color),0.8);
     backdrop-filter: blur(10px);
 
-    margin-right: 30vw !important; 
-    max-width: 80vw;
-    align-items: flex-end;
+    /* margin-right: 30vw !important;  */
+    max-width: 100%;
+    align-items: center;
     box-shadow: 0px 0px 10px 1px #ccc;
 }
 /* Apply margin-left and margin-right for large screens */
 @media (min-width: 768px) {
-    .form-inline {
+    /* .form-inline {
         margin-left: 30vw !important;
         margin-right: 30vw !important;
         max-width: 40vw;
@@ -927,15 +937,17 @@ width: max-content;
         max-width: 40vw;
 
     }
-    html,body{
-        overflow-y: hidden; 
-        height: 100%;
-    }
+        */
+    /* html,body{
+     overflow-y: hidden; 
+     height: 100%;
+        }  */
 }
 
 /* Reset margins for mobile devices */
 @media (max-width: 767px) {
-    .form-inline {
+
+    /* .form-inline {
         margin-left: 10dvw !important;
         margin-right: 10dvw !important;
         max-width: 70vw;
@@ -945,23 +957,30 @@ width: max-content;
         margin-right: 10dvw !important;
         max-width: 70vw;
 
-    }
+    } */
 }
-@media(min-height :600px)
+@media(min-height :768px)
 {
     #chat-window {
     
-        height: 90vh;
-    
-    }
+        height: 88vh;
+        position: fixed;
+        bottom: 0px;
+        width: 100vw;
+        }
 }
-@media(max-height :600px)
+@media(max-height :768px)
 {
+
     #chat-window {
     
-        height: 80vh;
+       
+            height: 75vh;
+            position: fixed;
+            bottom: 0px;
+            width: 100vw;
+        }
     
-    }
 }
 .EmbeddedMessage {
     --hover-opacity: 0;
@@ -1154,7 +1173,7 @@ width: max-content;
     
 }
 #notifCount {
-    position: relative;
+    position: absolute;
     top: -21px;
     right: -5px;
     /* background-color: red; */
@@ -1172,9 +1191,10 @@ width: max-content;
 #chat_windowFooter {
     justify-content: center;
     position: fixed;
-    bottom: -50px;
+    bottom: 0px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    flex-wrap: nowrap;
 }
 .pdf-frame{
     border-radius: var(--user-border-radius);
@@ -1209,6 +1229,7 @@ width: max-content;
 #output{
     padding-bottom: 60px !important;
 }
+
 .reply {
     position: absolute;
     top: 50%;

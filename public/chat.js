@@ -803,22 +803,36 @@ socket.on("joined", (data) => {
 
     if(document.querySelector(".close")) document.querySelector(".close").click();
     document.querySelector("#roomInfo").innerHTML = `
-        <div class=" mx-3">
-            <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
-                title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
-                Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
-                Admin : <em class='text-warning'>${data.name}</em>
-            </button>
-            <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
-            <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
-                class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
-                target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
-                <i class='bi bi-whatsapp'></i>
-            </a>
-            <button type='button' title="Leave the room" data-toggle="tooltip" data-placement="bottom" class='btn btn-danger ml-1' onclick='leaveRoom()'>
-                <i class='bi bi-door-closed'></i>
-            </button>
-        </div>`;
+        <div style="z-index:99" class="mx-3">
+    <!-- Toggle button for mobile -->
+    <button class="btn btn-secondary d-md-none" type="button" data-toggle="collapse" data-target="#roomControls" 
+        aria-expanded="false" aria-controls="roomControls">
+        Room Info <i class="bi bi-chevron-down"></i>
+    </button>
+
+    <!-- Collapsible Room Info -->
+    <div id="roomControls" class="collapse d-md-block">
+        <button type="button" class="btn btn-secondary mt-2" data-toggle="tooltip" data-html="true" 
+            title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
+            Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
+            Admin : <em class='text-warning'>${data.name}</em>
+        </button>
+        
+        <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
+        
+        <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
+            class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
+            target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
+            <i class='bi bi-whatsapp'></i>
+        </a>
+        
+        <button type='button' title="Leave the room" data-toggle="tooltip" data-placement="bottom" 
+            class='btn btn-danger ml-1' onclick='leaveRoom()'>
+            <i class='bi bi-door-closed'></i>
+        </button>
+    </div>
+</div>
+`;
     
     // Toggle UI elements
     if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
@@ -829,6 +843,7 @@ socket.on("joined", (data) => {
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
     
+    // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 });
 
 //=================================================================
@@ -1019,7 +1034,7 @@ socket.on("typing", (data) => {
         // Add a typing indicator if one doesn't already exist
         if (!$(`#typing-${username}`).length && !$(`#typing-${username}Btn`).length) {
            
-            const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
+            const lastMessage = output.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
             const roomID = document.getElementById('roomIDVal').value;
 
@@ -1044,17 +1059,17 @@ socket.on("typing", (data) => {
                                 </div>`
                             );
                         }else{
-                            $("#down").fadeIn()
+                            // $("#down").fadeIn()
 
-                            $("#chat_windowFooter").append( `<div id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
-                                <em style="
-                                        display: flex;
-                                        align-content: center;
-                                        align-items: center;
-                                    ">${name} is typing <div class="typingLoader"></div></em>
+                            // $("#chat_windowFooter").append( `<div id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
+                            //     <em style="
+                            //             display: flex;
+                            //             align-content: center;
+                            //             align-items: center;
+                            //         ">${name} is typing <div class="typingLoader"></div></em>
                                 
-                                </div>`
-                            );
+                            //     </div>`
+                            // );
                         }
                     }
             }
@@ -2272,9 +2287,7 @@ if (isLastMessage) {
         output.insertAdjacentHTML("beforeend", lastMessage);
     
 }
-    // Reset file input and image
-    $("file-input").val("");
-    image = "";
+
     searchMessageReply()
     // Run the function to apply the functionality
 
