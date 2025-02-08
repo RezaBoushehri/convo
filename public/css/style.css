@@ -927,7 +927,10 @@ width: max-content;
         max-width: 40vw;
 
     }
-    
+    html,body{
+        overflow-y: hidden; 
+        height: 100%;
+    }
 }
 
 /* Reset margins for mobile devices */

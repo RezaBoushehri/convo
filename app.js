@@ -2,10 +2,10 @@ const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 const crypto = require('crypto');
 const ipRangeCheck = require("ip-range-check");
-
+const express = require("express");
+const multer = require("multer");
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
-const express = require("express"),
     fs = require('fs'),
     https = require('https'),
     app = express(),
@@ -92,6 +92,7 @@ mongoose
 
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
+// File upload storage settings
 
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -319,9 +320,72 @@ app.post("/register", (req, res) => {
     });
 });
 
-app.post("/upload", (req, res) => {
-   
+
+
+
+const uploadDir = path.join(__dirname, "uploads");
+
+// Ensure upload directory exists
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueName = `${Date.now()}-${file.originalname}`;
+        cb(null, uniqueName);
+    },
 });
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+}).single("file");
+
+// Handle file upload (existing code)
+app.post("/upload", (req, res) => {
+    upload(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+
+        // File successfully uploaded
+        const filePath = `/uploads/${req.file.filename}`;
+
+        // Respond with the file data (including the file path and metadata)
+        res.json({
+            message: "File uploaded successfully",
+            fileData: {
+                file: filePath,
+                fileType: req.file.mimetype, // MIME type of the uploaded file
+                fileName: req.file.originalname, // Original file name
+            },
+        });
+        console.log("File uploaded successfully:", req.file.originalname);
+        console.log("File path:", filePath);
+        // Broadcast upload success event (emit file data)
+        io.emit("uploadSuccess", { fileData: { filePath, fileName: req.file.originalname } });
+    });
+});
+
+// Serve the files from the 'uploads' directory
+app.get('/uploads/:file', (req, res) => {
+    const fileName = req.params.file;
+
+    const filePath = path.join(uploadDir, fileName);
+  
+    // Check if the file exists
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error("File not found:", err);
+        return res.status(404).send('File not found');
+      }
+    });
+  });
+
 
 // API to Save a Message
 // app.post("/messages", async (req, res) => {
@@ -1046,7 +1110,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 // Conditionally map over the file if there are any
                 fileDetails = filesArray.length > 0
                     ? filesArray.map(file => ({
-                        file: file.fileData,  // Assuming fileData contains base64 data or a URL
+                        file: file.file,  // Assuming fileData contains base64 data or a URL
                         fileType: file.fileType,
                         fileName: file.fileName || null,  // Default to null if fileName is not present
                     }))
@@ -1116,7 +1180,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         console.log(`Upload Progress: ${progress}%`);
 
         // Broadcast the progress to the room (optional)
-        io.emit("uploadProgress", { progress });
+        io.emit("uploadProgress", { progress: progress });
     });
 
     

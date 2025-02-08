@@ -15,7 +15,10 @@ const messageSchema = new mongoose.Schema({
     message: { type: String, default:null }, // Message content
     file: [
         {
-            file: { type: String, required: true },
+            file: {
+                type: String, // or another appropriate type
+                required: true // if the file field must always be included
+            },
             fileType: { type: String , required: true},
             fileName: { type: String , default:null },
         },

@@ -326,115 +326,6 @@ $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 // document.getElementById('file-inputBtn').addEventListener("click",()=>{
 //     document.getElementById('file-input').click();
 // })
-$("#file-input").on("change", async (e) => {
-    output.innerHTML+=`
-    <div id="upload-container"
-    class="px-5 m-3 backdrop-blur-chat-fg"
-    style="
-    justify-content: flex-end;
-    display: flex;
-    ">
-        <progress id="upload-progress"  value="0" max="100" style="width: 100%; height: 20px;"></progress>
-        <span id="upload-status">0% uploaded</span>
-    </div>
-    `;
-    
-    button.disabled = true;
-    fileInput.disabled = true;
-
-    const file = e.target.files[0];
-    const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
-
-    if (!file) {
-        alerting("No file selected.", 'warning');
-        button.disabled = false;
-        fileInput.disabled = false;
-        return;
-    }
-
-    if (file.size > maxSize) {
-        alerting("The file is too large. Maximum size allowed is 10 MB.", 'warning');
-        button.disabled = false;
-        fileInput.disabled = false;
-        return;
-    }
-
-    const fileName = file.name.toLowerCase();
-    const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
-    const fileExtension = fileName.split('.').pop();
-
-    if (harmfulExtensions.includes(fileExtension)) {
-        alerting("The selected file has a potentially harmful extension. Please upload a safe file.", 'danger');
-        button.disabled = false;
-        fileInput.disabled = false;
-        return;
-    }
-
-    try {
-        // let processedFile;
-        // // Convert the file to Base64
-        // processedFile = await convertFileToBase64(file);
-        // console.log("Processed file (Base64):", processedFile);
-
-        // Send Base64 encoded file to the server
-        const formData = new FormData();
-        formData.append("file", file);
-        $("#upload-progress").val(0);
-        $("#upload-status").text("0% uploaded");
-
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/upload", true);
-    
-        // Monitor progress
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const percent = (e.loaded / e.total) * 100;
-                // Emit progress to the server
-                socket.emit("uploadProgress", { progress: percent });
-                $("#upload-progress").val(percent);
-                $("#upload-status").text(`${Math.round(percent)}% uploaded`);
-            }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status === 200) {
-                 // Parse the response data and extract file metadata
-                const response = JSON.parse(xhr.responseText);
-                fileData = response.fileData;
-                console.log("File uploaded successfully", fileData);
-                alerting("Upload complete.", "success");
-            } else {
-                alerting("Failed to upload the file.", "danger");
-            }
-        };
-
-        xhr.send(formData);
-        socket.on("uploadSuccess", (data) => {
-            alerting(`File ${data.dir} uploaded successfully!`);
-            document.getElementById('upload-container').remove();
-
-        });
-    } catch (error) {
-        console.error("Error processing file:", error);
-        alerting("An error occurred while processing the file.", 'danger');
-    } finally {
-        $("#upload-progress").hide();
-        button.disabled = false;
-        fileInput.disabled = false;
-    }
-    document.getElementById('file-input').value = '';
-    // document.getElementById('upload-container').remove();
-
-});
-
-function convertFileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result); // Base64 encoded data
-        reader.onerror = reject;
-        reader.readAsDataURL(file); // Reads the file as base64
-    });
-}
 
 const setImage = (file) => {
     const reader = new FileReader();
@@ -464,14 +355,14 @@ const setImage = (file) => {
 //         console.log(image)
 //     };
 // };
-const setFile = (file,dir) => {
-    
+const setFile = (file) => {
     const reader = new FileReader();
     return new Promise((resolve, reject) => {
         reader.readAsDataURL(file);
         reader.onload = (event) => {
+            const base64File = event.target.result; // The base64-encoded file content
             fileData = {
-                fileData: dir,
+                fileData: base64File,
                 fileType: file.type,
                 fileName: file.name,
             };
@@ -616,7 +507,106 @@ button.addEventListener("click", async () => {
             return null; // Return null if no quote
         };
         let fileDetails = null;
+        const messageId = messageIdSplited[messageIdSplited.length - 1];
+        let lastMessageElm = output.querySelector(`#Message-${messageId}`);
+        
+        if (!lastMessageElm) {
+            // If last message element doesn't exist, create it
+            lastMessageElm = document.createElement("div");
+            lastMessageElm.id = `Message-${messageId}`;
+            lastMessageElm.classList.add("message-container");
+            output.appendChild(lastMessageElm);
+        }
+        
+        // Now safely query for '.message' within lastMessageElm
+        let inLast = lastMessageElm.querySelector(".message");
+        
+        if (!inLast) {
+            // If `.message` element doesn't exist, create it
+            inLast = document.createElement("div");
+            inLast.classList.add("message");
+            lastMessageElm.appendChild(inLast);
+        }
+        
+        // console.log(inLast.innerHTML)
+        if(inLast){
+            const footerSending= inLast.querySelector(`.read-toggle`)
+            if(footerSending){
+                footerSending.innerHTML=`
+                <div id="upload-container" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 10px;">
+                    <progress id="upload-progress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
+                    <span id="upload-status" style="margin-left: 10px;">0% uploaded</span>
+                </div>
+                <strong>${sendingPlaceholder}</strong>`
+            }
+        }
+        const file = fileInput.files[0];
+        if (file) {
 
+            const progressBar = document.getElementById("upload-progress");
+            const uploadStatus = document.getElementById("upload-status");
+
+            
+    
+            button.disabled = true;
+            fileInput.disabled = true;
+
+            const maxSize = 10 * 1024 * 1024; // 10MB limit
+            if (file.size > maxSize) {
+                alerting("File size exceeds 10MB limit.");
+                return;
+            }
+        
+            progressBar.value = 0;
+            uploadStatus.innerText = "Uploading...";
+        
+            const formData = new FormData();
+            formData.append("file", file);
+        
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/upload", true);
+        
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    progressBar.value = percent;
+                    uploadStatus.innerText = `${percent}% uploaded`;
+        
+                    // Emit progress event to the server
+                    socket.emit("uploadProgress", { progress: percent });
+                }
+            };
+        
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    uploadStatus.innerText = "Upload complete!";
+                    alerting("File uploaded successfully: " + response.filePath);
+                } else {
+                    uploadStatus.innerText = "Upload failed!";
+                    alerting("Upload failed! Please try again.");
+                }
+            };
+        
+            xhr.onerror = () => {
+                uploadStatus.innerText = "Upload error!";
+                alerting("An error occurred during the upload.");
+            };
+        
+            xhr.send(formData);
+    
+        
+            // Listen for upload progress updates from the server
+            socket.on("uploadProgress", (data) => {
+                progressBar.value = data.progress;
+                uploadStatus.innerText = `${data.progress}% uploaded`;
+            });
+            
+            socket.on("uploadSuccess", (data) => {
+                alerting(`File ${data.fileName} uploaded successfully!`);
+            });
+        }
+    
         if (data.file !== null && data.file !== undefined) {
             // Ensure data.file is an array (whether single data.file or array of data.file)
             const filesArray = Array.isArray(data.file) ? data.file : [data.file];
@@ -624,7 +614,7 @@ button.addEventListener("click", async () => {
             // Conditionally map over the file if there are any
             fileDetails = filesArray.length > 0
                 ? filesArray.map(file => ({
-                    file: file.file,  // Assuming fileData contains base64 data or a URL
+                    file: file.fileData,  // Assuming fileData contains base64 data or a URL
                     fileType: file.fileType,
                     fileName: file.fileName || null,  // Default to null if fileName is not present
                 }))
@@ -658,16 +648,7 @@ button.addEventListener("click", async () => {
   fileData = "";
   clearReply()
 
-    const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
-    
-    const inLast = lastMessageElm.querySelector('.message')
-    // console.log(inLast.innerHTML)
-    if(inLast){
-        const footerSending= inLast.querySelector(`.read-toggle`)
-        if(footerSending){
-            footerSending.innerHTML=`<strong>${sendingPlaceholder}</strong>`
-        }
-    }
+    // Scroll to the bottom of the chat window
     // output.insertAdjacentHTML("beforeend",sendingPlaceholder);
     
     
