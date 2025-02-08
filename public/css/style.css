@@ -878,8 +878,8 @@ width: max-content;
 }
 
 #replyBox.show {
-    position: relative;
-    /* bottom: 60px; */
+    position: absolute;
+    top: -60px;
     max-height: 75px; /* Set a max-height when visible */
     opacity: 1;
     transform: translateY(0); /* Reset vertical position */
@@ -1195,6 +1195,7 @@ width: max-content;
     display: flex;
     align-items: flex-start;
     flex-wrap: nowrap;
+    
 }
 .pdf-frame{
     border-radius: var(--user-border-radius);
