@@ -394,7 +394,8 @@ footer .fa {
     z-index: -1;
 }
 .dropdown-menu{
-    position: relative;
+    position: absolute !important;
+    z-index: 99999;
 
 }
 .dropdown-item {
