@@ -243,12 +243,12 @@ body {
 
 
 .button-container {
-    right: 0;
+    /* right: 0; */
     /* top: -1px; */
     justify-content: center;
     display: flex;
     color: rgb(var(--user-chat-fg-color)) ;
-    width: 93px;
+    /* width: 93px; */
     /* width: 100px; */
 }
 .button-container button{
@@ -963,7 +963,7 @@ width: max-content;
 {
     #chat-window {
     
-        height: 88vh;
+        height: 90%;
         position: fixed;
         bottom: 0px;
         width: 100vw;
@@ -975,7 +975,7 @@ width: max-content;
     #chat-window {
     
        
-            height: 75vh;
+            height: 80%;
             position: fixed;
             bottom: 0px;
             width: 100vw;

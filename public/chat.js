@@ -812,7 +812,7 @@ socket.on("joined", (data) => {
 
     <!-- Collapsible Room Info -->
     <div id="roomControls" class="collapse d-md-block">
-        <button type="button" class="btn btn-secondary mt-2" data-toggle="tooltip" data-html="true" 
+        <button type="button" class="btn btn-secondary " data-toggle="tooltip" data-html="true" 
             title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
             Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
             Admin : <em class='text-warning'>${data.name}</em>
