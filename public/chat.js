@@ -2153,7 +2153,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <span class="close" onclick="closeModal()">&times;</span>
                             <img id="modalImage" class="imageModal-content" src="${file.file}" alt="Enlarged Image">
                             <div class="imageModal-caption">
-                                <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
+                                <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="btn btn-primary">
+                                    <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                                    Download
+                                </a>
                             </div>
                         </div>
                     ` : file.fileType === "application/pdf" ? `
@@ -2169,7 +2172,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             Your browser does not support the video tag.
                         </video>
                         <div class="file-actions">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}">Download</a>
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     ` : `
                         <!-- Generic File Display -->
@@ -2177,7 +2180,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <p>File: ${file.fileName || 'Unknown File'}</p>
                         </div>
                         <div class="file-actions">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}">Download</a>
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     `}
                 `).join('') : ""}
