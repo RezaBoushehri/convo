@@ -482,7 +482,7 @@ app.post('/createRoom', async (req, res) => {
                 if (existingRoom) {
                     // Update members list
                     // existingRoom.members = [...new Set([...existingRoom.members, ...phoneNumbers])]; // Avoid duplicates
-                    existingRoom.members = phoneNumbers;
+                    existingRoom.members = [...new Set([existingRoom.admin, ...phoneNumbers])];
                     await existingRoom.save();
                     return res.status(200).json({
                         success: true,
