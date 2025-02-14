@@ -1175,8 +1175,10 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             const onlineUsers = await User.find({ username: { $in: roomMembers } });
             encryptedMessage ={
                 ...data,
-                roomID : socketEncrypt(currentUser.roomID)
+                roomID : socketEncrypt(currentUser.roomID),
+                title : socketEncrypt(room.roomName)
             }
+            // console.log(encryptedMessage)
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach((user) => {
                 if (user.socketID) {

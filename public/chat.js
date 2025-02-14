@@ -3126,7 +3126,7 @@ function showBrowserNotification(sender,messageContent,roomID) {
     if (document.hidden || !window.location.pathname.includes(`/join/${roomID}`)) {
         Notification.requestPermission().then(permission => {
             if (permission === "granted") {
-                const notification = new Notification(`New Message from ${sender}:`, {
+                const notification = new Notification(`${sender}:`, {
                     body: messageContent,
                     icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
                 });
@@ -3155,7 +3155,7 @@ function showBrowserNotification(sender,messageContent,roomID) {
         
         playNotificationSound()
     }else{
-        console.log(Notification.permission)
+        console.log("Notification==> ",Notification.permission)
     }
 }
 socket.on("notification",async(data , ack) => {
@@ -3165,10 +3165,14 @@ socket.on("notification",async(data , ack) => {
             message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
             // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
             handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
-            roomID : data.roomID ? decryptMessage(data.roomID): data.roomID
+            roomID : data.roomID ? decryptMessage(data.roomID): data.roomID,
+            title : data.title ? decryptMessage(data.title): data.title
         };
+
+        console.log(decryptedMessage)
+
     if(decryptedMessage.sender != currentUser.username){
-        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,decryptedMessage.roomID)
+        showBrowserNotification(`In ${decryptedMessage.title} ${decryptedMessage.handle} said`,decryptedMessage.message,decryptedMessage.roomID)
         playNotificationSound()
     }
 })
