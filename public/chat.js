@@ -907,47 +907,7 @@ socket.on("chat",async(data , ack) => {
             };
     if (ack.success) {
    
-        
-    // let style,
-    //     bg,
-    //     color,
-    //     users = "";
-
-    // if (data.handle === name.textContent) {
-    //     style = "display:flex;justify-content:flex-end";
-    //     data.users.forEach((item) => {
-    //         if (item.name.trim() !== data.handle.trim())
-    //             users += `${item.name} , `;
-    //     });
-    //     users = users.slice(0, users.length - 3);
-    //     if (users !== "") {
-    //         output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-md-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
-    //     }
-    //     $(".spinner-border")
-    //         .parent()
-    //         .append("<i class='fa fa-check text-warning'></i>");
-    //     $(".spinner-border").remove();
-    // } else {
-    //     style = "display:flex;justify-content:flex-start";
-    //     bg = `bg-dark mess p-2 mr-1 m-2 rounded col-md-8 `;
-    //     color = `text-success text-capitalize`;
-    //     output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
-    //         data.handle
-    //     }</h6><div>${
-    //         data.message
-    //     }</div><img class="img-fluid rounded mb-2" src='${
-    //         data.image
-    //     }'/><div style="text-align:right;font-size:2vmin"> 
-    // ${new Intl.DateTimeFormat("fa-IR", {
-    //     hour: "numeric",
-    //     minute: "numeric",
-    // }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
-    // }
-    // $("file-input").val("");
-    // image = "";
-    // socket.emit("typing", "stop");
-    // showUp();
-    // scroll();
+  
    
     const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
@@ -997,7 +957,7 @@ socket.on("chat",async(data , ack) => {
         applyShowMore();
     },100);
     if(decryptedMessage.sender != currentUser.username){
-        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message)
+        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
         playNotificationSound()
     }
     const messages = document.querySelectorAll(".messageRead"); // Class of each message div
@@ -3162,18 +3122,79 @@ function playNotificationSound() {
 }
 
 // Function to show browser notification
-function showBrowserNotification(sender,messageContent) {
-    if (document.hidden) {
+function showBrowserNotification(sender,messageContent,roomID) {
+    if (document.hidden || !window.location.pathname.includes(`/join/${roomID}`)) {
         Notification.requestPermission().then(permission => {
             if (permission === "granted") {
-                const notification = new Notification(`New Message from ${sender} :`, {
+                const notification = new Notification(`New Message from ${sender}:`, {
                     body: messageContent,
-                    icon: "/svg/logo.svg"  // Optional: Set a notification icon
+                    icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
                 });
+        
+                // اضافه کردن قابلیت باز کردن لینک هنگام کلیک
+                notification.onclick = () => {
+                    let chatTab = null;
+    
+                    // بررسی همه تب‌های باز برای پیدا کردن تب چت
+                    for (let i = 0; i < window.length; i++) {
+                        if (window[i].location.href.includes(`/join/${roomID}`)) {
+                            chatTab = window[i];
+                            break;
+                        }
+                    }
+    
+                    // اگر تب چت پیدا شد، به آن سوییچ کن؛ در غیر این‌صورت، یک تب جدید باز کن
+                    if (chatTab) {
+                        chatTab.focus();
+                    } else {
+                        window.open(`${href}/join/${roomID}`, "_blank");
+                    }
+                };
             }
         });
+        
         playNotificationSound()
     }else{
         console.log(Notification.permission)
     }
 }
+socket.on("notification",async(data , ack) => {
+    const decryptedMessage = await {
+        // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
+            ...data,
+            message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
+            // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
+            handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
+            roomID : data.roomID ? decryptMessage(data.roomID): data.roomID
+        };
+    if(decryptedMessage.sender != currentUser.username){
+        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,decryptedMessage.roomID)
+        playNotificationSound()
+    }
+})
+
+
+setInterval(() => {
+    if (!socket.connected) {
+        console.warn("🔴 Connection lost! Reconnecting...");
+        socket.connect();
+    }
+}, 5000); // هر ۵ ثانیه یک‌بار بررسی کنه
+
+socket.on("disconnect", () => {
+    console.warn("🔴 Disconnected from server! Trying to reconnect...");
+    setTimeout(() => {
+        socket.connect();
+    }, 2000); // تلاش برای اتصال مجدد بعد از ۲ ثانیه
+});
+
+socket.on("connect", () => {
+    console.log("🟢 Reconnected to server!");
+});
+socket.on("ping", () => {
+    console.log("📡 Ping received from server");
+});
+
+socket.on("pong", () => {
+    console.log("✅ Server is alive!");
+});

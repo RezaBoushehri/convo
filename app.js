@@ -1159,13 +1159,33 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 sender: username,
                 // handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
-            console.log(await processMessage(enrichedMessage))
-            // Broadcast the message to the room
-            io.in(currentUser.roomID).emit("chat",await processMessage(enrichedMessage),{ success: true });
-    
+            let encryptedMessage = await processMessage(enrichedMessage)  
+                      // Broadcast the message to the room
+            io.in(currentUser.roomID).emit("chat",await encryptedMessage,{ success: true });
             console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
+            callback({ success: true });
+            // پیدا کردن همه اعضای اتاق
+                    // دریافت اطلاعات اتاق از دیتابیس
+            const room = await Room.findOne({ roomID : currentUser.roomID});
+            if (!room) throw new Error("Room not found!");
+
+            const roomMembers = room.members; // لیست اعضای اتاق
+            
+            // گرفتن Socket ID کاربران از دیتابیس
+            const onlineUsers = await User.find({ username: { $in: roomMembers } });
+            encryptedMessage ={
+                ...data,
+                roomID : socketEncrypt(currentUser.roomID)
+            }
+            // ارسال پیام به تمام کاربران حاضر در اتاق
+            onlineUsers.forEach((user) => {
+                if (user.socketID) {
+                    io.to(user.socketID).emit("notification", encryptedMessage);
+                }
+            });
+            
+            console.log(`🔔 Notification sent to users in room "${roomID}"`);
         // }
-        callback({ success: true });
     } catch (error) {
         console.error("Error handling chat message:", error);
 
