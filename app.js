@@ -12,11 +12,15 @@ const DOMPurify = createDOMPurify(window);
     port = process.env.PORT || 4000,
     // SSL certificate and key options
     options = {
-        key: fs.readFileSync('private-key.pem', 'utf8'),
-        cert: fs.readFileSync('certificate.pem', 'utf8'),
-        ca_cert: fs.readFileSync('ca-certificate.pem', 'utf8'),
-        ca_key: fs.readFileSync('ca-key.pem', 'utf8'),
-        passphrase: 'farahoosh'
+        // key: fs.readFileSync('private-key.pem', 'utf8'),
+        // cert: fs.readFileSync('certificate.pem', 'utf8'),
+        // ca_cert: fs.readFileSync('ca-certificate.pem', 'utf8'),
+        // ca_key: fs.readFileSync('ca-key.pem', 'utf8'),
+        // passphrase: 'farahoosh'
+        key: fs.readFileSync('/etc/letsencrypt/live/mc.farahoosh.ir/privkey.pem', 'utf8'),
+        cert: fs.readFileSync('/etc/letsencrypt/live/mc.farahoosh.ir/fullchain.pem', 'utf8'),
+         
+        
     },
     cors = require("cors"),
     socket = require("socket.io"),
