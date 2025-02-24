@@ -527,6 +527,113 @@ app.post('/createRoom', async (req, res) => {
     }
 });
 
+app.post('/5ecd285c5bac42c33f903e8332cb01d3dcba3fc4ac2fd8a9c6273ef23387f989', async (req, res) => {
+    try {
+        // استخراج توکن از هدر
+        const token = req.headers['authorization']?.split(' ')[1];
+        const secret = '12425cb7d8ce5b125e9279ad233ecb079ec57ec9f050c9af5ac8856a2d21f65c';
+        if (!token) {
+            return res.status(400).json({ error: 'Authorization token missing' });
+        }
+
+        // رمزگشایی توکن
+        const decryptedToken = decrypt(token, secret);
+        console.log("Decrypted Token:", decryptedToken);
+
+        // رمزگشایی داده‌های رمزگذاری‌شده
+        const encryptedData = req.body.data;
+        const decryptedData = decrypt(encryptedData, secret);
+        console.log("Decrypted Data:", decryptedData);
+
+        const { phoneNumber, Domain } = decryptedData;
+
+        const sanitizedUsername = DOMPurify.sanitize(phoneNumber);
+
+        // Find the user
+        const user = await User.findOne({ username: sanitizedUsername });
+        
+        if (!user) {
+            // User not found
+            return res.status(400).json({ error: "User not found" });
+        }
+        if (user) {
+            if (!user.Domain) {
+                // If Domain field does not exist, set it as an array with the new value
+                user.Domain = [Domain];
+            } else if (!user.Domain.includes(Domain)) {
+                // If Domain exists but does not contain the value, append it
+                user.Domain.push(Domain);
+            }
+            
+            // Save the updated user document
+            await user.save();
+            console.log("Updated user:", user);
+        } else {
+            console.log("User not found.");
+        }
+
+    
+        // Direct comparison for cleartext password
+        // if (req.body.password !== user.password) {
+        //     // Invalid password
+        //     // return res.redirect("/login?error=Invalid Password");
+        // }
+    
+        passport.authenticate("local", async (err, authenticatedUser, info) => {
+            if (err) {
+                // Passport authentication error
+                console.error("Passport authentication error:", err);
+                return next(err);
+            }
+    
+            if (!authenticatedUser) {
+                // Authentication failed
+                // return res.redirect("/login?error=Authentication Failed");
+            }
+    
+            req.logIn(authenticatedUser, async (err) => {
+                if (err) {
+                    // Error during login
+                    console.error("Error during login:", err);
+                    return next(err);
+                }
+    
+                sanitizedUsername = authenticatedUser.username;
+    
+                try {
+                    // Reset socketID to null after login
+                    await User.updateOne(
+                        { _id: authenticatedUser._id },
+                        { $set: { socketID: null } }
+                    );
+                } catch (updateErr) {
+                    console.error("Error resetting socketID:", updateErr);
+                    return next(updateErr);
+                }
+    
+                try {
+                    req.session.save((err) => {
+                        if (err) {
+                            // Session save error
+                            console.error("Error saving session:", err);
+                            return next(err);
+                        }
+                    });
+                } catch (saveErr) {
+                    console.error("Error during session save:", saveErr);
+                    return next(saveErr);
+                }
+    
+                res.status(200).json({ success: "User Login successful" })
+                
+            });
+        })(req, res, next);
+    } catch (err) {
+        console.error("Error:", err.message);
+        res.status(400).json({ error: 'Decryption error or invalid data' });
+    }
+});
+
 
 
 // یک endpoint برای کلاینت ایجاد کنید
