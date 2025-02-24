@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const ipRangeCheck = require("ip-range-check");
 const express = require("express");
 const multer = require("multer");
+const jwt = require('jsonwebtoken');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
     fs = require('fs'),
@@ -527,113 +528,109 @@ app.post('/createRoom', async (req, res) => {
     }
 });
 
-app.post('/5ecd285c5bac42c33f903e8332cb01d3dcba3fc4ac2fd8a9c6273ef23387f989', async (req, res) => {
-    try {
-        // استخراج توکن از هدر
-        const token = req.headers['authorization']?.split(' ')[1];
-        const secret = '12425cb7d8ce5b125e9279ad233ecb079ec57ec9f050c9af5ac8856a2d21f65c';
-        if (!token) {
-            return res.status(400).json({ error: 'Authorization token missing' });
-        }
 
-        // رمزگشایی توکن
-        const decryptedToken = decrypt(token, secret);
-        console.log("Decrypted Token:", decryptedToken);
+// auto from domains login
 
-        // رمزگشایی داده‌های رمزگذاری‌شده
-        const encryptedData = req.body.data;
-        const decryptedData = decrypt(encryptedData, secret);
-        console.log("Decrypted Data:", decryptedData);
+// API برای ورود از دامنه‌های مختلف
+// app.post('/5ecd285c5bac42c33f903e8332cb01d3dcba3fc4ac2fd8a9c6273ef23387f989', async (req, res, next) => {
+//     try {
+//         // استخراج توکن از هدر
+//         const token = req.headers['authorization']?.split(' ')[1];
+//         const secret = '12425cb7d8ce5b125e9279ad233ecb079ec57ec9f050c9af5ac8856a2d21f65c';
+//         if (!token) {
+//             return res.status(400).json({ error: 'Authorization token missing' });
+//         }
 
-        const { phoneNumber, Domain } = decryptedData;
+//         // رمزگشایی توکن
+//         const decryptedToken = decrypt(token, secret);
+//         console.log("Decrypted Token:", decryptedToken);
 
-        const sanitizedUsername = DOMPurify.sanitize(phoneNumber);
+//         // رمزگشایی داده‌های رمزگذاری‌شده
+//         const encryptedData = req.body.data;
+//         const decryptedData = decrypt(encryptedData, secret);
+//         console.log("Decrypted Data:", decryptedData);
 
-        // Find the user
-        const user = await User.findOne({ username: sanitizedUsername });
+//         const { phoneNumber, Domain } = decryptedData;
+
+//         const sanitizedUsername = DOMPurify.sanitize(phoneNumber);
+
+//         // پیدا کردن کاربر
+//         const user = await User.findOne({ username: sanitizedUsername });
         
-        if (!user) {
-            // User not found
-            return res.status(400).json({ error: "User not found" });
-        }
-        if (user) {
-            if (!user.Domain) {
-                // If Domain field does not exist, set it as an array with the new value
-                user.Domain = [Domain];
-            } else if (!user.Domain.includes(Domain)) {
-                // If Domain exists but does not contain the value, append it
-                user.Domain.push(Domain);
-            }
-            
-            // Save the updated user document
-            await user.save();
-            console.log("Updated user:", user);
-        } else {
-            console.log("User not found.");
-        }
+//         if (!user) {
+//             return res.status(400).json({ error: "User not found" });
+//         }
 
-    
-        // Direct comparison for cleartext password
-        // if (req.body.password !== user.password) {
-        //     // Invalid password
-        //     // return res.redirect("/login?error=Invalid Password");
-        // }
-    
-        passport.authenticate("local", async (err, authenticatedUser, info) => {
-            if (err) {
-                // Passport authentication error
-                console.error("Passport authentication error:", err);
-                return next(err);
-            }
-    
-            if (!authenticatedUser) {
-                // Authentication failed
-                // return res.redirect("/login?error=Authentication Failed");
-            }
-    
-            req.logIn(authenticatedUser, async (err) => {
-                if (err) {
-                    // Error during login
-                    console.error("Error during login:", err);
-                    return next(err);
-                }
-    
-                sanitizedUsername = authenticatedUser.username;
-    
-                try {
-                    // Reset socketID to null after login
-                    await User.updateOne(
-                        { _id: authenticatedUser._id },
-                        { $set: { socketID: null } }
-                    );
-                } catch (updateErr) {
-                    console.error("Error resetting socketID:", updateErr);
-                    return next(updateErr);
-                }
-    
-                try {
-                    req.session.save((err) => {
-                        if (err) {
-                            // Session save error
-                            console.error("Error saving session:", err);
-                            return next(err);
-                        }
-                    });
-                } catch (saveErr) {
-                    console.error("Error during session save:", saveErr);
-                    return next(saveErr);
-                }
-    
-                res.status(200).json({ success: "User Login successful" })
-                
-            });
-        })(req, res, next);
-    } catch (err) {
-        console.error("Error:", err.message);
-        res.status(400).json({ error: 'Decryption error or invalid data' });
-    }
-});
+//         // به‌روزرسانی دامنه برای کاربر
+//         // const updatedUser = await User.findOneAndUpdate(
+//         //     { username: sanitizedUsername },
+//         //     { 
+//         //         $setOnInsert: { Domain: [Domain] },  // اگر Domain وجود نداشت، اضافه می‌شود
+//         //         $addToSet: { Domain } // در صورت وجود، به مجموعه اضافه می‌شود
+//         //     },
+//         //     { lean: false } // upsert به معنای ایجاد کاربر جدید است اگر پیدا نشد
+//         // );
+        
+//         // console.log("Updated user:", updatedUser);
+//         let superSECRET =encrypt(secretKey)
+//         // تولید توکن JWT برای ورود کاربر
+//         const jwtToken = jwt.sign(
+//             { id: user._id, username: user.username },
+//             superSECRET,
+//             { expiresIn: "24h" } // توکن 1 ساعت معتبر است
+//         );
 
+//         // توکن JWT را به سایت دیگر ارسال می‌کنیم
+//         res.json({ success: true, token: jwtToken });
+
+//         // عملیات احراز هویت با Passport
+//         passport.authenticate("local", async (err, authenticatedUser, info) => {
+//             if (err) {
+//                 console.error("Passport authentication error:", err);
+//                 return next(err);
+//             }
+
+//             if (!authenticatedUser) {
+//                 return res.status(400).json({ error: "Authentication failed" });
+//             }
+
+//             req.logIn(authenticatedUser, async (err) => {
+//                 if (err) {
+//                     console.error("Error during login:", err);
+//                     return next(err);
+//                 }
+
+//                 try {
+//                     // تنظیم socketID به null پس از ورود
+//                     await User.updateOne(
+//                         { _id: authenticatedUser._id },
+//                         { $set: { socketID: null } }
+//                     );
+//                 } catch (updateErr) {
+//                     console.error("Error resetting socketID:", updateErr);
+//                     return next(updateErr);
+//                 }
+
+//                 try {
+//                     req.session.save((err) => {
+//                         if (err) {
+//                             console.error("Error saving session:", err);
+//                             return next(err);
+//                         }
+//                     });
+//                 } catch (saveErr) {
+//                     console.error("Error during session save:", saveErr);
+//                     return next(saveErr);
+//                 }
+
+//                 res.status(200).json({ success: "User Login successful" });
+//             });
+//         })(req, res, next);
+//     } catch (err) {
+//         console.error("Error:", err.message);
+//         res.status(400).json({ error: 'Decryption error or invalid data' });
+//     }
+// });
 
 
 // یک endpoint برای کلاینت ایجاد کنید
@@ -658,7 +655,7 @@ app.get("/sitemap.xml", function (req, res) {
 });
 
 app.use(function (req, res) {
-    res.status(404).render("404");
+    // res.status(404).render("404");
 });
 
 

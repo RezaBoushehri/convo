@@ -3196,25 +3196,26 @@ socket.on("connect", () => {
     console.log("🟢 Reconnected to server!");
     const roomID = document.querySelector("#roomID").textContent.trim();
     
-        // Show the loading spinner if hidden
-        const loadingElement = document.getElementById('loading');
-        if (loadingElement.classList.contains('hide')) {
-            loadingElement.classList.remove("hide");
-            loadingElement.classList.add("show");
-        }
-    
-        // Emit the event and wait for the server's acknowledgment
-        socket.emit("requestOlderMessages", { 
-            roomID: roomID, 
-            counter: `${roomID}-0`, 
-            type: 'latest' 
-        }, () => { // Callback function for when the server acknowledges
-            // Scroll after emitting the event
-            chat_window.scrollTo({
-                top: chat_window.scrollHeight, // Scroll to the bottom
-                behavior: "auto",
+    if(roomID){
+            // Show the loading spinner if hidden
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement.classList.contains('hide')) {
+                loadingElement.classList.remove("hide");
+                loadingElement.classList.add("show");
+            }
+            // Emit the event and wait for the server's acknowledgment
+            socket.emit("requestOlderMessages", { 
+                roomID: roomID, 
+                counter: `${roomID}-0`, 
+                type: 'latest' 
+            }, () => { // Callback function for when the server acknowledges
+                // Scroll after emitting the event
+                chat_window.scrollTo({
+                    top: chat_window.scrollHeight, // Scroll to the bottom
+                    behavior: "auto",
+                });
             });
-        });
+        }
     
 });
 socket.on("ping", () => {
