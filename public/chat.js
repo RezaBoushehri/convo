@@ -23,7 +23,7 @@ function decryptMessage(encryptedMessage) {
 
 
 
-const href = production ? `https://${window.location.hostname}:4000` : "https://94.74.128.194:4000",
+const href = production ? `https://mc.farahoosh.ir:4000` : "https://94.74.128.194:4000",
     socket = io.connect(href, {
         transports: ['polling','websocket'], // Allows both WebSocket and Polling
         secure: true, // Ensures that the connection uses HTTPS
@@ -1706,52 +1706,56 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
     }
 });
-document.getElementById("settingsButton").addEventListener("click", () => {
-    const panel = document.getElementById("settingsPanel");
-    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "#ffff";
-    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
-    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
-    const fgColor = savedSettings?.fgColor || "#cccc";
-    const fontSize = savedSettings?.fontSize || "16px";
-    panel.style.display = panel.style.display === "block" ? "none" : "block";
-    document.getElementById("bgColorPicker").value = bgColor
-    document.getElementById("fgColorPicker").value = fgColor
-    document.getElementById("chatWindowBg-color").value = chatWindowBgColor
-    document.getElementById("chatWindowFg-color").value = chatWindowFgColor
-    fontSizeValue.textContent = fontSize;
-    // Initialize with default preview
-    updatePreview();
+if(document.getElementById("settingsButton")){
+    document.getElementById("settingsButton").addEventListener("click", () => {
+        const panel = document.getElementById("settingsPanel");
+        const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+        const bgColor = savedSettings?.bgColor || "#ffff";
+        const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
+        const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+        const fgColor = savedSettings?.fgColor || "#cccc";
+        const fontSize = savedSettings?.fontSize || "16px";
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
+        document.getElementById("bgColorPicker").value = bgColor
+        document.getElementById("fgColorPicker").value = fgColor
+        document.getElementById("chatWindowBg-color").value = chatWindowBgColor
+        document.getElementById("chatWindowFg-color").value = chatWindowFgColor
+        fontSizeValue.textContent = fontSize;
+        // Initialize with default preview
+        updatePreview();
 
-});
-document.getElementById("saveSettings").addEventListener("click", () => {
-    const panel = document.getElementById("settingsPanel");
+    });
+}
+if(document.getElementById("saveSettings")){
+    document.getElementById("saveSettings").addEventListener("click", () => {
+        const panel = document.getElementById("settingsPanel");
 
-    panel.style.display = panel.style.display === "block" ? "none" : "block";
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
 
-    // Save settings locally
-    const userSettings = {
-        marginLeft: document.getElementById('margin-left').value,
-        marginRight: document.getElementById('margin-right').value,
-        chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
-        chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
-        bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
-        fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
-        sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
-        sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
-        fontSize: `${fontSizeRange.value}px`, // Get font size from range input
-        borderRad: `${borderRadRange.value}px`, // Get font size from range input
-    };
-    localStorage.setItem("userSettings", JSON.stringify(userSettings));
+        // Save settings locally
+        const userSettings = {
+            marginLeft: document.getElementById('margin-left').value,
+            marginRight: document.getElementById('margin-right').value,
+            chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
+            chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
+            bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
+            fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
+            sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
+            sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
+            fontSize: `${fontSizeRange.value}px`, // Get font size from range input
+            borderRad: `${borderRadRange.value}px`, // Get font size from range input
+        };
+        localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
-    // Optionally save settings to the server
-    socket.emit("saveSettings", userSettings , currentUser.username);
+        // Optionally save settings to the server
+        socket.emit("saveSettings", userSettings , currentUser.username);
 
-    alerting("Settings saved successfully!");
-    document.getElementById("settingsPanel").style.display = "none"; // Close panel
-    window.location.reload(); // This will refresh the page and reset the UI
+        alerting("Settings saved successfully!");
+        document.getElementById("settingsPanel").style.display = "none"; // Close panel
+        window.location.reload(); // This will refresh the page and reset the UI
 
-});
+    });
+}
 socket.on("applySettings", (settings) => {
 
     localStorage.setItem("userSettings", JSON.stringify(settings));
@@ -1764,31 +1768,33 @@ socket.on("applySettings", (settings) => {
     document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
     document.documentElement.style.setProperty("--user-border-radius", settings.borderRad);
 });
-document.getElementById("resetSettings").addEventListener("click", () => {
-    if(confirm("Are u sure ? (It may delete all customized setting.)")){
-        const userSettings = {
-            marginLeft: "10%",
-            marginRight: "%10",
-            chatWindowBgColor: "245, 245, 245",
-            chatWindowFgColor: "33, 33, 33",
-            bgColor: "204, 238, 191", // Assuming a background color picker exists
-            fgColor: "0, 0, 0", // Assuming a background color picker exists
-            sideBgColor: "242, 242, 242", // Assuming a background color picker exists
-            sideFgColor: "33, 33, 33", // Assuming a background color picker exists
-            fontSize: "16px", // Get font size from range input
-            borderRad: "17px", // Get font size from range input
-        };
-        localStorage.setItem("userSettings", JSON.stringify(userSettings));
+if(document.getElementById("resetSettings")){
+    document.getElementById("resetSettings").addEventListener("click", () => {
+        if(confirm("Are u sure ? (It may delete all customized setting.)")){
+            const userSettings = {
+                marginLeft: "10%",
+                marginRight: "%10",
+                chatWindowBgColor: "245, 245, 245",
+                chatWindowFgColor: "33, 33, 33",
+                bgColor: "204, 238, 191", // Assuming a background color picker exists
+                fgColor: "0, 0, 0", // Assuming a background color picker exists
+                sideBgColor: "242, 242, 242", // Assuming a background color picker exists
+                sideFgColor: "33, 33, 33", // Assuming a background color picker exists
+                fontSize: "16px", // Get font size from range input
+                borderRad: "17px", // Get font size from range input
+            };
+            localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
-        // Optionally save settings to the server
-        socket.emit("saveSettings", userSettings , currentUser.username);
-    
-        alert("Settings saved successfully!");
-        document.getElementById("settingsPanel").style.display = "none"; // Close panel
-        window.location.reload(); // This will refresh the page and reset the UI
+            // Optionally save settings to the server
+            socket.emit("saveSettings", userSettings , currentUser.username);
+        
+            alert("Settings saved successfully!");
+            document.getElementById("settingsPanel").style.display = "none"; // Close panel
+            window.location.reload(); // This will refresh the page and reset the UI
 
-    }
-})
+        }
+    })
+}
 // ----------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));

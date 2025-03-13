@@ -2,8 +2,6 @@
 // const socket = io.connect(window.location.hostname),
 const production = true;
 
-const secretKey = CryptoJS.enc.Hex.parse('a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771');
-
 // تابع برای رمزگذاری
 function encryptMessage(message) {
     const iv = CryptoJS.lib.WordArray.random(16); // تولید IV تصادفی
@@ -23,28 +21,16 @@ function decryptMessage(encryptedMessage) {
 
 
 
-const href = production ? `https://${window.location.hostname}:4000` : "https://94.74.128.194:4000",
-    socket = io.connect(href, {
-        transports: ['polling','websocket'], // Allows both WebSocket and Polling
-        secure: true, // Ensures that the connection uses HTTPS
-        withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
-        rejectUnauthorized: true, // Bypass SSL verification for self-signed certificates (use with caution)
-    }),
+const 
 
     name = document.getElementById("dropdownMenuButton"),
-    message = document.getElementById("editable-message-text"),
     replyBox = document.getElementById("replyBox"),
     output = document.getElementById("output"),
-    button = document.getElementById("button"),
     feedback = document.getElementById("feedback"),
     alertTag = document.getElementById("alert"),
     chat_window = document.getElementById("chat-window"),
     joinRoomName = document.getElementById("joinRoomName"),
-    fileInput = document.getElementById("file-input"),
     headTag = document.getElementById('headTag'),
-    currentUser = {
-        username: document.getElementById('username').value
-    },
     
     options = {
         maxSizeMB: 0.3,
@@ -87,48 +73,6 @@ if (isMobileDevice()) {
     document.getElementById('chat-window').style.overflowY = 'auto'; // Example adjustment
 }
 let previousLineCount = 1; // تعداد خطوط قبلی
-
-message.addEventListener('input', () => {
-
-   // محاسبه تعداد خطوط فعلی
-   const lineHeight = parseInt(window.getComputedStyle(message).lineHeight, 10); // ارتفاع خط از CSS
-
-    // تعداد خطوط فعلی
-    const currentLineCount = Math.ceil(message.scrollHeight / lineHeight);
-
-    // بررسی افزایش یا کاهش خطوط
-    if (currentLineCount !== previousLineCount) {
-        // محدود کردن تعداد خطوط به 5
-        const maxLines = 5;
-        const allowedLineCount = Math.min(currentLineCount, maxLines);
-
-        // محاسبه ارتفاع جدید بر اساس تعداد خطوط مجاز
-        const newHeight = allowedLineCount * lineHeight;
-
-        // محاسبه مدت زمان ترنزیشن بر اساس تغییرات ارتفاع
-        const heightDifference = Math.abs(newHeight - message.offsetHeight); // تفاوت بین ارتفاع فعلی و جدید
-        const transitionDuration = Math.min(heightDifference * 20, 1000); // مدت زمان ترنزیشن (محدود به 500ms)
-
-        // اعمال تغییرات در استایل
-        message.style.height = `${newHeight}px`;
-        message.style.transitionDuration = `${transitionDuration}ms`;
-        message.style.transform = `${transitionDuration}ms`;
-        // message.style.overflowY = currentLineCount > maxLines ? 'scroll' : 'hidden';
-       // محاسبه مقدار جابجایی به بالا (برای حفظ انیمیشن از بالا)
-       const translateY = -(newHeight ) / 2;
-       message.style.transform = `translateY(${translateY}px)`;
-       replyBox.style.transform = `translateY(${translateY - 5}px)`;
-
-        // به‌روزرسانی تعداد خطوط قبلی
-        previousLineCount = allowedLineCount-1;
-
-    }
-    if(previousLineCount<=1){
-        message.style.transform = `translateY(0px)`;
-
-    }
-  
-});
 
 
 
@@ -280,42 +224,6 @@ function toggleEmojiContainer(messageId) {
 // const replyBox1 = document.getElementById("replyBox");
 
 // Set placeholder text
-var placeholderText = "Message ...";
-
-// Add the placeholder when the content is empty
-function setPlaceholder() {
-    if (message.textContent.trim() === "") {
-        message.textContent = placeholderText;
-        message.style.transform = `translateY(0px)`;
-        replyBox.style.transform = `translateY(0px)`;
-
-    } else if (message.textContent === placeholderText) {
-        message.textContent = "";
-    }
-}
-
-// Trigger placeholder logic on focus and blur
-message.addEventListener("focus", function() {
-    if (message.textContent === placeholderText) {
-        message.textContent = "";
-    }
-});
-
-message.addEventListener("blur", function() {
-    setPlaceholder();
-});
-
-// Initialize placeholder on page load
-setPlaceholder();
-
-
-
-// =======================================================
-message.addEventListener("input", function () {
-    this.style.height = "auto"; // Reset height to calculate content height
-    this.style.height = `${this.scrollHeight}px`; // Set height based on content
-});
-
 document.getElementById('username').value = ''
 let image = "";
 let fileData ;
@@ -326,6 +234,14 @@ $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 // document.getElementById('file-inputBtn').addEventListener("click",()=>{
 //     document.getElementById('file-input').click();
 // })
+function convertFileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result); // Base64 encoded data
+        reader.onerror = reject;
+        reader.readAsDataURL(file); // Reads the file as base64
+    });
+}
 
 const setImage = (file) => {
     const reader = new FileReader();
@@ -355,14 +271,14 @@ const setImage = (file) => {
 //         console.log(image)
 //     };
 // };
-const setFile = (file) => {
+const setFile = (file,dir) => {
+    
     const reader = new FileReader();
     return new Promise((resolve, reject) => {
         reader.readAsDataURL(file);
         reader.onload = (event) => {
-            const base64File = event.target.result; // The base64-encoded file content
             fileData = {
-                fileData: base64File,
+                fileData: dir,
                 fileType: file.type,
                 fileName: file.name,
             };
@@ -377,27 +293,6 @@ const setFile = (file) => {
 };
 
 
-// $("#file-input").on("change", (e) => {
-//     button.disabled = true;
-//     fileInput.disabled = true;
-//     const file = e.originalEvent.target.files[0];
-//     if (file) {
-//         if (file.type != "image/gif") {
-//             options.fileType = file.type;
-//             imageCompression(file, options)
-//                 .then((compressedFile) => {
-//                     console.log(compressedFile);
-//                     setImage(compressedFile);
-//                     message.focus();
-//                 })
-//                 .catch((error) => console.log(error));
-//         } else {
-//             setImage(file);
-//         }
-//     }
-//     button.disabled = false;
-//     fileInput.disabled = false;
-// });
 
 
 
@@ -410,300 +305,6 @@ socket.emit("userLoggedIn", { username: currentUser.username });
 
 //=================================================================
 //emit chat event (send message)
-button.addEventListener("click", async () => {
-    const replyBox = document.getElementById('replyBox')
-    let quote = replyBox.getAttribute('reply-id') || null;
-    let text = message.innerText; // Get the HTML content
-
-    // Sanitize the input to remove potentially dangerous content
-    text = DOMPurify.sanitize(text);
-    
-    // Replace <br> and other elements if needed
-    text = escapeHtml(text)
-    
-    // console.log(text);
-    
-    if(text == 'Message ...'&& !fileData){
-        $("#alert")
-        .html(
-            `<div class='alert alert-danger' role='alert'>
-            message cannot be empty
-            </div>`,
-        )
-        .hide();
-    $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
-    return;
-    }
-    let data = {
-        username: currentUser.username,
-        handle: name.textContent.trim(),
-        roomID: roomID,
-        quote:quote,
-        message: text == 'message ...' ?' ': text,
-        file: fileData || null,
-        date: new Date(),
-    };
-    let dataEncrypt = {
-        username: encryptMessage(currentUser.username),
-        handle:  encryptMessage(name.textContent.trim()),
-        roomID:  encryptMessage(roomID),
-        quote: encryptMessage(quote),
-        message: text == 'message ...' ?' ': encryptMessage(text),
-        file: fileData || null,
-        date: new Date(),
-    };
-    // console.log(quote)
-
-    
-    if ((!data.message && !data.file) || !data.username ) {
-        $("#alert")
-                .html(
-                    `<div class='alert alert-danger' role='alert'>
-                       message cannot be empty
-                    </div>`,
-                )
-                .hide();
-        $("#alert").slideDown(500);
-            window.setTimeout(function () {
-                $(".alert")
-                    .fadeTo(500, 0)
-                    .slideUp(500, function () {
-                        $(this).remove();
-                    });
-        }, 3000);
-        return;
-    }
-   // Display "sending" message in UI
-    const sendingPlaceholder =`
-    <div id="sending" style="display: flex; justify-content: flex-end; "> 
-        <div class="spinner"></div>
-    </div>
-        `;
-        const reply = (quote) => {
-            if (quote) {
-                const replyMessageElm = document.getElementById('replyBox');
-                if (!replyMessageElm) {
-                    console.error('Reply box element not found.');
-                    return null; // Safeguard if the element doesn't exist
-                }
-                
-                const sender = replyMessageElm.querySelector('h6')?.textContent.trim() || '';
-                const message = document.getElementById('messageReplied')?.innerText || '';
-                
-                return {
-                    sender: sender,
-                    quote: quote,
-                    handle: sender,
-                    message: message,
-                };
-            }
-            return null; // Return null if no quote
-        };
-        let fileDetails = null;
-        const messageId = messageIdSplited[messageIdSplited.length - 1];
-        let lastMessageElm = output.querySelector(`#Message-${messageId}`);
-        
-        if (!lastMessageElm) {
-            // If last message element doesn't exist, create it
-            lastMessageElm = document.createElement("div");
-            lastMessageElm.id = `Message-${messageId}`;
-            lastMessageElm.classList.add("message-container");
-            output.appendChild(lastMessageElm);
-        }
-        
-        // Now safely query for '.message' within lastMessageElm
-        let inLast = lastMessageElm.querySelector(".message");
-        
-        if (!inLast) {
-            // If `.message` element doesn't exist, create it
-            inLast = document.createElement("div");
-            inLast.classList.add("message");
-            lastMessageElm.appendChild(inLast);
-        }
-        
-        // console.log(inLast.innerHTML)
-        if(inLast){
-            const footerSending= inLast.querySelector(`.read-toggle`)
-            if(footerSending){
-                footerSending.innerHTML=`
-                <div id="upload-container" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 10px;">
-                    <progress id="upload-progress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
-                    <span id="upload-status" style="margin-left: 10px;">0% uploaded</span>
-                </div>
-                <strong>${sendingPlaceholder}</strong>`
-            }
-        }
-        const file = fileInput.files[0];
-        if (file) {
-
-            const progressBar = document.getElementById("upload-progress");
-            const uploadStatus = document.getElementById("upload-status");
-
-            
-    
-            button.disabled = true;
-            fileInput.disabled = true;
-
-            const maxSize = 10 * 1024 * 1024; // 10MB limit
-            if (file.size > maxSize) {
-                alerting("File size exceeds 10MB limit.");
-                return;
-            }
-        
-            progressBar.value = 0;
-            uploadStatus.innerText = "Uploading...";
-        
-            const formData = new FormData();
-            formData.append("file", file);
-        
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", "/upload", true);
-        
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const percent = Math.round((event.loaded / event.total) * 100);
-                    progressBar.value = percent;
-                    uploadStatus.innerText = `${percent}% uploaded`;
-        
-                    // Emit progress event to the server
-                    socket.emit("uploadProgress", { progress: percent });
-                }
-            };
-        
-            xhr.onload = () => {
-                if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    uploadStatus.innerText = "Upload complete!";
-                    alerting("File uploaded successfully: " + response.filePath);
-                } else {
-                    uploadStatus.innerText = "Upload failed!";
-                    alerting("Upload failed! Please try again.");
-                }
-            };
-        
-            xhr.onerror = () => {
-                uploadStatus.innerText = "Upload error!";
-                alerting("An error occurred during the upload.");
-            };
-        
-            xhr.send(formData);
-    
-        
-            // Listen for upload progress updates from the server
-            socket.on("uploadProgress", (data) => {
-                progressBar.value = data.progress;
-                uploadStatus.innerText = `${data.progress}% uploaded`;
-            });
-            
-            socket.on("uploadSuccess", (data) => {
-                alerting(`File ${data.fileName} uploaded successfully!`);
-            });
-        }
-    
-        if (data.file !== null && data.file !== undefined) {
-            // Ensure data.file is an array (whether single data.file or array of data.file)
-            const filesArray = Array.isArray(data.file) ? data.file : [data.file];
-        
-            // Conditionally map over the file if there are any
-            fileDetails = filesArray.length > 0
-                ? filesArray.map(file => ({
-                    file: file.fileData,  // Assuming fileData contains base64 data or a URL
-                    fileType: file.fileType,
-                    fileName: file.fileName || null,  // Default to null if fileName is not present
-                }))
-                : null;  // If no file, return null
-        
-            // console.log(fileDetails);
-        }else{
-            fileDetails=''
-            // console.error("erorr : ",file);
-        }
-        
-        
-        const dataShow = {
-            ...data,
-            file: fileDetails||'',
-            quote: `${roomID}-${quote}`,
-            sender: currentUser.username || '',
-            reply: quote ? reply(quote) : null // Ensure it's an array if quote is defined
-        };
-        
-    console.log(dataShow)
-    // Send message to server
-    addMessageToChatUI(dataShow)
-    
-
-  // Clear input fields
-  message.innerHTML = "";
-  message.style.height = "36px";
-  message.style.transform = `translateY(0px)`;
-  replyBox.style.transform = `translateY(0px)`;
-  fileData = "";
-  clearReply()
-
-    // Scroll to the bottom of the chat window
-    // output.insertAdjacentHTML("beforeend",sendingPlaceholder);
-    
-    
-    chat_window.scrollTo({
-        top: chat_window.scrollHeight, // Scroll to the bottom
-        behavior: "auto",
-    });
-    if(document.querySelector('.unread')) document.querySelector('.unread').remove()
-
-    socket.emit("chat", dataEncrypt, (ack) => {
-        // Callback is triggered when the server acknowledges receipt
-        
-        // Remove the "sending" placeholder
-        var placeholder = output.querySelector("#sending");
-        // console.log(placeholder)
-        if (ack.success) {
-            if (placeholder) {
-                
-                placeholder.insertAdjacentHTML('afterend', `<i class="bi bi-check2"></i>`);
-                placeholder.remove();
-                
-            }
-            
-
-            // // Display the sent message in the UI
-            // output.innerHTML += `<div style="display:flex;justify-content:flex-end;color:black;">
-            //     ${data.message}
-            // </div>`;
-        } else {
-            // Handle failure (e.g., show an error message)
-            output.innerHTML += `<div style="display:flex;justify-content:flex-end;color:red;">
-                Failed to send message
-            </div>`;
-        }
-     
-      
-    });
-  
-    // Add listener for server acknowledgment
-    socket.on("chat", (response) => {
-        if (response.error) {
-
-            alerting(response.error,'danger');
-            return;
-        }
-
-        // // Add the message to the UI
-        // addMessageToChatUI(response);
-    });
-    // Remove "sending" placeholder once the message is successfully added to the UI
-    if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
-        setTimeout(() => {
-            applyShowMore();
-            },100);
-})
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
 let typeUsername = currentUser.username;
@@ -711,40 +312,6 @@ const typingTimeout = 1000; // Timeout for detecting "stop typing"
 let typingTimer;
 
 
-
-message.addEventListener("input", (event) => {
-    clearTimeout(typingTimer); // Reset timer
-
-    // Emit "typing" event with correct property name
-    socket.emit("typing", { 
-        name: name.textContent.trim(), // Replace with your actual username variable
-        username: typeUsername, // Replace with your actual username variable
-        isTyping: true 
-    });
-
-    // Set a timeout to emit "stop typing"
-    typingTimer = setTimeout(() => {
-        socket.emit("typing", { 
-            name: name.textContent.trim(), 
-            username: typeUsername, 
-            isTyping: false 
-        });
-    }, typingTimeout);
-});
-
-message.addEventListener("keydown", (event) => {
-    // 13 => keycode for Enter
-    if (event.keyCode === 13&& !isMobileDevice()) {
-        if (event.shiftKey) {
-            // Shift + Enter for new line
-            return; // Do nothing, just insert a newline in the editable div
-        } else {
-            // Enter without shift, submit the message (simulate button click)
-            button.click();
-            event.preventDefault(); // Prevent default behavior (e.g., new line)
-        }
-    }
-});
 
 //=================================================================
 //Handle user-connected event
@@ -782,34 +349,14 @@ socket.on("joined", (data) => {
     // }
     if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
 
-    if(document.querySelector(".close")) document.querySelector(".close").click();
-    document.querySelector("#roomInfo").innerHTML = `
-        <div class=" mx-3">
-            <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
-                title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
-                Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
-                Admin : <em class='text-warning'>${data.name}</em>
-            </button>
-            <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
-            <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
-                class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
-                target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
-                <i class='bi bi-whatsapp'></i>
-            </a>
-            <button type='button' title="Leave the room" data-toggle="tooltip" data-placement="bottom" class='btn btn-danger ml-1' onclick='leaveRoom()'>
-                <i class='bi bi-door-closed'></i>
-            </button>
-        </div>`;
-    
     // Toggle UI elements
-    if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
     document.getElementById("chat-window").style.display = "block";
-    document.querySelector(".form-inline").style.display = "flex";
     document.querySelector("footer").style.display = "none";
     
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
     
+    // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 });
 
 //=================================================================
@@ -873,47 +420,7 @@ socket.on("chat",async(data , ack) => {
             };
     if (ack.success) {
    
-        
-    // let style,
-    //     bg,
-    //     color,
-    //     users = "";
-
-    // if (data.handle === name.textContent) {
-    //     style = "display:flex;justify-content:flex-end";
-    //     data.users.forEach((item) => {
-    //         if (item.name.trim() !== data.handle.trim())
-    //             users += `${item.name} , `;
-    //     });
-    //     users = users.slice(0, users.length - 3);
-    //     if (users !== "") {
-    //         output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-md-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
-    //     }
-    //     $(".spinner-border")
-    //         .parent()
-    //         .append("<i class='fa fa-check text-warning'></i>");
-    //     $(".spinner-border").remove();
-    // } else {
-    //     style = "display:flex;justify-content:flex-start";
-    //     bg = `bg-dark mess p-2 mr-1 m-2 rounded col-md-8 `;
-    //     color = `text-success text-capitalize`;
-    //     output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
-    //         data.handle
-    //     }</h6><div>${
-    //         data.message
-    //     }</div><img class="img-fluid rounded mb-2" src='${
-    //         data.image
-    //     }'/><div style="text-align:right;font-size:2vmin"> 
-    // ${new Intl.DateTimeFormat("fa-IR", {
-    //     hour: "numeric",
-    //     minute: "numeric",
-    // }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
-    // }
-    // $("file-input").val("");
-    // image = "";
-    // socket.emit("typing", "stop");
-    // showUp();
-    // scroll();
+  
    
     const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
@@ -958,12 +465,11 @@ socket.on("chat",async(data , ack) => {
     
     }
     // $("#down").show(); // Show scroll-up button
-    messageMenu()
     setTimeout(() => {
         applyShowMore();
     },100);
     if(decryptedMessage.sender != currentUser.username){
-        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message)
+        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
         playNotificationSound()
     }
     const messages = document.querySelectorAll(".messageRead"); // Class of each message div
@@ -1000,7 +506,7 @@ socket.on("typing", (data) => {
         // Add a typing indicator if one doesn't already exist
         if (!$(`#typing-${username}`).length && !$(`#typing-${username}Btn`).length) {
            
-            const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
+            const lastMessage = output.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
             const roomID = document.getElementById('roomIDVal').value;
 
@@ -1025,17 +531,17 @@ socket.on("typing", (data) => {
                                 </div>`
                             );
                         }else{
-                            $("#down").fadeIn()
+                            // $("#down").fadeIn()
 
-                            $("#chat_windowFooter").append( `<div id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
-                                <em style="
-                                        display: flex;
-                                        align-content: center;
-                                        align-items: center;
-                                    ">${name} is typing <div class="typingLoader"></div></em>
+                            // $("#chat_windowFooter").append( `<div id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
+                            //     <em style="
+                            //             display: flex;
+                            //             align-content: center;
+                            //             align-items: center;
+                            //         ">${name} is typing <div class="typingLoader"></div></em>
                                 
-                                </div>`
-                            );
+                            //     </div>`
+                            // );
                         }
                     }
             }
@@ -1664,7 +1170,6 @@ socket.on("restoreMessages", async  (data) => {
         setTimeout(() => {
             applyShowMore();
         },100);
-        messageMenu()
         enableScrolling()
 
     });
@@ -1712,52 +1217,56 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
     }
 });
-document.getElementById("settingsButton").addEventListener("click", () => {
-    const panel = document.getElementById("settingsPanel");
-    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "#ffff";
-    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
-    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
-    const fgColor = savedSettings?.fgColor || "#cccc";
-    const fontSize = savedSettings?.fontSize || "16px";
-    panel.style.display = panel.style.display === "block" ? "none" : "block";
-    document.getElementById("bgColorPicker").value = bgColor
-    document.getElementById("fgColorPicker").value = fgColor
-    document.getElementById("chatWindowBg-color").value = chatWindowBgColor
-    document.getElementById("chatWindowFg-color").value = chatWindowFgColor
-    fontSizeValue.textContent = fontSize;
-    // Initialize with default preview
-    updatePreview();
+if(document.getElementById("settingsButton")){
+    document.getElementById("settingsButton").addEventListener("click", () => {
+        const panel = document.getElementById("settingsPanel");
+        const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+        const bgColor = savedSettings?.bgColor || "#ffff";
+        const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
+        const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+        const fgColor = savedSettings?.fgColor || "#cccc";
+        const fontSize = savedSettings?.fontSize || "16px";
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
+        document.getElementById("bgColorPicker").value = bgColor
+        document.getElementById("fgColorPicker").value = fgColor
+        document.getElementById("chatWindowBg-color").value = chatWindowBgColor
+        document.getElementById("chatWindowFg-color").value = chatWindowFgColor
+        fontSizeValue.textContent = fontSize;
+        // Initialize with default preview
+        updatePreview();
 
-});
-document.getElementById("saveSettings").addEventListener("click", () => {
-    const panel = document.getElementById("settingsPanel");
+    });
+}
+if(document.getElementById("saveSettings")){
+    document.getElementById("saveSettings").addEventListener("click", () => {
+        const panel = document.getElementById("settingsPanel");
 
-    panel.style.display = panel.style.display === "block" ? "none" : "block";
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
 
-    // Save settings locally
-    const userSettings = {
-        marginLeft: document.getElementById('margin-left').value,
-        marginRight: document.getElementById('margin-right').value,
-        chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
-        chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
-        bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
-        fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
-        sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
-        sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
-        fontSize: `${fontSizeRange.value}px`, // Get font size from range input
-        borderRad: `${borderRadRange.value}px`, // Get font size from range input
-    };
-    localStorage.setItem("userSettings", JSON.stringify(userSettings));
+        // Save settings locally
+        const userSettings = {
+            marginLeft: document.getElementById('margin-left').value,
+            marginRight: document.getElementById('margin-right').value,
+            chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
+            chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
+            bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
+            fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
+            sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
+            sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
+            fontSize: `${fontSizeRange.value}px`, // Get font size from range input
+            borderRad: `${borderRadRange.value}px`, // Get font size from range input
+        };
+        localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
-    // Optionally save settings to the server
-    socket.emit("saveSettings", userSettings , currentUser.username);
+        // Optionally save settings to the server
+        socket.emit("saveSettings", userSettings , currentUser.username);
 
-    alerting("Settings saved successfully!");
-    document.getElementById("settingsPanel").style.display = "none"; // Close panel
-    window.location.reload(); // This will refresh the page and reset the UI
+        alerting("Settings saved successfully!");
+        document.getElementById("settingsPanel").style.display = "none"; // Close panel
+        window.location.reload(); // This will refresh the page and reset the UI
 
-});
+    });
+}
 socket.on("applySettings", (settings) => {
 
     localStorage.setItem("userSettings", JSON.stringify(settings));
@@ -1770,31 +1279,33 @@ socket.on("applySettings", (settings) => {
     document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
     document.documentElement.style.setProperty("--user-border-radius", settings.borderRad);
 });
-document.getElementById("resetSettings").addEventListener("click", () => {
-    if(confirm("Are u sure ? (It may delete all customized setting.)")){
-        const userSettings = {
-            marginLeft: "10%",
-            marginRight: "%10",
-            chatWindowBgColor: "245, 245, 245",
-            chatWindowFgColor: "33, 33, 33",
-            bgColor: "204, 238, 191", // Assuming a background color picker exists
-            fgColor: "0, 0, 0", // Assuming a background color picker exists
-            sideBgColor: "242, 242, 242", // Assuming a background color picker exists
-            sideFgColor: "33, 33, 33", // Assuming a background color picker exists
-            fontSize: "16px", // Get font size from range input
-            borderRad: "17px", // Get font size from range input
-        };
-        localStorage.setItem("userSettings", JSON.stringify(userSettings));
+if(document.getElementById("resetSettings")){
+    document.getElementById("resetSettings").addEventListener("click", () => {
+        if(confirm("Are u sure ? (It may delete all customized setting.)")){
+            const userSettings = {
+                marginLeft: "10%",
+                marginRight: "%10",
+                chatWindowBgColor: "245, 245, 245",
+                chatWindowFgColor: "33, 33, 33",
+                bgColor: "204, 238, 191", // Assuming a background color picker exists
+                fgColor: "0, 0, 0", // Assuming a background color picker exists
+                sideBgColor: "242, 242, 242", // Assuming a background color picker exists
+                sideFgColor: "33, 33, 33", // Assuming a background color picker exists
+                fontSize: "16px", // Get font size from range input
+                borderRad: "17px", // Get font size from range input
+            };
+            localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
-        // Optionally save settings to the server
-        socket.emit("saveSettings", userSettings , currentUser.username);
-    
-        alert("Settings saved successfully!");
-        document.getElementById("settingsPanel").style.display = "none"; // Close panel
-        window.location.reload(); // This will refresh the page and reset the UI
+            // Optionally save settings to the server
+            socket.emit("saveSettings", userSettings , currentUser.username);
+        
+            alert("Settings saved successfully!");
+            document.getElementById("settingsPanel").style.display = "none"; // Close panel
+            window.location.reload(); // This will refresh the page and reset the UI
 
-    }
-})
+        }
+    })
+}
 // ----------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
@@ -2119,7 +1630,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <span class="close" onclick="closeModal()">&times;</span>
                             <img id="modalImage" class="imageModal-content" src="${file.file}" alt="Enlarged Image">
                             <div class="imageModal-caption">
-                                <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="download-btn">Download</a>
+                                <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="btn btn-primary">
+                                    <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                                    Download
+                                </a>
                             </div>
                         </div>
                     ` : file.fileType === "application/pdf" ? `
@@ -2135,7 +1649,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             Your browser does not support the video tag.
                         </video>
                         <div class="file-actions">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="download-btn">Download Video</a>
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     ` : `
                         <!-- Generic File Display -->
@@ -2143,7 +1657,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <p>File: ${file.fileName || 'Unknown File'}</p>
                         </div>
                         <div class="file-actions">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="download-btn">Download File</a>
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     `}
                 `).join('') : ""}
@@ -2253,9 +1767,7 @@ if (isLastMessage) {
         output.insertAdjacentHTML("beforeend", lastMessage);
     
 }
-    // Reset file input and image
-    $("file-input").val("");
-    image = "";
+
     searchMessageReply()
     // Run the function to apply the functionality
 
@@ -2554,7 +2066,6 @@ document.addEventListener("click",()=> {
         }
         
     }
-    messageMenu()
 })
 // Function to open the image in a modal
 function openImage(imageSrc) {
@@ -2804,67 +2315,6 @@ chat_window.addEventListener("scroll", () => {
         }
     }
 });
-// _______________reply____________________
-function replyMessage(messageId) {
-    // Select the message element
-    const messageElement = document.querySelector(`#Message-${messageId}`);
-    
-    // Extract sender and message content
-    const sender = messageElement.getAttribute(`sender`);
-    const messageContent = escapeHtml(messageElement.querySelector('.dataMessage').innerText.trim());
-
-    // Construct the reply box content
-    const replyBox = document.getElementById('replyBox');
-    replyBox.innerHTML = `
-        <h5 style="font-style: italic; font-size: 0.6rem;"><i class="bi bi-reply"></i></h5>
-
-        <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row; margin-right: 3em !important ;   justify-content: space-between;' replyid="Message-${messageId}">
-            <p dir="auto" id="messageReplied" style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                ${(messageContent)}
-            </p>
-            </div>
-            <button onclick="clearReply()" class="btn replyClose btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
-        <hr>
-
-    `;
-    replyBox.setAttribute('reply-id', messageId);
-    // Apply styling for blur background
-    replyBox.style.display = 'flex';
-    replyBox.style.alignItems = 'center';
-    replyBox.style.justifyContent = 'space-between';
-    replyBox.style.padding = '10px';
-    replyBox.style.borderRadius = '8px';
-    // replyBox.style.background = 'rgba(0, 0, 0, 0.1)';
-    // replyBox.style.backdropFilter = 'blur(5px)';
-    toggleReplyBox(true);
-    searchMessageReply()
-    message.focus()
-}
-
-
-function clearReply() {
-    const replyBox = document.getElementById("replyBox");
-    replyBox.removeAttribute('reply-id');
-
-    toggleReplyBox(false)
-    setTimeout(() => {
-        replyBox.innerHTML = ""; // Clear innerHTML after 300ms (adjust the time as needed)
-    }, 300);  // This delay should match your CSS transition time    
-    // replyBox.style.display = 'none';
-
-    delete replyBox.dataset.replyId; // Remove the reply id
-}
-function toggleReplyBox(isVisible) {
-    const replyBox = document.getElementById('replyBox');
-    
-    if (isVisible) {
-        replyBox.classList.remove('hide');
-        replyBox.classList.add('show');
-    } else {
-        replyBox.classList.remove('show');
-        replyBox.classList.add('hide');
-    }
-}
 
 function uploadImage() {
     const input = document.getElementById('imageUpload');
@@ -2885,173 +2335,6 @@ function uploadImage() {
     }
 }
 
-// =========================================================================
-// message menu
-function messageMenu() {
-    const elements = output.querySelectorAll(".messageElm");
-    const menu = document.getElementById("messageMenu");
-    const header = menu.querySelector('.messageMenuHeader')
-    const body = menu.querySelector('.messageMenubody')
-    let longPressTimeout;
-    let startX = 0;
-    let currentX = 0;
-    let isDragging = false;
-
-    
-    elements.forEach(element => {
-        // Add click and right-click event listeners
-        element.addEventListener("click", (event) => {
-            openMenu(event, menu, element); // Pass the clicked element's ID
-        });
-    
-        element.addEventListener('touchstart', (e) => {
-            // Start long-press detection
-            isDragging = true;
-
-            longPressTimeout = setTimeout(() => {
-                const touch = e.touches[0];
-                element.classList.add('long-press-effect'); // Add animation class
-                                isDragging = true;
-
-                openMenu(touch, menu, element); // Open menu
-            }, 500); // Long press duration (500ms)
-        });
-    
-        element.addEventListener('touchend', (event) => {
-            clearTimeout(longPressTimeout); // Cancel long-press timer
-            element.classList.remove('long-press-effect'); // Remove animation class
-    
-            // Hide menu if touch ends outside it
-            // if (!menu.contains(event.target)) {
-            //     menu.style.display = "none";
-            // }
-
-            isDragging = false;
-            const deltaX = currentX - startX;
-            // console.log(deltaX,", slm ; ",element.id.split('-')[1])
-            if (-deltaX >= 30) { // Trigger reply if swipe is far enough
-                replyMessage(element.id.split('-')[1])
-                
-            }
-            if(element.querySelector('#replyIcon')){
-                element.querySelector('#replyIcon').remove()
-            }
-            element.style.transform = '';
-        });
-    
-        element.addEventListener('touchmove', (event) => {
-            clearTimeout(longPressTimeout); // Cancel long-press timer
-            element.classList.remove('long-press-effect'); // Remove animation class
-    
-            // Hide menu if user swipes away from the target
-            if (!menu.contains(event.target)) {
-                menu.style.display = "none";
-            }
-            if (!isDragging) return;
-            currentX = event.touches[0].clientX;
-            const deltaX = currentX - startX;
-            
-            if (-deltaX > 0 && -deltaX <= 70) { // Only handle right swipe
-                if(!element.querySelector('#replyIcon')){
-                element.insertAdjacentHTML("beforeend",`<div id="replyIcon"><i style="font-size: xx-large;" class="bi bi-reply"></i></div>`)
-                }
-
-                element.style.transform = `translateX(${deltaX}px)`;
-            }
-        });
-    
-        element.addEventListener("contextmenu", (event) => {
-            event.preventDefault(); // Prevent default right-click context menu
-            openMenu(event, menu, element); // Open custom menu
-        });
-    });
-    
-
-    // Function to open the menu at the cursor position
-    function openMenu(event, menu, element) {
-        let messageId = (element.id).split('-')[1]
-        let readInfo = element.querySelector('.read-info') ?? ''
-        let emojiLess = `
-            <div class="my-2" id="emojiGrid">
-                <div id="emojiContainer" >
-                    <span onclick="addStickerReaction('😂', ${messageId})" class="emoji">😂</span>
-                    <span onclick="addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
-                    <span onclick="addStickerReaction('👎', ${messageId})" class="emoji">👎</span>
-                    <span onclick="addStickerReaction('❤️', ${messageId})" class="emoji">\u2764\uFE0F</span>
-                    <span onclick="addStickerReaction('🙏', ${messageId})" class="emoji">🙏</span>
-                </div>
-            </div>
-        `
-        header.innerHTML = readInfo.innerHTML || null
-        header.insertAdjacentHTML("afterbegin",emojiLess)
-        menu.insertAdjacentHTML("afterend",emoji(messageId))
-        let emojiDiv = `
-        
-        <button id="reactBtn-${messageId}" class="btn reactBtn visible col-md-12" onclick="toggleStickerPicker(${messageId},${event.pageX} , ${event.pageY })">
-        <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
-        Add reaction
-        </button>
-        `
-        body.innerHTML=`
-         <button dir="auto" id="reply-${messageId}" class="btn visible col-md-12" >
-            <i class="bi bi-reply"></i>
-            Reply message
-        </button>
-         <button dir="auto" id="copyMessage-${messageId}" class="btn visible col-md-12" >
-            <i class="bi bi-copy"></i>
-            Copy message
-        </button>
-        `
-        body.innerHTML+=emojiDiv
-        document.getElementById(`reply-${messageId}`).addEventListener("click",()=>{
-            // Copy the innerHTML to the clipboard
-            replyMessage(messageId);
-        })
-        document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
-            // Copy the innerHTML to the clipboard
-            console.log(element.querySelector('.dataMessage').innerHTML)
-            copyToClipboard(element.querySelector('.dataMessage').innerText.trim());
-
-            // Optional: Provide user feedback (e.g., show a success message)
-            alerting("Message copied to clipboard!");
-        })
-        menu.addEventListener("click",()=>{
-            menu.style.display = "none";
-        })
-        // menu.style.display = "block";
-        // menu.style.left = `${event.pageX}px`; // Position menu at cursor's X position
-        // menu.style.top = `${event.pageY}px`;  // Position menu at cursor's Y position
-        // console.log("Clicked element ID:", element.id); // Log the clicked element's ID
-        const menuWidth = menu.offsetWidth;
-        const menuHeight = menu.offsetHeight;
-       
-    
-        // Calculate position ensuring the menu stays within bounds
-        let x = event.clientX;
-        let y = event.clientY;
-    
-        if (x + menuWidth > windowWidth) {
-            x = windowWidth - menuWidth;
-        }
-    
-        if (y + menuHeight > windowHeight) {
-            y = windowHeight - menuHeight;
-        }
-        // console.log(windowWidth," , ",windowHeight," , ")
-        // Position the menu and display it
-        menu.style.left = `${x}px`;
-        menu.style.top = `${y}px`;
-        menu.style.display = "block";
-    
-    }
-   
-    // Close the menu when clicking anywhere else
-    output.addEventListener("click", (event) => {
-        if (!menu.contains(event.target)) {
-            menu.style.display = "none";
-        }
-    });
-}
 // Helper function to copy text to the clipboard
 function copyToClipboard(text) {
     // Create a temporary textarea element to copy the content
@@ -3127,18 +2410,106 @@ function playNotificationSound() {
 }
 
 // Function to show browser notification
-function showBrowserNotification(sender,messageContent) {
-    if (document.hidden) {
+function showBrowserNotification(sender,messageContent,roomID) {
+    if (document.hidden || !window.location.pathname.includes(`/join/${roomID}`)) {
         Notification.requestPermission().then(permission => {
             if (permission === "granted") {
-                const notification = new Notification(`New Message from ${sender} :`, {
+                const notification = new Notification(`${sender}:`, {
                     body: messageContent,
-                    icon: "/svg/logo.svg"  // Optional: Set a notification icon
+                    icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
                 });
+        
+                // اضافه کردن قابلیت باز کردن لینک هنگام کلیک
+                notification.onclick = () => {
+                    let chatTab = null;
+    
+                    // بررسی همه تب‌های باز برای پیدا کردن تب چت
+                    for (let i = 0; i < window.length; i++) {
+                        if (window[i].location.href.includes(`/join/${roomID}`)) {
+                            chatTab = window[i];
+                            break;
+                        }
+                    }
+    
+                    // اگر تب چت پیدا شد، به آن سوییچ کن؛ در غیر این‌صورت، یک تب جدید باز کن
+                    if (chatTab) {
+                        chatTab.focus();
+                    } else {
+                        window.open(`${href}/join/${roomID}`, "_blank");
+                    }
+                };
             }
         });
+        
         playNotificationSound()
     }else{
-        console.log(Notification.permission)
+        console.log("Notification==> ",Notification.permission)
     }
 }
+socket.on("notification",async(data , ack) => {
+    const decryptedMessage = await {
+        // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
+            ...data,
+            message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
+            // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
+            handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
+            roomID : data.roomID ? decryptMessage(data.roomID): data.roomID,
+            title : data.title ? decryptMessage(data.title): data.title
+        };
+
+        console.log(decryptedMessage)
+
+    if(decryptedMessage.sender != currentUser.username){
+        showBrowserNotification(`In ${decryptedMessage.title} ${decryptedMessage.handle} said`,decryptedMessage.message,decryptedMessage.roomID)
+        playNotificationSound()
+    }
+})
+
+
+setInterval(() => {
+    if (!socket.connected) {
+        console.warn("🔴 Connection lost! Reconnecting...");
+        socket.connect();
+    }
+}, 5000); // هر ۵ ثانیه یک‌بار بررسی کنه
+
+socket.on("disconnect", () => {
+    console.warn("🔴 Disconnected from server! Trying to reconnect...");
+    setTimeout(() => {
+        socket.connect();
+    }, 2000); // تلاش برای اتصال مجدد بعد از ۲ ثانیه
+});
+
+socket.on("connect", () => {
+    console.log("🟢 Reconnected to server!");
+    const roomID = document.querySelector("#roomID").textContent.trim();
+    
+    if(roomID){
+            // Show the loading spinner if hidden
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement.classList.contains('hide')) {
+                loadingElement.classList.remove("hide");
+                loadingElement.classList.add("show");
+            }
+            // Emit the event and wait for the server's acknowledgment
+            socket.emit("requestOlderMessages", { 
+                roomID: roomID, 
+                counter: `${roomID}-0`, 
+                type: 'latest' 
+            }, () => { // Callback function for when the server acknowledges
+                // Scroll after emitting the event
+                chat_window.scrollTo({
+                    top: chat_window.scrollHeight, // Scroll to the bottom
+                    behavior: "auto",
+                });
+            });
+        }
+    
+});
+socket.on("ping", () => {
+    console.log("📡 Ping received from server");
+});
+
+socket.on("pong", () => {
+    console.log("✅ Server is alive!");
+});
