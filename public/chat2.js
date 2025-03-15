@@ -612,20 +612,13 @@ socket.on("userDisconnected", (data) => {
 //=================================================================
 //Handle error
 socket.on("error", ({ message }) => {
-    $("#alert")
-        .html(
-            `<div class='alert alert-danger' role='alert'>
-                ${message}</div>`,
-        )
-        .hide();
-    $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
+    // alert('error message is: ',message)
+        console.log('error message is: ',message)
+        chat_window.innerHTML= `<p dir='ltr' class="alert alert-danger" style='font-weight: normal; font-style: italic; font-size: .8em;'>
+            ${message}
+          </p>`
+          if(document.getElementById('opneChatBtn'))   document.getElementById('opneChatBtn').style.display = "none";
+          chat_window.style.display = "block";
 });
 
 //=================================================================

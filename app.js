@@ -924,10 +924,22 @@ io.on("connection", (socket) => {
             // Ensure the room exists
             let room = await Room.findOne({ roomID:roomID });
             if (!room) throw new Error(`Room "${roomID}" does not exist`);
-    
-            await addUserToRoom(username, roomID);
-            socket.join(roomID);
-    
+            if (room) {
+                if (room.setting[0].Joinable_url === "private") {
+                    // Private room: Only allow members
+                    console.log("==========> member: ", room.members.includes(username))
+
+                    if (room.members.includes(username) ) {
+                    // if (room.members.includes(username) ) {
+                        await addUserToRoom(username, roomID);
+                        socket.join(roomID);
+                
+                    } else {
+                        io.to(socket.id).emit("error", { message: "You are not a member of this private room" });
+                        return
+                    }
+                }
+            }
             console.log(`Fetching all unread messages for room: ${roomID}`);
             const unreadMessages = await getUnreadMessages(roomID, username);
             // Process each message

@@ -1100,6 +1100,7 @@ socket.on("userDisconnected", (data) => {
 //=================================================================
 //Handle error
 socket.on("error", ({ message }) => {
+    console.log(message)
     $("#alert")
         .html(
             `<div class='alert alert-danger' role='alert'>
