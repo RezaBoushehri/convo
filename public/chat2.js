@@ -436,10 +436,9 @@ socket.on("chat",async(data , ack) => {
 
             if (rect.bottom >= -threshold 
                 &&rect.top <= window.innerHeight+threshold) {
-                if(decryptedMessage.sender != currentUser.username){
                     addMessageToChatUI(decryptedMessage)
                     // console.log(decryptedMessage.sender)
-                }
+                
                 scrollDown()
 
                 }else{
