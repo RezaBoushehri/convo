@@ -1602,7 +1602,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             :''}
              
         <div    style="${style};
-                margin:2px;" class=" message mess py-1 mr-1  col-md-6">
+                margin:2px;" class=" message mess py-1 mr-1 p-2">
 
             ${handler()}
                 ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
