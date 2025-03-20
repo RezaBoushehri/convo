@@ -49,8 +49,8 @@
 #headTag{
     
     position: absolute;
-    width: 100%;
-    z-index: 99;
+    
+    z-index: 9;
 
 }
 #offlineMessage {
@@ -75,6 +75,8 @@
     opacity: 1;
 }
 #chat-window {
+    max-height: 300px !important;
+
     margin-top: 2vh;
     background-color: rgb(var(--user-chat-bg-color));
     color: white;
@@ -186,7 +188,7 @@
     color: rgb(var(--user-chat-fg-color),0.9);
 }
 #feedback{
-    position: fixed;
+    position: relative;
     bottom: 30px
 ;}
 #editable-message-text {
@@ -194,7 +196,7 @@
     border: none;
     min-width: 30vw;
     max-width: 40vw;
-    bottom: 0;
+    /* bottom: 0; */
     border-radius: 10px;
     position: relative; /* To position buttons within it */
     overflow-y: auto; /* Enable scrolling when content exceeds max height */
@@ -504,7 +506,7 @@
 }
 /* General styling for the emoji picker */
 .stickerPicker {
-    position: relative;
+    position: fixed;
     margin: 5px;
     /* top: -25px;
     left: -124px; */
@@ -747,7 +749,7 @@
 
 #messageMenu {
     display: none; /* Hidden by default */
-    position: absolute;
+    position: fixed;
     background-color: rgb(var(--user-chat-bg-color));
     color: rgb(var(--user-chat-fg-color));
     border-radius: 15px ;
@@ -1130,7 +1132,7 @@ width: max-content;
 }
 #chat_windowFooter {
     justify-content: center;
-    position: fixed;
+    position: relative;
     bottom: 0px;
     display: flex;
     align-items: flex-start;
@@ -1168,7 +1170,7 @@ width: max-content;
     animation: longPressAnimationRightClickPanel 500ms ease-in-out forwards;
 }
 #output{
-    padding-bottom: 60px !important;
+    /* padding-bottom: 60px !important; */
 }
 
 .reply {
@@ -1213,8 +1215,10 @@ width: max-content;
     align-items: flex-end;
 }
 .show-more {
+    
+    max-height: max-content !important;
     display: inline;
-    position: absolute;
+    /* position: relative; */
     right: 50%;
     bottom: 3px;
     color: rgb(var(--user-fg-color));
@@ -1264,4 +1268,8 @@ width: max-content;
 .headerMain{
     background-color: #343a405d!important;
     backdrop-filter: blur(5px);
+}
+.messageMenuHeader{
+    max-height: 100px;
+    overflow-y: auto;
 }

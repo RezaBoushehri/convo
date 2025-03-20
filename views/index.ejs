@@ -75,8 +75,8 @@
             <input id="username" type="hidden" value="<%= currentUser.username.trim() %>">
             <button id="up" class="btn btn-warning m-2 text-white" onclick="scrollUp()"></i></button>
             
-            <div id="chat_windowFooter" class=" col-md-12 page-footer row g-3 pt-2 mt-5 mb-1 " >
-                <div class="col-md-2" style="
+            <div id="chat_windowFooter" class=" page-footer row g-3 pt-2 mt-5 mb-1 " >
+                <div class="w-auto" style="
                 display: flex;
                 justify-content: center;
             ">
@@ -87,7 +87,7 @@
                     </button>
                 </div>
                     <!-- reply -->
-                    <div class='form-inline row col-md-8 mb-2' style='display:none;     flex-wrap: wrap;'>
+                    <div class='form-inline row w-auto m-2' style='display:none;     flex-wrap: wrap;'>
                     <div id="replyBox" class="backdrop-blur-chat-bg col-md-12 message hide " style=" align-items: center; justify-content: space-between; padding: 10px;  backdrop-filter: blur(5px);">
                         <h6 style="margin: 0; font-style: italic; font-size: 14px; text-align: start;"></h6>
                         <div style="flex: 1; margin-left: 10px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; " id="replyMessageContent">
@@ -95,7 +95,7 @@
                     </div>
                     
                     <!-- ------------------ -->
-                    <div class="col-md-12 messageInputDiv " >
+                    <div class="w-auto messageInputDiv " >
                         <div 
                         id="editable-message-text" 
                         class="col-md-8 form-control allow-selection flexible-div " 
@@ -110,7 +110,7 @@
                         </div>
                     
                        
-                        <div class="button-container col-md-4 g-3">
+                        <div class="button-container w-auto g-3">
                                 <button id="file-inputBtn" class=" btn  file-button ">
                                     <input type="file" accept="" id="file-input">
                                     <label class="input-label" for="file-input"><i style="    font-size: large;" class="bi bi-paperclip"></i></label>

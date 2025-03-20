@@ -785,7 +785,7 @@ footer .fa {
 
 #messageMenu {
     display: none; /* Hidden by default */
-    position: absolute;
+    position: fixed;
     background-color: rgb(var(--user-chat-bg-color));
     color: rgb(var(--user-chat-fg-color));
     border-radius: 15px ;
