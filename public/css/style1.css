@@ -78,10 +78,11 @@
     max-height: 300px !important;
 
     margin-top: 2vh;
-    background-color: rgb(var(--user-chat-bg-color));
+    background-color: transparent !important;
     color: white;
     overflow-y: auto;
     overflow-x: hidden;
+    /* border: 1px solid #0d6efd; */
     /* scroll-behavior: smooth; */
 
     /* Firefox customization */

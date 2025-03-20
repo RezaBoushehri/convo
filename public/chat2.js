@@ -1993,7 +1993,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             color:rgb(var(--user-fg-color));
             font-size:${fontSize};
             border-radius: ${borderRadiusFalse()};`
-        : ` background-color:rgb(var(--user-side-bg-color));
+        : ` background-color: white !important;
             color:rgb(var(--user-side-fg-color));
             font-size:${fontSize};
             border: 1px solid var(--color-peer-${data.sender}) !important;
