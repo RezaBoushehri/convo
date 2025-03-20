@@ -85,14 +85,14 @@
     /* Firefox customization */
     scrollbar-width: thin; /* Makes scrollbar thinner */
     scrollbar-color:  #8600ff rgb(var(--user-chat-bg-color)); /* Thumb and track colors */
-
-    /* Background image like WhatsApp or Telegram */
-    background-image: url('/img/social-media-doodle.png'); /* Replace with your image path */
+/* 
+    Background image like WhatsApp or Telegram
+    background-image: url('/img/social-media-doodle.png'); 
     background-repeat: repeat;
     background-position: center;
-    background-size:  700px; /*Adjust size as needed*/
+    background-size:  700px; 
     background-origin: content-box;
-    background-clip: content-box;
+    background-clip: content-box; */
 }
 
 /* WebKit-based browsers (Chrome, Safari, Edge) */
