@@ -57,7 +57,7 @@ env.config();
 // Set up CORS (if needed for front-end)
 const corsOptions = {
     
-    origin: 'https://localhost:4000', // replace with your front-end domain
+    origin:  ['https://portal.mellicloud.com', 'https://mc.farahoosh.ir'], // replace with your front-end domain
     methods: ['GET', 'POST'],
     credentials: true
 };

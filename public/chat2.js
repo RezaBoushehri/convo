@@ -365,7 +365,7 @@ $("#file-input").on("change", async (e) => {
         $("#upload-status").text("0% uploaded");
 
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/upload", true);
+        xhr.open("POST", "https://mc.farahoosh.ir:4000/upload", true);
     
         // Monitor progress
         xhr.upload.onprogress = (e) => {
@@ -2162,14 +2162,14 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     <!-- Thumbnail Display -->
                     ${file.fileType.startsWith("image/") ? `
                         <!-- Thumbnail Image -->
-                        <img class="img-fluid m-1" src="https://mc.farahoosh.ir:4000/${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
+                        <img class="img-fluid m-1" src="https://mc.farahoosh.ir:4000${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('https://mc.farahoosh.ir:4000${file.file}')">
                         
                         <!-- Modal for Enlarged Image -->
                         <div id="imageModal" class="imageModal">
                             <span class="close" onclick="closeModal()">&times;</span>
-                            <img id="modalImage" class="imageModal-content" src="https://mc.farahoosh.ir:4000/${file.file}" alt="Enlarged Image">
+                            <img id="modalImage" class="imageModal-content" src="https://mc.farahoosh.ir:4000${file.file}" alt="Enlarged Image">
                             <div class="imageModal-caption">
-                                <a id="downloadLink" href="https://mc.farahoosh.ir:4000/${file.file}" download="${file.fileName || 'image.jpg'}" class="btn btn-primary">
+                                <a id="downloadLink" href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" class="btn btn-primary">
                                     <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
                                     Download
                                 </a>
@@ -2178,17 +2178,17 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     ` : file.fileType === "application/pdf" ? `
                         <!-- PDF Display -->
                     <div class="file-actions" >
-                            <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000/${file.file}" frameborder="0" loading="lazy"></iframe>
+                            <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" loading="lazy"></iframe>
                             <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
                         </div>
                     ` : file.fileType.startsWith("video/") ? `
                         <!-- Video Display -->
                         <video class=" m-1 video-preview" controls>
-                            <source src="https://mc.farahoosh.ir:4000/${file.file}" type="${file.fileType}">
+                            <source src="https://mc.farahoosh.ir:4000${file.file}" type="${file.fileType}">
                             Your browser does not support the video tag.
                         </video>
                         <div class="file-actions">
-                            <a id="downloadLink" href="https://mc.farahoosh.ir:4000/${file.file}" download="${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
+                            <a id="downloadLink" href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     ` : `
                         <!-- Generic File Display -->
@@ -2196,7 +2196,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <p>File: ${file.fileName || 'Unknown File'}</p>
                         </div>
                         <div class="file-actions">
-                            <a id="downloadLink" href="https://mc.farahoosh.ir:4000/${file.file}" download="${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
+                            <a id="downloadLink" href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     `}
                 `).join('') : ""}
