@@ -1488,7 +1488,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     });
     socket.on("countNewMessage", (username, roomID, callback) => {
         // Fetch messages from the database (adjust this based on your database query)
-        MessageModel.find({ roomID: roomID }) // Get all messages in the room
+        Message.find({ roomID: roomID }) // Get all messages in the room
             .then(messages => {
                 let newMessageCount = messages.filter(msg =>
                     !msg.read.some(r => r.username === username) // Check if the user has NOT read it
