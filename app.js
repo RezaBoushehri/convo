@@ -1486,8 +1486,29 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             socket.emit("error", { message: "Failed to save settings" });
         }
     });
+    socket.on("countNewMessage", (username, roomID, callback) => {
+        // Fetch messages from the database (adjust this based on your database query)
+        MessageModel.find({ roomID: roomID }) // Get all messages in the room
+            .then(messages => {
+                let newMessageCount = messages.filter(msg =>
+                    !msg.read.some(r => r.username === username) // Check if the user has NOT read it
+                ).length;
     
+                // Send back the count
+                callback(newMessageCount);
+            })
+            .catch(error => {
+                console.error("Error counting new messages:", error);
+                callback(0); // Default to 0 in case of an error
+            });
+    });
 
+
+    // for count
+// fornt code    
+    // socket.emit("countNewMessage", "09173121943", "krrlnB6aMRm6symph2", (count) => {
+    //     console.log(`You have ${count} new messages.`);
+    // });
     socket.on("leaveRoom", async ({ username , roomID }) => {
         try {
             if (!username || !roomID) {
