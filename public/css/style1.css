@@ -75,28 +75,18 @@
     opacity: 1;
 }
 #chat-window {
-    max-height: 300px !important;
-
+    max-height: 90vh !important;
     margin-top: 2vh;
     background-color: transparent !important;
     color: white;
-    overflow-y: auto;
-    overflow-x: hidden;
-    /* border: 1px solid #0d6efd; */
-    /* scroll-behavior: smooth; */
-
-    /* Firefox customization */
+    overflow: auto;  /* Ensure scrollbars appear if needed */
+    resize: both; /* Allow resizing both width & height */
+    min-width: 200px; /* Prevent making it too small */
+    min-height: 100px;
     scrollbar-width: thin; /* Makes scrollbar thinner */
     scrollbar-color:  #8600ff rgb(var(--user-chat-bg-color)); /* Thumb and track colors */
-/* 
-    Background image like WhatsApp or Telegram
-    background-image: url('/img/social-media-doodle.png'); 
-    background-repeat: repeat;
-    background-position: center;
-    background-size:  700px; 
-    background-origin: content-box;
-    background-clip: content-box; */
 }
+
 
 /* WebKit-based browsers (Chrome, Safari, Edge) */
 #chat-window::-webkit-scrollbar {

@@ -1551,8 +1551,8 @@ socket.on("restoreMessages", async  (data) => {
                 let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
                 inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
                 // console.log('before border :',inLast.style.borderRad)
-                inLast.style.borderRadius = '2px' ;
-                // inLast.style.borderRadius = 'messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px '' ;
+                // inLast.style.borderRadius = '2px' ;
+                inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px' ;
                 // console.log('after border :',inLast.style.borderRad)
             }
         }
@@ -1955,39 +1955,39 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             return `<a href="https://href.li/?${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
         }
     );
-    // const borderRadiusFalse = ()=>{
+    const borderRadiusFalse = ()=>{
 
         
-    //        const lastMessageElm = output.querySelectorAll(`.messageElm`)
+           const lastMessageElm = output.querySelectorAll(`.messageElm`)
 
-    //     if (lastMessageElm.length >= 1) {
-    //         const lastValue = data.sender.trim();
-    //         const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender').trim();
-    //         if (lastValue !== secondLastValue) {
-    //             if(prepend)return ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px`
-    //             else  return ownMessage ? `var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: `var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px`          
-    //         } else if(!prepend) {
-    //             console.log("last: ",lastValue)
-    //             console.log("second last: ",secondLastValue)
-    //             const message = lastMessageElm[lastMessageElm.length - 1].querySelector('.message')
-    //             if(message.style.borderRadius!= "var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px"
-    //                  || message.style.borderRadius!= "var(--user-border-radius) var(--user-border-radius)  5px var(--user-border-radius)" ){
-    //                     message.style.borderRadius=  ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `  5px var(--user-border-radius) var(--user-border-radius)  5px`;
-    //                  }
-    //             return ownMessage ? ` var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)`: ` 5px  var(--user-border-radius)  var(--user-border-radius)  var(--user-border-radius)`;
-    //         }else{
-    //             return ownMessage ? ` var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px `
-    //         }
+        if (lastMessageElm.length >= 1) {
+            const lastValue = data.sender.trim();
+            const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender').trim();
+            if (lastValue !== secondLastValue) {
+                if(prepend)return ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px`
+                else  return ownMessage ? `var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: `var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px`          
+            } else if(!prepend) {
+                console.log("last: ",lastValue)
+                console.log("second last: ",secondLastValue)
+                const message = lastMessageElm[lastMessageElm.length - 1].querySelector('.message')
+                if(message.style.borderRadius!= "var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px"
+                     || message.style.borderRadius!= "var(--user-border-radius) var(--user-border-radius)  5px var(--user-border-radius)" ){
+                        message.style.borderRadius=  ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `  5px var(--user-border-radius) var(--user-border-radius)  5px`;
+                     }
+                return ownMessage ? ` var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)`: ` 5px  var(--user-border-radius)  var(--user-border-radius)  var(--user-border-radius)`;
+            }else{
+                return ownMessage ? ` var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px `
+            }
             
-    //     }else if(prepend){
-    //         return ownMessage ? ` var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)`: ` 5px  var(--user-border-radius)  var(--user-border-radius)  var(--user-border-radius)`;
-    //     }else{
-    //         // return ownMessage ? `5px var(--user-border-radius) 5px 5px`: `var(--user-border-radius) 5px   5px 5px`          
+        }else if(prepend){
+            return ownMessage ? ` var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)`: ` 5px  var(--user-border-radius)  var(--user-border-radius)  var(--user-border-radius)`;
+        }else{
+            // return ownMessage ? `5px var(--user-border-radius) 5px 5px`: `var(--user-border-radius) 5px   5px 5px`          
 
-    //     }
-    // }
-    const borderRadiusFalse = () =>{ 
-        return '2px'}
+        }
+    }
+    // const borderRadiusFalse = () =>{ 
+    //     return '2px'}
     const style = ownMessage
         ? ` background-color:rgb(var(--user-bg-color));
             color:rgb(var(--user-fg-color));
