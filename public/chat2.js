@@ -141,14 +141,7 @@ function alerting(message,type='success'){
     )
     .hide();
 $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
-    return;
+ 
     
 }
 function emoji(messageId) {
@@ -524,13 +517,7 @@ button.addEventListener("click", async () => {
         )
         .hide();
     $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
+
     return;
     }
     let data = {
@@ -563,13 +550,7 @@ button.addEventListener("click", async () => {
                 )
                 .hide();
         $("#alert").slideDown(500);
-            window.setTimeout(function () {
-                $(".alert")
-                    .fadeTo(500, 0)
-                    .slideUp(500, function () {
-                        $(this).remove();
-                    });
-        }, 3000);
+          
         return;
     }
    // Display "sending" message in UI
@@ -864,13 +845,7 @@ socket.on("newconnection", (data) => {
         )
         .hide();
     $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
+  
 });
 //=================================================================
 //Handle User joined the room event
@@ -916,13 +891,7 @@ socket.on("invalidRoom", ({ message }) => {
         )
         .hide();
     $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
+   
 });
 
 //=================================================================
@@ -1143,13 +1112,7 @@ socket.on("userDisconnected", (data) => {
         )
         .hide();
     $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
+  
 
 });
 
@@ -1375,13 +1338,7 @@ const copyId = (id) => {
         )
         .hide();
     $("#alert").slideDown(300);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 1500);
+ 
 };
 //=================================================================
 // Function to add messages to the chat UI
