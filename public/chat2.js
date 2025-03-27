@@ -377,15 +377,15 @@ $("#file-input").on("change", async (e) => {
                 const response = JSON.parse(xhr.responseText);
                 fileData = response.fileData;
                 console.log("File uploaded successfully", fileData);
-                alerting("Upload complete.", "success");
+                ref("Upload complete.", null,null,"success");
             } else {
-                alerting("Failed to upload the file.", "danger");
+                ref("Failed to upload the file.",null ,null, "danger");
             }
         };
 
         xhr.send(formData);
         socket.on("uploadSuccess", (data) => {
-            alerting(`File ${data.dir} uploaded successfully!`);
+            ref(`File ${data.dir} uploaded successfully!`,null,null,"success");
             document.getElementById('upload-container').remove();
 
         });
@@ -393,7 +393,6 @@ $("#file-input").on("change", async (e) => {
         console.error("Error processing file:", error);
         alerting("An error occurred while processing the file.", 'danger');
     } finally {
-        $("#upload-progress").hide();
         button.disabled = false;
         fileInput.disabled = false;
     }
@@ -441,7 +440,7 @@ const setImage = (file) => {
             fileData = {
                 fileData: base64File,
                 fileType: file.type,
-                fileName: file.name,
+                fileName: file.name.toLowerCase(),
             };
             console.log("Image processed:", fileData);
             resolve(fileData);
@@ -469,7 +468,7 @@ const setFile = (file,dir) => {
             fileData = {
                 fileData: dir,
                 fileType: file.type,
-                fileName: file.name,
+                fileName: file.name.toLowerCase(),
             };
             console.log("File processed:", fileData);
             resolve(fileData);
@@ -582,6 +581,8 @@ button.addEventListener("click", async () => {
         let fileDetails = null;
 
         if (data.file !== null && data.file !== undefined) {
+            $("#upload-progress").hide();
+
             // Ensure data.file is an array (whether single data.file or array of data.file)
             const filesArray = Array.isArray(data.file) ? data.file : [data.file];
         
@@ -609,7 +610,7 @@ button.addEventListener("click", async () => {
             reply: quote ? reply(quote) : null // Ensure it's an array if quote is defined
         };
         
-    // console.log(dataShow)
+    console.log(dataShow)
     // Send message to server
     addMessageToChatUI(dataShow)
     
@@ -2126,7 +2127,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <span class="close" onclick="closeModal()">&times;</span>
                             <img id="modalImage" class="imageModal-content" src="https://mc.farahoosh.ir:4000${file.file}" alt="Enlarged Image">
                             <div class="imageModal-caption">
-                                <a id="downloadLink" href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" class="btn btn-primary">
+                                <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" class="btn btn-primary">
                                     <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
                                     Download
                                 </a>
@@ -2134,9 +2135,9 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         </div>
                     ` : file.fileType === "application/pdf" ? `
                         <!-- PDF Display -->
-                    <div class="file-actions" >
-                            <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" loading="lazy"></iframe>
-                            <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
+                  
+                        <div class="file-actions">
+                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file.pdf'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     ` : file.fileType.startsWith("video/") ? `
                         <!-- Video Display -->
@@ -2145,7 +2146,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             Your browser does not support the video tag.
                         </video>
                         <div class="file-actions">
-                            <a id="downloadLink" href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
+                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     ` : `
                         <!-- Generic File Display -->
@@ -2153,7 +2154,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <p>File: ${file.fileName || 'Unknown File'}</p>
                         </div>
                         <div class="file-actions">
-                            <a id="downloadLink" href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
+                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     `}
                 `).join('') : ""}
@@ -2203,6 +2204,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             </div>
             
     `;
+      // <div class="file-actions" >
+                    //         <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" loading="lazy"></iframe>
+                    //         <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
+                    //     </div>
     let firstMessage = `
     <div data-id="Message-${messageId}" class="firstMessage">
             <button class="btn btn-outline-secondary my-3 " style="border-radius:50% !important; border: 2px solid;"  onclick="loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>

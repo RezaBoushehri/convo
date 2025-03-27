@@ -340,8 +340,8 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        const uniqueName = `${Date.now()}-${file.originalname}`;
-        cb(null, uniqueName);
+        const safeFileName = Buffer.from(file.originalname, "latin1").toString("utf8"); // Ensure UTF-8
+        cb(null, Date.now() + "_" + safeFileName.replace(/\s+/g, "_")); // Avoid spaces
     },
 });
 
@@ -366,7 +366,7 @@ app.post("/upload", (req, res) => {
             fileData: {
                 file: filePath,
                 fileType: req.file.mimetype, // MIME type of the uploaded file
-                fileName: req.file.originalname, // Original file name
+                fileName:  Buffer.from(req.file.originalname, "latin1").toString("utf8"), // Original file name
             },
         });
         console.log("File uploaded successfully:", req.file.originalname);
