@@ -292,15 +292,21 @@ $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 $("#file-input").on("change", async (e) => {
     output.innerHTML+=`
     <div id="upload-container"
-    class="px-5 m-3 backdrop-blur-chat-fg"
+    class="row m-3 backdrop-blur-chat-fg"
     style="
     justify-content: flex-end;
     display: flex;
     ">
-        <progress id="upload-progress"  value="0" max="100" style="width: 100%; height: 20px;"></progress>
-        <span id="upload-status">0% uploaded</span>
+    <span>Uplouding file</span>
+        <div id="upload-progress" class="progress w-100" role="progressbar" aria-label="Example with label" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            <div id='upload-bar' class="progress-bar" style="width: 25%"></div>
+        </div>
     </div>
-    `;
+        `;
+        // </div>
+        //     <progress id="upload-progress"  value="0" max="100" style="width: 100%; height: 20px;"></progress>
+        //     <span id="upload-status">0% uploaded</span>
+        // </div>
     
     button.disabled = true;
     fileInput.disabled = true;
@@ -348,8 +354,10 @@ $("#file-input").on("change", async (e) => {
         // Send Base64 encoded file to the server
         const formData = new FormData();
         formData.append("file", file);
-        $("#upload-progress").val(0);
-        $("#upload-status").text("0% uploaded");
+        // Initialize progress value
+        $(".progress-bar").css("width", "0%"); // Set initial width to 0%
+        // $("#upload-status").text("0% uploaded"); // Set initial status text
+        $(".progress-bar").innerText= `0% uploaded`; // Update the progress bar's text
 
         const xhr = new XMLHttpRequest();
         xhr.open("POST", "https://mc.farahoosh.ir:4000/upload", true);
@@ -360,7 +368,12 @@ $("#file-input").on("change", async (e) => {
                 const percent = (e.loaded / e.total) * 100;
                 // Emit progress to the server
                 socket.emit("uploadProgress", { progress: percent });
-                $("#upload-progress").val(percent);
+                 // Update the progress bar's width
+                // document.getElementById('upload-status').setAttribute("aria-valuenow")= Math.round(percent);
+                $(".progress-bar").css("width", percent + "%");
+                $("#upload-bar").text(`${Math.round(percent)}% uploaded`); // Update the progress bar's text
+
+                // Update the status text
                 $("#upload-status").text(`${Math.round(percent)}% uploaded`);
             }
         };
