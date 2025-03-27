@@ -131,19 +131,7 @@ if (roomID != "") {
     
 }
 
-{/* <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})"> */}
-function alerting(message,type='success'){
-    $("#alert")
-    .html(
-        `<div class='alert alert-${type}' role='alert'>
-          ${message}
-        </div>`,
-    )
-    .hide();
-$("#alert").slideDown(500);
- 
-    
-}
+
 function emoji(messageId) {
     if (document.querySelectorAll('.stickerPicker')) {
         document.querySelectorAll('.stickerPicker').forEach(el => el.remove());
@@ -321,16 +309,20 @@ $("#file-input").on("change", async (e) => {
     const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
 
     if (!file) {
-        alerting("No file selected.", 'warning');
+        ref("No file selected.",null,null,'warning');
         button.disabled = false;
         fileInput.disabled = false;
+        document.getElementById('upload-container').remove();
+
         return;
     }
 
     if (file.size > maxSize) {
-        alerting("The file is too large. Maximum size allowed is 10 MB.", 'warning');
+        ref("The file is too large. Maximum size allowed is 10 MB.",null,null, 'warning');
         button.disabled = false;
         fileInput.disabled = false;
+        document.getElementById('upload-container').remove();
+
         return;
     }
 
@@ -339,9 +331,11 @@ $("#file-input").on("change", async (e) => {
     const fileExtension = fileName.split('.').pop();
 
     if (harmfulExtensions.includes(fileExtension)) {
-        alerting("The selected file has a potentially harmful extension. Please upload a safe file.", 'danger');
+        ref("The selected file has a potentially harmful extension. Please upload a safe file.",null,null, 'error');
         button.disabled = false;
         fileInput.disabled = false;
+        document.getElementById('upload-container').remove();
+
         return;
     }
 
@@ -391,7 +385,7 @@ $("#file-input").on("change", async (e) => {
         });
     } catch (error) {
         console.error("Error processing file:", error);
-        alerting("An error occurred while processing the file.", 'danger');
+        ref("An error occurred while processing the file.", 'danger');
     } finally {
         button.disabled = false;
         fileInput.disabled = false;
@@ -675,7 +669,7 @@ button.addEventListener("click", async () => {
     socket.on("chat", (response) => {
         if (response.error) {
 
-            alerting(response.error,'danger');
+            ref(response.error,null,null,'error');
             return;
         }
 
@@ -1084,7 +1078,7 @@ socket.on("left", (user) => {
 //=================================================================
 //Handle User-Disconnected event
 socket.on("userJoined", (data) => {
-    alerting(`${data} has join the room`);
+    ref(`${data} has join the room`,null,null,'info');
 });
 socket.on("members", (data) => {
     
@@ -1756,7 +1750,7 @@ if(document.getElementById("saveSettings")){
         // Optionally save settings to the server
         socket.emit("saveSettings", userSettings , currentUser.username);
 
-        alerting("Settings saved successfully!");
+        ref("Settings saved successfully!",null,null,'success');
         document.getElementById("settingsPanel").style.display = "none"; // Close panel
         window.location.reload(); // This will refresh the page and reset the UI
 
@@ -2129,7 +2123,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <div class="imageModal-caption">
                                 <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" class="btn btn-primary">
                                     <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
-                                    Download
+                                    ${file.fileName || 'Unknown File'} Download
                                 </a>
                             </div>
                         </div>
@@ -2137,7 +2131,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         <!-- PDF Display -->
                   
                         <div class="file-actions">
-                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file.pdf'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
+                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file.pdf'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i> ${file.fileName || 'Unknown File'} Download</a>
                         </div>
                     ` : file.fileType.startsWith("video/") ? `
                         <!-- Video Display -->
@@ -2146,15 +2140,13 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             Your browser does not support the video tag.
                         </video>
                         <div class="file-actions">
-                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
+                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i> ${file.fileName || 'Unknown File'} Download</a>
                         </div>
                     ` : `
                         <!-- Generic File Display -->
-                        <div class="m-1 file-info">
-                            <p>File: ${file.fileName || 'Unknown File'}</p>
-                        </div>
+                       
                         <div class="file-actions">
-                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
+                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i> ${file.fileName || 'Unknown File'} Download</a>
                         </div>
                     `}
                 `).join('') : ""}
@@ -3047,7 +3039,7 @@ function messageMenu() {
             copyToClipboard(element.querySelector('.dataMessage').innerText.trim());
 
             // Optional: Provide user feedback (e.g., show a success message)
-            alerting("Message copied to clipboard!");
+            ref("Message copied to clipboard!",null,null, "success");
         })
         menu.addEventListener("click",()=>{
             menu.style.display = "none";
