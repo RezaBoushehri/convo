@@ -1335,9 +1335,13 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 }
                 
                 if (user.username) {
+                    const match = room.roomName.match(/\(#(\d+)\)/);
+                    const number = match ? match[1] : null;
+
                     let tempMessage={
                         title: 'New Message From MetaChat',
-                        message: `<b>In ${room.roomName}</b><br> ${selfSender.first_name} ${selfSender.last_name} said: <br>${newMessage.message}`,
+                        message: `<b>In ${room.roomName}</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message}`,
+                        link:"/view?TaskID="+number,
                         timestamp
                     }
                     sendBackupToPHP(user.username,tempMessage)
