@@ -1298,12 +1298,51 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 roomID : socketEncrypt(currentUser.roomID),
                 title : socketEncrypt(room.roomName)
             }
+            const selfSender = await User.findOne({ username });
+            
+            const axios = require('axios');
+
+            const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
+            const AES_IV = crypto.randomBytes(16); // Initialization Vector
+
+            // رمزنگاری AES-256
+            function encryptAES256(text) {
+                const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), AES_IV);
+                let encrypted = cipher.update(text);
+                encrypted = Buffer.concat([encrypted, cipher.final()]);
+                return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
+            }
+
+            // ارسال پیام پشتیبان به PHP
+            async function sendBackupToPHP(Number, jsonMessage) {
+                const encrypted = encryptAES256(JSON.stringify(jsonMessage));
+                // console.log(encrypted)
+
+                try {
+                    await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
+                    console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
+                } catch (err) {
+                    console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
+                }
+            }
+
             // console.log(encryptedMessage)
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach((user) => {
                 if (user.socketID) {
                     io.to(user.socketID).emit("notification", encryptedMessage);
+
                 }
+                
+                if (user.username) {
+                    let tempMessage={
+                        title: 'New Message From MetaChat',
+                        message: `<b>In ${room.roomName}</b><br> ${selfSender.first_name} ${selfSender.last_name} said: <br>${newMessage.message}`,
+                        timestamp
+                    }
+                    sendBackupToPHP(user.username,tempMessage)
+                }
+
             });
             
             console.log(`🔔 Notification sent to users in room "${roomID}"`);
