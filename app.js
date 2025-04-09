@@ -1329,24 +1329,25 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             // console.log(encryptedMessage)
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach((user) => {
-                if (user.socketID) {
-                    io.to(user.socketID).emit("notification", encryptedMessage);
+                if(user.username!= username){
+                    if (user.socketID) {
+                        io.to(user.socketID).emit("notification", encryptedMessage);
 
-                }
-                
-                if (user.username) {
-                    const match = room.roomName.match(/\(#(\d+)\)/);
-                    const number = match ? match[1] : null;
-
-                    let tempMessage={
-                        title: 'New Message From MetaChat',
-                        message: `<b>In ${room.roomName}</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message}`,
-                        link:"/view?TaskID="+number,
-                        timestamp
                     }
-                    sendBackupToPHP(user.username,tempMessage)
-                }
+                    
+                    if (user.username) {
+                        const match = room.roomName.match(/\(#(\d+)\)/);
+                        const number = match ? match[1] : null;
 
+                        let tempMessage={
+                            title: 'New Message From MetaChat',
+                            message: `<b>In ${room.roomName}</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message}`,
+                            link:"/view?TaskID="+number,
+                            timestamp
+                        }
+                        sendBackupToPHP(user.username,tempMessage)
+                    }
+                }
             });
             
             console.log(`🔔 Notification sent to users in room "${roomID}"`);
