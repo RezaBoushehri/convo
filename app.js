@@ -486,8 +486,18 @@ app.post('/createRoom', async (req, res) => {
                 const existingRoom = await Room.findOne({ roomID: roomIDreq });
                 if (existingRoom) {
                     // Update members list
-                    // existingRoom.members = [...new Set([...existingRoom.members, ...phoneNumbers])]; // Avoid duplicates
-                    existingRoom.members = [...new Set([existingRoom.admin, ...phoneNumbers])];
+                    // console.log('decryptedData=>',decryptedData)
+                    console.log(existingRoom.members)
+                    if(decryptedData.append==1){
+                        existingRoom.members = [...new Set([...existingRoom.members, ...phoneNumbers])]; // Avoid duplicates
+                    }else if(decryptedData.append=='delete'){
+                        // Remove phoneNumbers from members
+                        existingRoom.members = existingRoom.members.filter(member => !phoneNumbers.includes(member));
+                        
+                    }else{
+                        existingRoom.members = [...new Set([existingRoom.admin, ...phoneNumbers])];
+                    }
+                    console.log(existingRoom.members)
                     await existingRoom.save();
                     return res.status(200).json({
                         success: true,
