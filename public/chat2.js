@@ -2127,19 +2127,13 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     <!-- Thumbnail Display -->
                     ${file.fileType.startsWith("image/") ? `
                         <!-- Thumbnail Image -->
-                        <img class="img-fluid m-1" src="https://mc.farahoosh.ir:4000${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('https://mc.farahoosh.ir:4000${file.file}')">
+                        <img class="img-fluid m-1" src="https://mc.farahoosh.ir:4000${file.file}" style="border-radius:  ${borderRadiusFalse()};width: auto;height: 100px;" loading="lazy" alt="Image" onclick="openImage('https://mc.farahoosh.ir:4000${file.file}')">
                         
-                        <!-- Modal for Enlarged Image -->
-                        <div id="imageModal" class="imageModal">
-                            <span class="close" onclick="closeModal()">&times;</span>
-                            <img id="modalImage" class="imageModal-content" src="https://mc.farahoosh.ir:4000${file.file}" alt="Enlarged Image">
-                            <div class="imageModal-caption">
-                                <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" class="btn btn-primary">
-                                    <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
-                                    ${file.fileName || 'Unknown File'} Download
-                                </a>
-                            </div>
-                        </div>
+                        <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" class="btn col-12 btn-primary">
+                            <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                            ${file.fileName || 'Unknown File'} Download
+                        </a>
+                        
                     ` : file.fileType === "application/pdf" ? `
                         <!-- PDF Display -->
                   
