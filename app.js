@@ -1416,7 +1416,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     socket.on("markMessagesRead", async ({ messageIds, username }) => {
         try {
             const timestamp = new Date();
-            // console.log(messageIds)
+            console.log(username)
             
             // Update the `read` array for each message
             const user = await User.findOne({ username });
@@ -1442,7 +1442,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             };
                         })
                     );
-    
+                    console.log(readUsers);
                     return { id: messageId, readUsers };
                 })
             );

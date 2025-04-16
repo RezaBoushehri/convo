@@ -18,7 +18,7 @@ function decryptMessage(encryptedMessage) {
     return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
-const roomID = document.getElementById('roomID').value.trim()
+let roomID = document.getElementById('roomID').value.trim()
 document.getElementById('roomID').value='';
 
 
@@ -859,7 +859,7 @@ socket.on("newconnection", (data) => {
 //Handle User joined the room event
 socket.on("joined", (data) => {
     // const data = decryptMessage(encryptedData)
-    // console.log("User joined room:", data);
+    console.log("User joined room:", data);
 
     // Ensure required fields exist
     // if (!data.room || !data.room.roomID || !data.room.admin) {
@@ -877,7 +877,8 @@ socket.on("joined", (data) => {
     document.getElementById("chat-window").style.display = "block";
     document.querySelector(".form-inline").style.display = "flex";
     document.querySelector("footer").style.display = "none";
-    
+    roomID = data.room.roomID
+    console.log(roomID)
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
     
