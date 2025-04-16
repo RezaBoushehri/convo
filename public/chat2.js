@@ -871,7 +871,6 @@ socket.on("joined", (data) => {
     // Toggle UI elements
     document.getElementById("chat-window").style.display = "block";
     document.querySelector("footer").style.display = "none";
-    
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
     if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
@@ -1569,7 +1568,8 @@ socket.on("restoreMessages", async  (data) => {
         if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
             if (messageId && !visibleMessages.includes(messageId)) {
                 visibleMessages.push(messageId);  // Add the data-id of visible messages
-                // console.log(messageId)
+                console.log("read messageId",messageId)
+                console.log("read user",currentUser.username)
             }
         }
         })

@@ -80,7 +80,7 @@
     background-color: transparent !important;
     color: white;
     overflow: auto;  /* Ensure scrollbars appear if needed */
-    resize: both; /* Allow resizing both width & height */
+    resize: vertical; /* Allow resizing both width & height */
     min-width: 200px; /* Prevent making it too small */
     min-height: 100px;
     scrollbar-width: thin; /* Makes scrollbar thinner */
