@@ -75,7 +75,7 @@
     opacity: 1;
 }
 #chat-window {
-    max-height: 90vh !important;
+    max-height: 50% !important;
     margin-top: 2vh;
     background-color: transparent !important;
     color: white;
