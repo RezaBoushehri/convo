@@ -1354,21 +1354,21 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             const senderNumber = pvMatch[1];
                             const receiverNumber = pvMatch[2];
                             tempMessage = {
-                                title: 'New PV Message From MetaChat',
-                                message: `<b>Private Chat between</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> said: <br>${newMessage.message}`,
+                                title: 'New private message (MetaChat)',
+                                message: `<b>Private Chat</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> said: <br>${newMessage.message}`,
                                 timestamp
                             };
                         } else if (taskMatch) {
                             const taskID = taskMatch[1];
                             tempMessage = {
-                                title: 'New Message From MetaChat',
+                                title: 'New comment (MetaChat)',
                                 message: `<b>In ${room.roomName}</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message}`,
                                 link: "/view?TaskID=" + taskID,
                                 timestamp
                             };
                         } else {
                             tempMessage = {
-                                title: 'New Message From MetaChat',
+                                title: 'New Message (MetaChat)',
                                 message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>${newMessage.message}`,
                                 timestamp
                             };
