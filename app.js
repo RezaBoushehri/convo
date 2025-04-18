@@ -927,10 +927,22 @@ io.on("connection", (socket) => {
 
             roomID = socketDecrypt(data.roomID)
             const user = await User.findOne({ socketID: socket.id });
-            if (!user || !user.roomID) {
+            if (!user) {
                 throw new Error("User not found or not part of a room.");
             }
             const username = user.username;
+
+            // Check if the roomID is valid
+            const lastroom=user.roomID
+            if(user.roomID){
+                // اول از روم قبلی خارج شو
+                // socket.broadcast.to(roomID).emit("userLeft", { username, lastroom });
+                socket.leave(lastroom);
+            }
+          
+            
+
+            // Notify others in the room about the user's departure
             console.log(`User ${username} is trying to join room ${roomID}`);
             // Emit user settings
             socket.emit("applySettings", user.settings);
@@ -991,7 +1003,7 @@ io.on("connection", (socket) => {
             const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();
             // Notify others
             // socket.broadcast.to(roomID).emit("userJoined", { username, roomID });
-            socket.broadcast.to(user.roomID).emit("userJoined", `${user.first_name} ${user.last_name}`);
+            // socket.broadcast.to(user.roomID).emit("userJoined", `${user.first_name} ${user.last_name}`);
 
 
             socket.emit("joined", { room , name : `${userRead.first_name} ${userRead.last_name}` });
@@ -1235,7 +1247,8 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             if (!currentUser || !currentUser.roomID) {
                 throw new Error("User not found or not part of a room.");
             }
-            const username = currentUser.username;            message = socketDecrypt(message);
+            const username = currentUser.username;
+            message = socketDecrypt(message);
             quote = socketDecrypt(quote);
             let fileDetails = null;
 
@@ -1298,7 +1311,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 // handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
             let encryptedMessage = await processMessage(enrichedMessage)  
-                      // Broadcast the message to the room
+            // Broadcast the message to the room
             io.in(currentUser.roomID).emit("chat",await encryptedMessage,{ success: true });
             // console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
             callback({ success: true });
@@ -1348,10 +1361,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach((user) => {
                 if(user.username!= username){
-                    if (user.socketID) {
-                        io.to(user.socketID).emit("notification", encryptedMessage);
-
-                    }
+                   
                     
                     if (user.username) {
                         const taskMatch = room.roomName.match(/\(#(\d+)\)/);
@@ -1382,7 +1392,10 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             };
                         }
                         
-
+                        if (user.socketID) {
+                            io.to(user.socketID).emit("notification", tempMessage);
+    
+                        }
                         sendBackupToPHP(user.username,tempMessage)
                     }
                 }
@@ -1532,20 +1545,22 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             }
             const username = currentUser.username;
             const timestamp = new Date();
-            console.log(`${messageIds} unreaded user:`,username)
             
             // Update the `read` array for each message
             const user = await User.findOne({ username });
+
             if(user){
             const updatedMessages = await Promise.all(
                 messageIds.map(async (messageId) => {
+                    // console.log(`${currentUser.roomID}${messageId} unreaded `)
+                    let messagebyroomID =`${currentUser.roomID}${messageId}`
                     await Message.updateMany(
-                        { id: { $lte: messageId }, "read.username": { $ne: username } }, // All messages with id <= messageId
+                        { id: { $lte: messagebyroomID }, "read.username": { $ne: username } }, // All messages with id <= messagebyroomID
                         { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
                     );
     
                     // Fetch the updated message
-                    const message = await Message.findOne({ id: messageId }).lean();
+                    const message = await Message.findOne({ id: messagebyroomID }).lean();
                     if (!message) return null;
     
                     // Enrich the `readUsers` with user details
@@ -1559,7 +1574,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                         })
                     );
                     // console.log(readUsers);
-                    return { id: messageId, readUsers };
+                    return { id: messagebyroomID, readUsers };
                 })
             );
             

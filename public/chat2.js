@@ -528,8 +528,6 @@ button.addEventListener("click", async () => {
     }
     let data = {
         username: currentUser.username,
-        handle: name.textContent.trim(),
-        roomID: roomID,
         quote:quote,
         message: text == 'message ...' ?' ': text,
         file: fileData || null,
@@ -537,8 +535,6 @@ button.addEventListener("click", async () => {
     };
     let dataEncrypt = {
         username: encryptMessage(currentUser.username),
-        handle:  encryptMessage(name.textContent.trim()),
-        roomID:  encryptMessage(roomID),
         quote: encryptMessage(quote),
         message: text == 'message ...' ?' ': encryptMessage(text),
         file: fileData || null,
@@ -738,6 +734,8 @@ message.addEventListener("keydown", (event) => {
 });
 //=================================================================
 socket.on("chat",async(data , ack) => {
+   
+    
     const decryptedMessage = await {
             // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
                 ...data,
@@ -822,7 +820,7 @@ socket.on("chat",async(data , ack) => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
-            messageId = roomID +"-"+ messageId.split('-')[1]
+            messageId = "-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
                 if (messageId && !visibleMessages.includes(messageId)) {
@@ -837,6 +835,7 @@ socket.on("chat",async(data , ack) => {
             socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
         }
     }
+
 });
 //=================================================================
 //Handle user-connected event
@@ -881,6 +880,11 @@ socket.on("joined", (data) => {
     console.log(roomID)
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
+    if (typeof updatePVnotif === 'function') {
+        updatePVnotif();
+    }else{
+        console.log('updatePVnotif not exist')
+    }
     
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 
@@ -1000,7 +1004,7 @@ socket.on("chat",async(data , ack) => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
-            messageId = roomID +"-"+ messageId.split('-')[1]
+            messageId = "-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
                 if (messageId && !visibleMessages.includes(messageId)) {
@@ -1260,7 +1264,7 @@ if (message) {
             let firstMessageId = firstMessage.getAttribute('data-id');
             if (messageId <= firstMessageId){
             firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-            let messageIdreplied = roomID +"-"+ messageId.split('-')[1]
+            let messageIdreplied = "-"+ messageId.split('-')[1]
             
             if (!sentMessagesId.includes(firstMessageId)) {
             const isSmallerThanAll = sentMessagesId.every((id) => {
@@ -1537,7 +1541,7 @@ socket.on("restoreMessages", async  (data) => {
                         document.getElementById('loading').classList.remove("hide");
                         document.getElementById('loading').classList.add("show");
                     } 
-                    messageId = roomID +"-"+ messageId.split('-')[1]
+                    messageId = "-"+ messageId.split('-')[1]
                     // Emit the request for older messages to the server
                     socket.emit("requestOlderMessages", { roomID: roomID, counter: messageId });
                 } else {
@@ -1554,29 +1558,7 @@ socket.on("restoreMessages", async  (data) => {
             console.error("Element with id 'roomIDVal' not found.");
         }
     } 
-    else if(data.unread){
-        const messageReadsUnread = document.querySelectorAll(".messageRead");
-        const visibleMessagesUnread = [];
-        messageReadsUnread.forEach((message) => {
-            
-        let messageId = message.getAttribute("data-id");
-        const rect = message.getBoundingClientRect();
-        messageId = roomID +"-"+ messageId.split('-')[1]
-        // Check if the message is in the viewport (visible)
     
-        if (messageId && !visibleMessagesUnread.includes(messageId)) {
-            visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
-            console.log("read messageId",messageId)
-            console.log("read user",currentUser.username)
-        }
-        
-        })
-        
-        // Emit the IDs of visible messages to the server
-        if (visibleMessagesUnread.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, username: currentUser.username });
-        }
-    }
     // Get all the message elements
     const messages = document.querySelectorAll(".messageElm");
     const messageReads = document.querySelectorAll(".messageRead");
@@ -1585,7 +1567,7 @@ socket.on("restoreMessages", async  (data) => {
         
     let messageId = message.getAttribute("data-id");
     const rect = message.getBoundingClientRect();
-    messageId = roomID +"-"+ messageId.split('-')[1]
+    messageId = "-"+ messageId.split('-')[1]
     // Check if the message is in the viewport (visible)
     if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
         if (messageId && !visibleMessages.includes(messageId)) {
@@ -1692,12 +1674,40 @@ socket.on("restoreMessages", async  (data) => {
                 }
             }
         }
+        if(data.unread){
+            const messageReadsUnread = document.querySelectorAll(".messageRead");
+            const visibleMessagesUnread = [];
+            messageReadsUnread.forEach((message) => {
+                
+            let messageId = message.getAttribute("data-id");
+            const rect = message.getBoundingClientRect();
+            messageId = "-"+ messageId.split('-')[1]
+            // Check if the message is in the viewport (visible)
+        
+            if (messageId && !visibleMessagesUnread.includes(messageId)) {
+                visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
+                console.log("read messageId",messageId)
+                console.log("read user",currentUser.username)
+            }
+            
+            })
+            
+            // Emit the IDs of visible messages to the server
+            if (visibleMessagesUnread.length > 0) {
+                socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, username: currentUser.username });
+            }
+        }
         // setTimeout(() => {
         //     applyShowMore();
         // },100);
         messageMenu()
         enableScrolling()
-
+        if (typeof updatePVnotif === 'function') {
+            updatePVnotif();
+        }else{
+            console.log('updatePVnotif not exist')
+        }
+        
     });
 
     socket.on("noMoreMessages",(data) =>{
@@ -1894,6 +1904,7 @@ let messageIdSplited=[]
 let lastSender = null;
 
 function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true , MessagePack = output.querySelectorAll('.MessagePack')) {
+    
     if(messagesCreated.includes(data.id)){
         const MessageElm = output.querySelector(`#Message-${data.id.split('-')[1]}`)
         if(MessageElm)MessageElm.remove()
@@ -2298,6 +2309,8 @@ if (isLastMessage) {
     // Run the function to apply the functionality
     if (typeof updatePVnotif === 'function') {
         updatePVnotif();
+    }else{
+        console.log('updatePVnotif not exist')
     }
     
 
@@ -2830,7 +2843,7 @@ chat_window.addEventListener("scroll", () => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
-            messageId = roomID +"-"+ messageId.split('-')[1]
+            messageId = "-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
                 if (messageId && !visibleMessages.includes(messageId)) {
@@ -3272,26 +3285,18 @@ socket.on("disconnect", () => {
 socket.on("connect", () => {
     console.log("🟢 Reconnected to server!");
     
-    if(roomID){
+    // if(roomID){
             // Show the loading spinner if hidden
             const loadingElement = document.getElementById('loading');
             if (loadingElement.classList.contains('hide')) {
                 loadingElement.classList.remove("hide");
                 loadingElement.classList.add("show");
             }
-            // Emit the event and wait for the server's acknowledgment
-            socket.emit("requestOlderMessages", { 
-                roomID: roomID, 
-                counter: `${roomID}-0`, 
-                type: 'latest' 
-            }, () => { // Callback function for when the server acknowledges
-                // Scroll after emitting the event
-                chat_window.scrollTo({
-                    top: chat_window.scrollHeight, // Scroll to the bottom
-                    behavior: "auto",
-                });
-            });
-        }
+            var encryptedRoomID =encryptMessage(roomID)
+            var encryptedData =encryptMessage(currentUser.username)
+            console.log({ roomID: encryptedRoomID,username: encryptedData})
+            socket.emit("joinRoom",{ roomID: encryptedRoomID,username: encryptedData})
+        // }
     
 });
 socket.on("ping", () => {
