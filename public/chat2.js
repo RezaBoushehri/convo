@@ -2101,7 +2101,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 // ${ownMessage? `right_box1 `:`left_box2 `}
     contentToAdd += `
 
-    <div id="Message-${messageId}" class="messageElm m-2" date-id="${messageDate}" style="${divStyle}  align-items: center;"  sender="${data.sender}">
+    <div id="Message-${messageId}" class="messageElm m-1" date-id="${messageDate}" style="${divStyle}  align-items: center;"  sender="${data.sender}">
         ${ownMessage?`
             
             <div class="read-info mx-3"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
