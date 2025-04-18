@@ -1554,31 +1554,54 @@ socket.on("restoreMessages", async  (data) => {
             console.error("Element with id 'roomIDVal' not found.");
         }
     } 
-    // Initialize a variable to store the last seen date to compare
-
-        // Get all the message elements
-        const messages = document.querySelectorAll(".messageElm");
-        const messageReads = document.querySelectorAll(".messageRead");
-        const visibleMessages = [];
-        messageReads.forEach((message) => {
+    else if(data.unread){
+        const messageReadsUnread = document.querySelectorAll(".messageRead");
+        const visibleMessagesUnread = [];
+        messageReadsUnread.forEach((message) => {
             
         let messageId = message.getAttribute("data-id");
         const rect = message.getBoundingClientRect();
         messageId = roomID +"-"+ messageId.split('-')[1]
         // Check if the message is in the viewport (visible)
-        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-            if (messageId && !visibleMessages.includes(messageId)) {
-                visibleMessages.push(messageId);  // Add the data-id of visible messages
-                console.log("read messageId",messageId)
-                console.log("read user",currentUser.username)
-            }
+    
+        if (messageId && !visibleMessagesUnread.includes(messageId)) {
+            visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
+            console.log("read messageId",messageId)
+            console.log("read user",currentUser.username)
         }
+        
         })
         
         // Emit the IDs of visible messages to the server
-        if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+        if (visibleMessagesUnread.length > 0) {
+            socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, username: currentUser.username });
         }
+    }
+    // Get all the message elements
+    const messages = document.querySelectorAll(".messageElm");
+    const messageReads = document.querySelectorAll(".messageRead");
+    const visibleMessages = [];
+    messageReads.forEach((message) => {
+        
+    let messageId = message.getAttribute("data-id");
+    const rect = message.getBoundingClientRect();
+    messageId = roomID +"-"+ messageId.split('-')[1]
+    // Check if the message is in the viewport (visible)
+    if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+        if (messageId && !visibleMessages.includes(messageId)) {
+            visibleMessages.push(messageId);  // Add the data-id of visible messages
+            console.log("read messageId",messageId)
+            console.log("read user",currentUser.username)
+        }
+    }
+    })
+    
+    // Emit the IDs of visible messages to the server
+    if (visibleMessages.length > 0) {
+        socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+    }
+    // Initialize a variable to store the last seen date to compare
+
         // Iterate through all messages
         messages.forEach((message) => {
             const messageDate = new Date(message.getAttribute("date-id")); // Convert date-id to Date object

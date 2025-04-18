@@ -1532,7 +1532,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             }
             const username = currentUser.username;
             const timestamp = new Date();
-            // console.log(username)
+            console.log(`${messageIds} unreaded user:`,username)
             
             // Update the `read` array for each message
             const user = await User.findOne({ username });
@@ -1576,28 +1576,28 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         }
     });
     
-    socket.on("markMessagesRead", async ({ messageIds, username }) => {
-        try {
-            const timestamp = new Date();
+    // socket.on("markMessagesRead", async ({ messageIds, username }) => {
+    //     try {
+    //         const timestamp = new Date();
     
-            // Update the `read` array for each message
-            await Promise.all(
-                messageIds.map((messageId) =>
-                    Message.updateOne(
-                        { id: messageId, "read.username": { $ne: username } }, // Ensure username isn't already marked
-                        { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
-                    )
-                )
-            );
+    //         // Update the `read` array for each message
+    //         await Promise.all(
+    //             messageIds.map((messageId) =>
+    //                 Message.updateOne(
+    //                     { id: messageId, "read.username": { $ne: username } }, // Ensure username isn't already marked
+    //                     { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
+    //                 )
+    //             )
+    //         );
     
-            // console.log(`Messages marked as read for user "${username}":`, messageIds);
+    //         // console.log(`Messages marked as read for user "${username}":`, messageIds);
     
-            // Optionally notify others in the room of read receipts
-            socket.broadcast.emit("messagesRead", { messageIds, username, timestamp });
-        } catch (error) {
-            console.error("Error in markMessagesRead:", error.message);
-        }
-    });
+    //         // Optionally notify others in the room of read receipts
+    //         socket.broadcast.emit("messagesRead", { messageIds, username, timestamp });
+    //     } catch (error) {
+    //         console.error("Error in markMessagesRead:", error.message);
+    //     }
+    // });
     
     
     
@@ -1677,7 +1677,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         const room = await Room.findOne({ roomID: roomID });
       
         const time = room.lastUpdated ?? null;  // ❗️ اینجا دیگه تاریخ ساختگی نمی‌دیم
-        console.log(`${room.roomName}  lastUpdate: ${time}`);
+        // console.log(`${room.roomName}  lastUpdate: ${time}`);
         callback(time);
       });
       
