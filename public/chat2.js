@@ -689,11 +689,11 @@ button.addEventListener("click", async () => {
         // // Add the message to the UI
         // addMessageToChatUI(response);
     });
-    // Remove "sending" placeholder once the message is successfully added to the UI
-    if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
-        setTimeout(() => {
-            applyShowMore();
-            },100);
+    // // Remove "sending" placeholder once the message is successfully added to the UI
+    // if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
+    //     setTimeout(() => {
+    //         applyShowMore();
+    //         },100);
 })
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
@@ -807,9 +807,9 @@ socket.on("chat",async(data , ack) => {
     }
     // $("#down").show(); // Show scroll-up button
     messageMenu()
-    setTimeout(() => {
-        applyShowMore();
-    },100);
+    // setTimeout(() => {
+    //     applyShowMore();
+    // },100);
     if(decryptedMessage.sender != currentUser.username){
         showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
         playNotificationSound()
@@ -985,9 +985,9 @@ socket.on("chat",async(data , ack) => {
     
     }
     // $("#down").show(); // Show scroll-up button
-    setTimeout(() => {
-        applyShowMore();
-    },100);
+    // setTimeout(() => {
+    //     applyShowMore();
+    // },100);
     if(decryptedMessage.sender != currentUser.username){
         showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
         playNotificationSound()
@@ -1669,9 +1669,9 @@ socket.on("restoreMessages", async  (data) => {
                 }
             }
         }
-        setTimeout(() => {
-            applyShowMore();
-        },100);
+        // setTimeout(() => {
+        //     applyShowMore();
+        // },100);
         messageMenu()
         enableScrolling()
 
@@ -2280,34 +2280,34 @@ if (isLastMessage) {
 
 }
 
-// Function to check and apply "more..." for all messages
-function applyShowMore() {
-    const messages = document.querySelectorAll('.dataMessage');
+// // Function to check and apply "more..." for all messages
+// function applyShowMore() {
+//     const messages = document.querySelectorAll('.dataMessage');
 
-    messages.forEach((message) => {
-        // const showMoreButton = message.querySelector('.show-more');
-        const messageId= message.getAttribute('message-id');
-        // Calculate the height of one line of text
-        const lineHeight = parseFloat(getComputedStyle(message).lineHeight);
-        const maxVisibleHeight = lineHeight * 5; // Maximum height for 5 lines
+//     messages.forEach((message) => {
+//         // const showMoreButton = message.querySelector('.show-more');
+//         const messageId= message.getAttribute('message-id');
+//         // Calculate the height of one line of text
+//         const lineHeight = parseFloat(getComputedStyle(message).lineHeight);
+//         const maxVisibleHeight = lineHeight * 5; // Maximum height for 5 lines
 
-        // Check if the text exceeds 5 lines
-        // console.log('id :',message.getAttribute('message-id')," height :" , message.scrollHeight)
-        if (message.scrollHeight > maxVisibleHeight) {
-            message.style.maxHeight = `${maxVisibleHeight}px`; // Limit to 5 lines
-            // showMoreButton.style.display = 'inline';
-            message.insertAdjacentHTML('afterend',`<div class="backdrop-blur p-1 show-more"  style="display: inline;" onclick="showMore('${messageId}')" message-id="${messageId}">
-                <i class="bi bi-arrow-down-circle"></i>
-                </div>`)
-        }
+//         // Check if the text exceeds 5 lines
+//         // console.log('id :',message.getAttribute('message-id')," height :" , message.scrollHeight)
+//         if (message.scrollHeight > maxVisibleHeight) {
+//             message.style.maxHeight = `${maxVisibleHeight}px`; // Limit to 5 lines
+//             // showMoreButton.style.display = 'inline';
+//             message.insertAdjacentHTML('afterend',`<div class="backdrop-blur p-1 show-more"  style="display: inline;" onclick="showMore('${messageId}')" message-id="${messageId}">
+//                 <i class="bi bi-arrow-down-circle"></i>
+//                 </div>`)
+//         }
 
-        // // Add event listener for the "more..." button
-        // showMoreButton.addEventListener('click', () => {
-        //     message.style.maxHeight = 'none'; // Expand to show full text
-        //     showMoreButton.style.display = 'none';
-        // });
-    });
-}
+//         // // Add event listener for the "more..." button
+//         // showMoreButton.addEventListener('click', () => {
+//         //     message.style.maxHeight = 'none'; // Expand to show full text
+//         //     showMoreButton.style.display = 'none';
+//         // });
+//     });
+// }
 function showMore(messageId) {
     const message = document.querySelector(`.dataMessage[message-id="${messageId}"]`);
     const button = document.querySelector(`.show-more[message-id="${messageId}"]`);
@@ -2923,6 +2923,11 @@ function uploadImage() {
 // message menu
 function messageMenu() {
     const elements = output.querySelectorAll(".messageElm");
+    if(document.getElementById("messageMenu")){
+        document.getElementById("messageMenu").remove()
+        document.insertAdjacentHTML('beforeend',`
+            `)
+    }
     const menu = document.getElementById("messageMenu");
     const header = menu.querySelector('.messageMenuHeader')
     const body = menu.querySelector('.messageMenubody')
