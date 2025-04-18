@@ -926,8 +926,11 @@ io.on("connection", (socket) => {
             console.log(data.roomID)
 
             roomID = socketDecrypt(data.roomID)
-            username = socketDecrypt(data.username)
-            const user = await User.findOne({ username });
+            const user = await User.findOne({ socketID: socket.id });
+            if (!user || !user.roomID) {
+                throw new Error("User not found or not part of a room.");
+            }
+            const username = user.username;
             console.log(`User ${username} is trying to join room ${roomID}`);
             // Emit user settings
             socket.emit("applySettings", user.settings);
@@ -1226,10 +1229,13 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("chat", async (data , callback) => {
         try {
-            console.log(data)
-            let { username, message, file , quote } = data;
-            username = socketDecrypt(username);
-            message = socketDecrypt(message);
+            const currentUser = await User.findOne({ socketID: socket.id });
+            // console.log(data)
+            let { message, file , quote } = data;
+            if (!currentUser || !currentUser.roomID) {
+                throw new Error("User not found or not part of a room.");
+            }
+            const username = currentUser.username;            message = socketDecrypt(message);
             quote = socketDecrypt(quote);
             let fileDetails = null;
 
@@ -1256,10 +1262,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             if(!username) throw new Error("User not found or not part of a room.");
             if (!message  && !file)                 throw new Error("no message.");
             // Validate the user
-            const currentUser = await User.findOne({ username });
-            if (!currentUser || !currentUser.roomID) {
-                throw new Error("User not found or not part of a room.");
-            }
+            
             // Get the next sequence value from the counter collection
             const counter = await Room.findOneAndUpdate(
                 { roomID: currentUser.roomID },  // Find the counter for this room
@@ -1282,7 +1285,12 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             });
             // console.log("message : ",newMessage.file)
             await newMessage.save();
-    
+            // Update room's last update timestamp
+            let timeUp = await Room.findOneAndUpdate(
+                { roomID: currentUser.roomID },
+                { $set: { lastUpdated: timestamp } }
+            );
+            console.log("updated : ",timeUp)
             // Enrich the message with sender details
             let enrichedMessage = {
                 ...newMessage.toObject(),
@@ -1292,7 +1300,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             let encryptedMessage = await processMessage(enrichedMessage)  
                       // Broadcast the message to the room
             io.in(currentUser.roomID).emit("chat",await encryptedMessage,{ success: true });
-            console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
+            // console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
             callback({ success: true });
             // پیدا کردن همه اعضای اتاق
                     // دریافت اطلاعات اتاق از دیتابیس
@@ -1330,7 +1338,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
                 try {
                     await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
-                    console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
+                    // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
                 } catch (err) {
                     console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
                 }
@@ -1380,7 +1388,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 }
             });
             
-            console.log(`🔔 Notification sent to users in room "${roomID}"`);
+            // console.log(`🔔 Notification sent to users in room "${roomID}"`);
         // }
     } catch (error) {
         console.error("Error handling chat message:", error);
@@ -1403,7 +1411,12 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     socket.on("addReaction", async ({ username, messageId, reaction }) => {
         try {
             const time = new Date();
-    
+            const timestamp = new Date();
+            const currentUser = await User.findOne({ socketID: socket.id });
+            if (!currentUser || !currentUser.roomID) {
+                throw new Error("User not found or not part of a room.");
+            }
+            const username = currentUser.username;
             // Find the message by its ID
             const message = await Message.findOne({ id: messageId });
             if (!message) throw new Error("Message not found");
@@ -1427,6 +1440,84 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
             // Emit the updated message to the room
             io.to(message.roomID).emit("reactionAdded", { messageId, username, time, reaction });
+            const room = await Room.findOne({ roomID : currentUser.roomID});
+            if (!room) throw new Error("Room not found!");
+
+            const roomMembers = room.members; // لیست اعضای اتاق
+            
+            // گرفتن Socket ID کاربران از دیتابیس
+            const onlineUsers = await User.find({ username: { $in: roomMembers } });
+            
+            const selfSender = await User.findOne({ username });
+            
+            const axios = require('axios');
+
+            const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
+            const AES_IV = crypto.randomBytes(16); // Initialization Vector
+
+            // رمزنگاری AES-256
+            function encryptAES256(text) {
+                const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), AES_IV);
+                let encrypted = cipher.update(text);
+                encrypted = Buffer.concat([encrypted, cipher.final()]);
+                return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
+            }
+
+            // ارسال پیام پشتیبان به PHP
+            async function sendBackupToPHP(Number, jsonMessage) {
+                const encrypted = encryptAES256(JSON.stringify(jsonMessage));
+                // console.log(encrypted)
+
+                try {
+                    await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
+                    console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
+                } catch (err) {
+                    console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
+                }
+            }
+
+            // console.log(encryptedMessage)
+            // ارسال پیام به تمام کاربران حاضر در اتاق
+            onlineUsers.forEach((user) => {
+                if(user.username!= username &&user.username==message.sende){
+                    
+                    
+                    if (user.username) {
+                        const taskMatch = room.roomName.match(/\(#(\d+)\)/);
+                        const pvMatch = room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/);
+                        let tempMessage;
+                        
+                        if (pvMatch) {
+                            const senderNumber = pvMatch[1];
+                            const receiverNumber = pvMatch[2];
+                            tempMessage = {
+                                title: 'New private message (MetaChat)',
+                                message: `<b>Private Chat</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> said: <br>Reacted to your message`,
+                                timestamp
+                            };
+                        } else if (taskMatch) {
+                            const taskID = taskMatch[1];
+                            tempMessage = {
+                                title: 'New comment (MetaChat)',
+                                message: `<b>In ${room.roomName}</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>Reacted to your message`,
+                                link: "/view?TaskID=" + taskID,
+                                timestamp
+                            };
+                        } else {
+                            tempMessage = {
+                                title: 'New Message (MetaChat)',
+                                message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>Reacted to your message`,
+                                timestamp
+                            };
+                        }
+                        
+
+                        sendBackupToPHP(user.username,tempMessage)
+                    }
+                }
+            });
+            
+            console.log(`🔔 Notification sent to users in room "${roomID}"`);
         } catch (error) {
             console.error("Error adding reaction:", error);
             socket.emit("error", { message: "Failed to add reaction." });
@@ -1435,8 +1526,13 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("markMessagesRead", async ({ messageIds, username }) => {
         try {
+            const currentUser = await User.findOne({ socketID: socket.id });
+            if (!currentUser || !currentUser.roomID) {
+                throw new Error("User not found or not part of a room.");
+            }
+            const username = currentUser.username;
             const timestamp = new Date();
-            console.log(username)
+            // console.log(username)
             
             // Update the `read` array for each message
             const user = await User.findOne({ username });
@@ -1462,7 +1558,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             };
                         })
                     );
-                    console.log(readUsers);
+                    // console.log(readUsers);
                     return { id: messageId, readUsers };
                 })
             );
@@ -1560,7 +1656,8 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             socket.emit("error", { message: "Failed to save settings" });
         }
     });
-    socket.on("countNewMessage", (username, roomID, callback) => {
+    socket.on("countNewMessage", async(username, roomID, callback) => {
+       
         // Fetch messages from the database (adjust this based on your database query)
         Message.find({ roomID: roomID }) // Get all messages in the room
             .then(messages => {
@@ -1576,8 +1673,14 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 callback(0); // Default to 0 in case of an error
             });
     });
-
-
+    socket.on("lastUpdatedTime", async (username, roomID, callback) => {
+        const room = await Room.findOne({ roomID: roomID });
+      
+        const time = room.lastUpdated ?? null;  // ❗️ اینجا دیگه تاریخ ساختگی نمی‌دیم
+        console.log(`${room.roomName}  lastUpdate: ${time}`);
+        callback(time);
+      });
+      
     // for count
 // fornt code    
     // socket.emit("countNewMessage", "09173121943", "krrlnB6aMRm6symph2", (count) => {

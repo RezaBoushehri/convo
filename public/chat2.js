@@ -137,7 +137,7 @@ function emoji(messageId) {
         document.querySelectorAll('.stickerPicker').forEach(el => el.remove());
     }
         const emojiDiv = `
-  <div id="emoji-${messageId}" class="stickerPicker">
+  <div id="emoji-${messageId}" class="stickerPicker show">
     <div id="emojiGrid">
         <div id="emojiContainer" >
                 <!-- Emoji spans that will be rendered by Twemoji -->
@@ -2016,12 +2016,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const readInfoHTML = data.readUsers
     ? data.readUsers
           .map((r) => {
-            if(r.name === name.textContent.trim().normalize('NFC')&& r.reaction !== ""){
+            if(r.username === currentUser.username&& r.reaction !== ""){
               return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
                        ${"you"} ${r.reaction}
                      </div>
                      <hr>`
-            }else if(r.name !== name.textContent.trim().normalize('NFC')){
+            }else if(r.username !== currentUser.username){
                 return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
                 ${r.name} at ${formatTimestamp(r.time)} ${r.reaction}
               </div>
@@ -2031,10 +2031,6 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
           .join("")
     : "";
 
-    const emojiDiv = `
-    ${emoji(messageId)}
-    
-    `
     // <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
     // <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
     // </button>
@@ -2105,7 +2101,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 // ${ownMessage? `right_box1 `:`left_box2 `}
     contentToAdd += `
 
-    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}  align-items: center;"  sender="${data.sender}">
+    <div id="Message-${messageId}" class="messageElm m-2" date-id="${messageDate}" style="${divStyle}  align-items: center;"  sender="${data.sender}">
         ${ownMessage?`
             
             <div class="read-info mx-3"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
@@ -2197,7 +2193,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             </div>
             <div class="messageRead" data-id="Message-${messageId}"  >
                 <div  style="${divStyle}"  class=" footerMessage" >
-                    <div class="${reactionMember!=''?'my-3':''}" reactionMessage = "${messageId}">
+                    <div class="${reactionMember!=''?'my-4':''}" reactionMessage = "${messageId}">
                     ${reactionMember}
                     </div>
                 </div>
@@ -2277,6 +2273,10 @@ if (isLastMessage) {
 
     searchMessageReply()
     // Run the function to apply the functionality
+    if (typeof updatePVnotif === 'function') {
+        updatePVnotif();
+    }
+    
 
 }
 
@@ -2362,19 +2362,19 @@ function toggleStickerPicker( messageId , pageX =0 ,pageY=0 ) {
      
     console.log("Sticker picker toggled for message ID: ",messageId, pageX ," , ",pageY);
     // Implement logic for showing/hiding sticker picker
-    
-    var stickerPicker = chat_window.querySelector(`#emoji-${messageId}`);
+    document.body.insertAdjacentHTML(`beforeend`,emoji(messageId))
+    var stickerPicker = document.getElementById(`emoji-${messageId}`);
     stickerPicker.style.left = `${pageX}px`; // Position menu at cursor's X position
     stickerPicker.style.top = `${pageY}px`;  // Position menu at cursor's Y position
-    if (stickerPicker.classList.contains("show")) {
-        stickerPicker.classList.remove("show");
-        stickerPicker.classList.add("hide");
-    } else {
-        stickerPicker.classList.remove("hide");
-        stickerPicker.style.display = "block";
+    // if (stickerPicker.classList.contains("show")) {
+    //     stickerPicker.classList.remove("show");
+    //     stickerPicker.classList.add("hide");
+    // } else {
+    //     stickerPicker.classList.remove("hide");
+    //     stickerPicker.style.display = "block";
         
-        stickerPicker.classList.add("show");
-    }
+    //     stickerPicker.classList.add("show");
+    // }
 }
 
 // Function to add sticker reaction
@@ -2385,7 +2385,10 @@ function addStickerReaction(reaction,messageId) {
     // console.log("message selected:", message);
     // Here, emit the reaction to the server or update the UI accordingly
     socket.emit("addReaction", { username: currentUser.username, messageId: message, reaction:reaction });
-    toggleStickerPicker(messageId);  // Close the sticker picker after selection
+    var stickerPicker = document.getElementById(`emoji-${messageId}`);
+
+    stickerPicker.remove();
+
 }
 
 // Filter function to search emojis
@@ -2487,7 +2490,7 @@ socket.on("readMessageUpdate", ({ id, readUsers }) => {
         toggleBtn.innerHTML=`<i class="bi bi-check2-all"></i>`
         // Update the read information for each read user
         readUsers.forEach((r) => {
-            if (r.name !== name.textContent.trim().normalize('NFC')) {
+            if (r.username !== currentUser.username) {
                 updateTimeForReadUser(r, readInfoElement);
             }
         });
@@ -2508,11 +2511,13 @@ const updateTimeForReadUser = (r, readInfoElement) => {
             clearInterval(interval); // Stop the interval if more than 1 minute has passed
         }
 
+        if(r.username!=currentUser.username){
         // Update the displayed time for the read user
         readInfoElement.innerHTML = `
             <div user-id='${r.username}' style="font-size: 0.9rem; text-align: left;">
                 ${r.name} at ${formatTimestamp(r.time)}
             </div>`;
+        }
     }, 1000); // Update every second
 };
 function openReadedMessage(dataId) {
@@ -2925,9 +2930,14 @@ function messageMenu() {
     const elements = output.querySelectorAll(".messageElm");
     if(document.getElementById("messageMenu")){
         document.getElementById("messageMenu").remove()
-        document.insertAdjacentHTML('beforeend',`
-            `)
     }
+    document.body.insertAdjacentHTML("beforeend", `
+        <div id="messageMenu">
+            <div class="messageMenuHeader"></div>
+            <div class="messageMenubody"></div>
+        </div>`)
+        console.log(document.getElementById("messageMenu"));
+    
     const menu = document.getElementById("messageMenu");
     const header = menu.querySelector('.messageMenuHeader')
     const body = menu.querySelector('.messageMenubody')
@@ -3049,7 +3059,7 @@ function messageMenu() {
         document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
             // Copy the innerHTML to the clipboard
             console.log(element.querySelector('.dataMessage').innerHTML)
-            copyToClipboard(element.querySelector('.dataMessage').innerText.trim());
+            copyToClipboard(element.querySelector('.dataMessage').innerText);
 
             // Optional: Provide user feedback (e.g., show a success message)
             ref("Message copied to clipboard!",null,null, "success");

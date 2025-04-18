@@ -8,6 +8,7 @@ const roomSchema = new mongoose.Schema({
     admin: { type: String, required: true }, // Admin of the room
     members: [{ type: String }], // Array of member IDs
     setting: [{ type: Object }], // Array of member IDs
+    lastUpdated: { type: Date }, // <-- Add this field
     createdAt: { type: Date, default: Date.now }, // Room creation timestamp
 });
 

@@ -180,7 +180,7 @@
 }
 #feedback{
     position: relative;
-    bottom: 30px
+    bottom: 10px
 ;}
 #editable-message-text {
     color: #666; /* Grey color for placeholder text */
@@ -505,6 +505,7 @@
     flex-direction: row;
     align-items: center;
     width: max-content;
+    z-index: 9999;
 }
 
 .stickerPicker.hide {
@@ -1174,7 +1175,7 @@ width: max-content;
         max-width: 88%;
         overflow: hidden;
         line-height: 1.5; /* Adjust this to match your design */
-        max-height: calc(1.5em * 5); /* Limit to 5 lines */
+        /* max-height: calc(1.5em * 5); Limit to 5 lines */
         float: left;
         margin-left: -0.25rem;
         margin-right: .4375rem;
