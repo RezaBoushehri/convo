@@ -46,8 +46,16 @@ let sentMessagesId=[],
     sentMessagesIdLast=[],
     loadedForClicking=false
     , hasScrolledDown = false; // Flag to track if the scroll has already occurred
-    let scrolling = true;
-console.log("URL: ",href)
+let scrolling = true;
+let lastMessageDate = null;
+let headTagVal = null;
+let lastProcessedDate = null;
+let ProcessedDate = null;
+let messagesCreated=[]
+let messagesCreatedHandler=[]
+let messageIdSplited=[]
+let lastSender = null;
+let unreadedScroll=0;
 // =====================
 // for right click menu
 const windowWidth = window.innerWidth;
@@ -889,6 +897,21 @@ socket.on("joined", (data) => {
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
+    sentMessagesId=[]
+    sentMessagesIdLast=[]
+    loadedForClicking=false
+    hasScrolledDown = false; // Flag to track if the scroll has already occurred
+    scrolling = true;
+    lastMessageDate = null;
+    headTagVal = null;
+    lastProcessedDate = null;
+    ProcessedDate = null;
+    messagesCreated=[]
+    messagesCreatedHandler=[]
+    messageIdSplited=[]
+    lastSender = null;
+    unreadedScroll=0;
+
 });
 
 //=================================================================
@@ -910,7 +933,6 @@ socket.on("invalidRoom", ({ message }) => {
 //Handle chat event (Recieve message from server and show it on client side)
 
 // when scroll up send other user message count 
-let unreadedScroll=0;
 function updateNotifCount(count) {
     const notifCount = document.getElementById('notifCount');
     if (count > 0) {
@@ -1894,14 +1916,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-let lastMessageDate = null;
-let headTagVal = null;
-let lastProcessedDate = null;
-let ProcessedDate = null;
-let messagesCreated=[]
-let messagesCreatedHandler=[]
-let messageIdSplited=[]
-let lastSender = null;
 
 function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true , MessagePack = output.querySelectorAll('.MessagePack')) {
     
