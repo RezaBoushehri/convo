@@ -517,7 +517,7 @@ app.post('/createRoom', async (req, res) => {
                 roomID: uniqueRoomID,
                 Domain:Domain,
                 roomName,
-                setting: [{ Joinable_url: 'private' }],  // <-- Wrapped in an array
+                setting: [{ Joinable_url: decryptedData.privacy === 'public' ? 'public' : 'private' }],  // Check privacy setting
                 admin: phoneNumbers[0],
                 members: phoneNumbers,
             });
