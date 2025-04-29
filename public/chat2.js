@@ -124,7 +124,24 @@ message.addEventListener('input', () => {
          message.style.transform = `translateY(0px)`;
  
      }
-     
+    // Handle Excel table paste events
+    const pastedData = message.innerHTML;
+    if (pastedData.includes('<table')) {
+        // Clean up any Excel-specific formatting while preserving table structure
+        const cleanedTable = pastedData
+            .replace(/^(<br>)+/g, '') // Remove leading <br> tags
+            .replace(/<table[^>]*>/g, '<table class="table table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
+            .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">')
+            .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">');
+            
+        // Update message content with cleaned table
+        message.innerHTML = cleanedTable;
+        
+        // Adjust height for table content
+        const tableHeight = message.scrollHeight;
+        message.style.height = `${Math.min(tableHeight, 200)}px`; // Cap at 200px height
+        message.style.overflowY = tableHeight > 200 ? 'auto' : 'hidden';
+    }
     })
 
 if (roomID != "") {
@@ -512,15 +529,30 @@ socket.emit("userLoggedIn", { username: currentUser.username });
 button.addEventListener("click", async () => {
     const replyBox = document.getElementById('replyBox')
     let quote = replyBox.getAttribute('reply-id') || null;
-    let text = message.innerText; // Get the HTML content
+    let text = message.innerHTML.trimStart().trimEnd(); // Get the HTML content including tables
 
-    // Sanitize the input to remove potentially dangerous content
-    text = DOMPurify.sanitize(text);
-    
-    // Replace <br> and other elements if needed
-    text = escapeHtml(text)
-    
-    // console.log(text);
+    // Sanitize the input while allowing table elements and Excel-specific attributes
+    text = DOMPurify.sanitize(text, {
+        ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th'],
+        ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
+    });
+
+    // Only escape text nodes, preserve table structure
+    text = text.replace(/[<>]/g, match => {
+        if (!text.includes('<table')) {
+            return escapeHtml(match);
+        }
+        return match;
+    });
+
+    // Handle any Excel-specific formatting
+    if (text.includes('data-excel')) {
+        text = text.replace(/data-excel-formula="([^"]*)"/, (match, formula) => {
+            return `data-excel-formula="${encodeURIComponent(formula)}"`;
+        });
+    }
+    console.log(text);
+    text = text.trimStart().trimEnd();
     
     if(text == 'Message ...'&& !fileData){
         $("#alert")
@@ -2148,106 +2180,125 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
 // ${ownMessage? `right_box1 `:`left_box2 `}
     contentToAdd += `
+    <div id="Message-${messageId}" 
+         class="messageElm m-1" 
+         date-id="${messageDate}" 
+         style="${divStyle} align-items: center;" 
+         sender="${data.sender}">
 
-    <div id="Message-${messageId}" class="messageElm m-1" date-id="${messageDate}" style="${divStyle}  align-items: center;"  sender="${data.sender}">
-        ${ownMessage?`
-            
-            <div class="read-info mx-3"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
-              ${readInfoHTML}
-            </div>`
-            :''}
+        ${ownMessage ? `
+        <div class="read-info mx-3" 
+             id="read-info-${data.id}" 
+             style="font-size:${fontSize};border-radius:${borderRad};">
+            ${readInfoHTML}
+        </div>` : ''}
              
-        <div    style="${style};
-                margin:2px;" class=" message mess py-1 mr-1 p-2  row">
+        <div class="message mess py-1 mr-1 p-2 row"
+             style="${style}; margin:2px;">
 
             ${handler()}
-                ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
-                    <h7 class="message-title" dir="rtl" style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
-                        ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
-                    </h7>
-                    <span class="px-2" dir="auto">${(data.reply.message)}</span>
-                    </div>`:''}
+
+            ${data.reply && data.reply!==null ? `
+            <div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" 
+                 replyID="Message-${(data.quote).split('-')[1]}">
+                <h7 class="message-title" 
+                    dir="rtl" 
+                    style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
+                    ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
+                </h7>
+                <span class="px-2" dir="auto">${(data.reply.message)}</span>
+            </div>` : ''}
                 
-                ${data.file && data.file!==null ? data.file.map(file => `
-                    <!-- Thumbnail Display -->
-                    ${file.fileType.startsWith("image/") ? `
-                        <!-- Thumbnail Image -->
-                        <img class="img-fluid m-1" src="https://mc.farahoosh.ir:4000${file.file}" style="border-radius:  ${borderRadiusFalse()};width: auto;height: 100px;" loading="lazy" alt="Image" onclick="openImage('https://mc.farahoosh.ir:4000${file.file}')">
-                        
-                        <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" class="btn col-12 btn-primary">
+            ${data.file && data.file!==null ? data.file.map(file => `
+                ${file.fileType.startsWith("image/") ? `
+                    <img class="img-fluid m-1" 
+                         src="https://mc.farahoosh.ir:4000${file.file}" 
+                         style="border-radius: ${borderRadiusFalse()};width: auto;height: 100px;" 
+                         loading="lazy" 
+                         alt="Image" 
+                         onclick="openImage('https://mc.farahoosh.ir:4000${file.file}')">
+                    
+                    <a id="downloadLink" 
+                       target='_blank' 
+                       href="https://mc.farahoosh.ir:4000${file.file}" 
+                       download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" 
+                       class="btn col-12 btn-primary">
+                        <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                        ${file.fileName || 'Unknown File'} Download
+                    </a>
+                    
+                ` : file.fileType === "application/pdf" ? `
+                    <div class="file-actions">
+                        <a id="downloadLink" 
+                           target='_blank' 
+                           href="https://mc.farahoosh.ir:4000${file.file}" 
+                           download="https://mc.farahoosh.ir:4000${file.fileName || 'file.pdf'}" 
+                           class="btn btn-primary">
+                            <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i> 
+                            ${file.fileName || 'Unknown File'} Download
+                        </a>
+                    </div>
+                ` : file.fileType.startsWith("video/") ? `
+                    <video class="m-1 video-preview" controls>
+                        <source src="https://mc.farahoosh.ir:4000${file.file}" type="${file.fileType}">
+                        Your browser does not support the video tag.
+                    </video>
+                    <div class="file-actions">
+                        <a id="downloadLink" 
+                           target='_blank' 
+                           href="https://mc.farahoosh.ir:4000${file.file}" 
+                           download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" 
+                           class="btn btn-primary">
                             <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
                             ${file.fileName || 'Unknown File'} Download
                         </a>
-                        
-                    ` : file.fileType === "application/pdf" ? `
-                        <!-- PDF Display -->
-                  
-                        <div class="file-actions">
-                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file.pdf'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i> ${file.fileName || 'Unknown File'} Download</a>
-                        </div>
-                    ` : file.fileType.startsWith("video/") ? `
-                        <!-- Video Display -->
-                        <video class=" m-1 video-preview" controls>
-                            <source src="https://mc.farahoosh.ir:4000${file.file}" type="${file.fileType}">
-                            Your browser does not support the video tag.
-                        </video>
-                        <div class="file-actions">
-                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i> ${file.fileName || 'Unknown File'} Download</a>
-                        </div>
-                    ` : `
-                        <!-- Generic File Display -->
-                       
-                        <div class="file-actions">
-                            <a id="downloadLink" target='_blank' href="https://mc.farahoosh.ir:4000${file.file}" download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i> ${file.fileName || 'Unknown File'} Download</a>
-                        </div>
-                    `}
-                `).join('') : ""}
+                    </div>
+                ` : `
+                    <div class="file-actions">
+                        <a id="downloadLink" 
+                           target='_blank' 
+                           href="https://mc.farahoosh.ir:4000${file.file}" 
+                           download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" 
+                           class="btn btn-primary">
+                            <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                            ${file.fileName || 'Unknown File'} Download
+                        </a>
+                    </div>
+                `}
+            `).join('') : ""}
                 
-                            <div class="text-content" style="display: flex ;justify-content: space-between;}" >
-
-                    <div class="dataMessage "  message-id="Message-${messageId}" dir="auto">
-                    
-                        ${(data.message)}
-                    </div>
- 
-                            <span  dir="ltr" class="px-1 timeSeen" >${new Intl.DateTimeFormat("en-US", {
-                                hour: "numeric",
-                                minute: "numeric",
-                                hour12: false, // This ensures 24-hour format
-
-                            }).format(messageDate || new Date())}
-                           
-                        ${ownMessage
-                                ? `
-                                <button 
-                                    class="read-toggle" 
-                                    read-data-id="${data.id}" 
-                                    title="Seen member info" 
-                                    onclick="openReadedMessage('${data.id}')" 
-                                    style="    bottom: -3px;
-                                                position: relative;
-                                                cursor:pointer;
-                                                text-align:right;
-                                                color:var(--user-fg-color);
-                                                border:none;background:none;">
-                                    <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>` : `<i class="bi bi-check2"></i>`}</strong>
-                                </button>
-                                                `
-                        : ''}
-                         </span>
-                                                                </div>
-
-            </div>
-            </div>
-            <div class="messageRead" data-id="Message-${messageId}"  >
-                <div  style="${divStyle}"  class=" footerMessage" >
-                    <div class="${reactionMember!=''?'my-4':''}" reactionMessage = "${messageId}">
-                    ${reactionMember}
-                    </div>
+            <div class="text-content" style="display: flex; justify-content: space-between;">
+                <div class="dataMessage" message-id="Message-${messageId}" dir="auto">
+                    ${data.message.replace(/(<br>)+/g, '\n')}
                 </div>
+
+                <span dir="ltr" class="px-1 timeSeen">
+                    ${new Intl.DateTimeFormat("en-US", {
+                        hour: "numeric",
+                        minute: "numeric", 
+                        hour12: false
+                    }).format(messageDate || new Date())}
+                   
+                    ${ownMessage ? `
+                    <button class="read-toggle"
+                            read-data-id="${data.id}"
+                            title="Seen member info"
+                            onclick="openReadedMessage('${data.id}')"
+                            style="bottom: -3px; position: relative; cursor:pointer; text-align:right; color:var(--user-fg-color); border:none; background:none;">
+                        <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>` : `<i class="bi bi-check2"></i>`}</strong>
+                    </button>` : ''}
+                </span>
             </div>
-            
-    `;
+        </div>
+    </div>
+
+    <div class="messageRead" data-id="Message-${messageId}">
+        <div style="${divStyle}" class="footerMessage">
+            <div class="${reactionMember!=''?'my-4':''}" reactionMessage="${messageId}">
+                ${reactionMember}
+            </div>
+        </div>
+    </div>`;
       // <div class="file-actions" >
                     //         <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" loading="lazy"></iframe>
                     //         <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
