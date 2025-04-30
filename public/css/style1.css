@@ -1172,6 +1172,7 @@ width: max-content;
     top: 5px;
 }
 .dataMessage {
+    overflow-x: auto !important;
         max-width: 88%;
         overflow: hidden;
         line-height: 1.5; /* Adjust this to match your design */
@@ -1247,4 +1248,8 @@ width: max-content;
 .messageMenuHeader{
     max-height: 100px;
     overflow-y: auto;
+}
+.fileIcon{
+    font-size: 22px !important;
+    /* color: #8600ff !important; */
 }

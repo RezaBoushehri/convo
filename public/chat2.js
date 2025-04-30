@@ -905,6 +905,7 @@ socket.on("joined", (data) => {
     //     console.error("Invalid data received in 'joined' event:", data);
     //     return;
     // }
+    
     if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
 
     // Toggle UI elements
@@ -2223,7 +2224,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                        href="https://mc.farahoosh.ir:4000${file.file}" 
                        download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" 
                        class="btn col-12 btn-primary">
-                        <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                        <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
                         ${file.fileName || 'Unknown File'} Download
                     </a>
                     
@@ -2234,7 +2235,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                            href="https://mc.farahoosh.ir:4000${file.file}" 
                            download="https://mc.farahoosh.ir:4000${file.fileName || 'file.pdf'}" 
                            class="btn btn-primary">
-                            <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i> 
+                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i> 
                             ${file.fileName || 'Unknown File'} Download
                         </a>
                     </div>
@@ -2249,7 +2250,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                            href="https://mc.farahoosh.ir:4000${file.file}" 
                            download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" 
                            class="btn btn-primary">
-                            <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
                             ${file.fileName || 'Unknown File'} Download
                         </a>
                     </div>
@@ -2260,7 +2261,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                            href="https://mc.farahoosh.ir:4000${file.file}" 
                            download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" 
                            class="btn btn-primary">
-                            <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
                             ${file.fileName || 'Unknown File'} Download
                         </a>
                     </div>

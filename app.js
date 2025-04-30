@@ -922,8 +922,8 @@ io.on("connection", (socket) => {
     // });
     socket.on("joinRoom", async (data) => {
         try {
-            console.log(data)
-            console.log(data.roomID)
+            // console.log(data)
+            // console.log(data.roomID)
 
             roomID = socketDecrypt(data.roomID)
             const user = await User.findOne({ socketID: socket.id });
@@ -934,6 +934,8 @@ io.on("connection", (socket) => {
 
             // Check if the roomID is valid
             const lastroom=user.roomID
+            console.log("lastroom :",lastroom)
+            console.log("data.roomID :",roomID)
             if(user.roomID){
                 // اول از روم قبلی خارج شو
                 // socket.broadcast.to(roomID).emit("userLeft", { username, lastroom });
@@ -958,11 +960,17 @@ io.on("connection", (socket) => {
                     // if (room.members.includes(username) ) {
                         await addUserToRoom(username, roomID);
                         socket.join(roomID);
+                        console.log("User joined to room :",roomID)
                 
                     } else {
                         io.to(socket.id).emit("error", { message: "You are not a member of this private room" });
                         return
                     }
+                }
+                else{
+                    await addUserToRoom(username, roomID);
+                    socket.join(roomID);
+                    console.log("User joined to room :",roomID)
                 }
             }
             console.log(`Fetching all unread messages for room: ${roomID}`);
@@ -1242,7 +1250,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     socket.on("chat", async (data , callback) => {
         try {
             const currentUser = await User.findOne({ socketID: socket.id });
-            // console.log(data)
+            console.log(data)
             let { message, file , quote } = data;
             if (!currentUser || !currentUser.roomID) {
                 throw new Error("User not found or not part of a room.");
@@ -1387,7 +1395,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             };
                         } else {
                             tempMessage = {
-                                title: 'New Message (MetaChat)',
+                                title: `New Message (MetaChat): ${room.roomName}`,
                                 message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>${newMessage.message}`,
                                 timestamp
                             };
