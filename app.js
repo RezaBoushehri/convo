@@ -1381,6 +1381,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             tempMessage = {
                                 title: 'New comment (MetaChat)',
                                 message: `<b>In ${room.roomName}</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message}`,
+                                taskID:taskID,
                                 link: "/view?TaskID=" + taskID,
                                 timestamp
                             };
