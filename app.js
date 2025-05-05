@@ -1257,6 +1257,10 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             }
             const username = currentUser.username;
             message = socketDecrypt(message);
+            message = DOMPurify.sanitize(message, {
+                ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+                ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
+            });
             quote = socketDecrypt(quote);
             let fileDetails = null;
 

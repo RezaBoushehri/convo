@@ -302,6 +302,20 @@ setPlaceholder();
 message.addEventListener("input", function () {
     this.style.height = "auto"; // Reset height to calculate content height
     this.style.height = `${this.scrollHeight}px`; // Set height based on content
+      // Sanitize the input while allowing table elements and Excel-specific attributes
+    message.innerHTML = DOMPurify.sanitize(message.innerHTML, {
+        ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+        ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
+    });
+
+    // Only escape text nodes, preserve table structure
+    message.innerHTML = message.innerHTML.replace(/[<>]/g, match => {
+        if (!message.innerHTML.includes('<table')) {
+            return (match);
+        }
+        return match;
+    });
+
 });
 
 document.getElementById('username').value = ''
@@ -533,14 +547,14 @@ button.addEventListener("click", async () => {
 
     // Sanitize the input while allowing table elements and Excel-specific attributes
     text = DOMPurify.sanitize(text, {
-        ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th'],
+        ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
         ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
     });
 
     // Only escape text nodes, preserve table structure
     text = text.replace(/[<>]/g, match => {
         if (!text.includes('<table')) {
-            return escapeHtml(match);
+            return (match);
         }
         return match;
     });
@@ -2270,7 +2284,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 
             <div class="text-content" style="display: flex; justify-content: space-between;">
                 <div class="dataMessage" message-id="Message-${messageId}" dir="auto">
-                    ${data.message.replace(/(<br>)+/g, '\n')}
+                    ${data.message.replace(/&lt;br&gt;/g, '<br>')}
                 </div>
 
                 <span dir="ltr" class="px-1 timeSeen">
