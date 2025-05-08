@@ -129,7 +129,7 @@ message.addEventListener('input', () => {
     if (pastedData.includes('<table')) {
         // Clean up any Excel-specific formatting while preserving table structure
         const cleanedTable = pastedData
-            .replace(/^(<br>)+/g, '') // Remove leading <br> tags
+            // .replace(/^(<br>)+/g, '') // Remove leading <br> tags
             .replace(/<table[^>]*>/g, '<table class="table table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
             .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">')
             .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">');
@@ -142,7 +142,53 @@ message.addEventListener('input', () => {
         message.style.height = `${Math.min(tableHeight, 200)}px`; // Cap at 200px height
         message.style.overflowY = tableHeight > 200 ? 'auto' : 'hidden';
     }
-    })
+    // Keep text direction RTL (right-to-left) for Persian/Arabic text
+    if (/[\u0600-\u06FF]/.test(message.textContent)) {
+        message.style.direction = 'rtl';
+        message.style.textAlign = 'right';
+    } else {
+        message.style.direction = 'ltr';
+        message.style.textAlign = 'left';
+    }
+   
+    // // Only escape text nodes, preserve table structure
+    // message.innerHTML = message.innerHTML.replace(/[<>]/g, match => {
+    //     if (!message.innerHTML.includes('<table')) {
+    //         return (match);
+    //     }
+    //     return match;
+    // });
+
+})
+// Handle paste events to clean Excel table formatting
+message.addEventListener('paste', (e) => {
+    // Allow default paste behavior first
+    setTimeout(() => {
+        const pastedData = message.innerHTML;
+        if (pastedData.includes('<table')) {
+            // Clean up Excel-specific formatting while preserving table structure
+            const cleanedTable = pastedData
+                .replace(/<table[^>]*>/g, '<table class="table table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
+                .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">')
+                .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">');
+            
+            // Update message content with cleaned table
+            message.innerHTML = cleanedTable;
+            
+            // Adjust height for table content
+            const tableHeight = message.scrollHeight;
+            message.style.height = `${Math.min(tableHeight, 200)}px`;
+            message.style.overflowY = tableHeight > 200 ? 'auto' : 'hidden';
+        }
+        
+        // Sanitize the input while allowing table elements and Excel-specific attributes
+        message.innerHTML = DOMPurify.sanitize(message.innerHTML, {
+            ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+            ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type']
+        });
+    }, 0);
+});
+
 
 if (roomID != "") {
     if(document.getElementById('loading').classList.contains('hide')){
@@ -298,25 +344,7 @@ setPlaceholder();
 
 
 
-// =======================================================
-message.addEventListener("input", function () {
-    this.style.height = "auto"; // Reset height to calculate content height
-    this.style.height = `${this.scrollHeight}px`; // Set height based on content
-      // Sanitize the input while allowing table elements and Excel-specific attributes
-    message.innerHTML = DOMPurify.sanitize(message.innerHTML, {
-        ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
-        ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
-    });
 
-    // Only escape text nodes, preserve table structure
-    message.innerHTML = message.innerHTML.replace(/[<>]/g, match => {
-        if (!message.innerHTML.includes('<table')) {
-            return (match);
-        }
-        return match;
-    });
-
-});
 
 document.getElementById('username').value = ''
 let image = "";
