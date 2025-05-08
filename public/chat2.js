@@ -1,6 +1,6 @@
 
 // const socket = io.connect(window.location.hostname),
-const production = true;
+// const production = true;
 
 // تابع برای رمزگذاری
 function encryptMessage(message) {
