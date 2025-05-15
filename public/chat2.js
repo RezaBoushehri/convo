@@ -1818,37 +1818,50 @@ socket.on("restoreMessages", async  (data) => {
     })
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
-    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    if (Notification.permission !== "granted") {
-        Notification.requestPermission();
-    }
+  const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
 
-    if (savedSettings) {
-        const hexToRgb = (hex) => {
-            const bigint = parseInt(hex.slice(1), 16);
-            const r = (bigint >> 16) & 255;
-            const g = (bigint >> 8) & 255;
-            const b = bigint & 255;
-            return `${r}, ${g}, ${b}`;
-        };
+if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
 
-        const bgColor = savedSettings.bgColor.startsWith("#") ? hexToRgb(savedSettings.bgColor) : savedSettings.bgColor;
-        const fgColor = savedSettings.fgColor.startsWith("#") ? hexToRgb(savedSettings.fgColor) : savedSettings.fgColor;
-        const sideBgColor = savedSettings.sideBgColor.startsWith("#") ? hexToRgb(savedSettings.sideBgColor) : savedSettings.sideBgColor;
-        const sideFgColor = savedSettings.sideFgColor.startsWith("#") ? hexToRgb(savedSettings.sideFgColor) : savedSettings.sideFgColor;
-        const chatWindowBgColor = savedSettings.chatWindowBgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowBgColor) : savedSettings.chatWindowBgColor;
-        const chatWindowFgColor = savedSettings.chatWindowFgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowFgColor) : savedSettings.chatWindowFgColor;
+const hexToRgb = (hex) => {
+    const bigint = parseInt(hex.slice(1), 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `${r}, ${g}, ${b}`;
+};
 
-        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
-        document.documentElement.style.setProperty("--user-bg-color", bgColor);
-        document.documentElement.style.setProperty("--user-fg-color", fgColor);
-        document.documentElement.style.setProperty("--user-side-bg-color", sideBgColor);
-        document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);
-        document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
-        document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
-        document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
-        console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
-    }
+if (savedSettings) {
+    const bgColor = savedSettings.bgColor.startsWith("#") ? hexToRgb(savedSettings.bgColor) : savedSettings.bgColor;
+    const fgColor = savedSettings.fgColor.startsWith("#") ? hexToRgb(savedSettings.fgColor) : savedSettings.fgColor;
+    const sideBgColor = savedSettings.sideBgColor.startsWith("#") ? hexToRgb(savedSettings.sideBgColor) : savedSettings.sideBgColor;
+    const sideFgColor = savedSettings.sideFgColor.startsWith("#") ? hexToRgb(savedSettings.sideFgColor) : savedSettings.sideFgColor;
+    const chatWindowBgColor = savedSettings.chatWindowBgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowBgColor) : savedSettings.chatWindowBgColor;
+    const chatWindowFgColor = savedSettings.chatWindowFgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowFgColor) : savedSettings.chatWindowFgColor;
+
+    document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+    document.documentElement.style.setProperty("--user-bg-color", bgColor);
+    document.documentElement.style.setProperty("--user-fg-color", fgColor);
+    document.documentElement.style.setProperty("--user-side-bg-color", sideBgColor);
+    document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);
+    document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
+    document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
+    document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
+    console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
+} else {
+    // Apply default settings
+    document.documentElement.style.setProperty("--user-font-size", "16px");
+    document.documentElement.style.setProperty("--user-bg-color", "204, 238, 191");
+    document.documentElement.style.setProperty("--user-fg-color", "0, 0, 0");
+    document.documentElement.style.setProperty("--user-side-bg-color", "242, 242, 242");
+    document.documentElement.style.setProperty("--user-side-fg-color", "33, 33, 33");
+    document.documentElement.style.setProperty("--user-chat-bg-color", "245, 245, 245");
+    document.documentElement.style.setProperty("--user-chat-fg-color", "33, 33, 33");
+    document.documentElement.style.setProperty("--user-border-radius", "17px");
+    console.log("Default settings applied.");
+}
+
 });
 if(document.getElementById("settingsButton")){
     document.getElementById("settingsButton").addEventListener("click", () => {

@@ -922,7 +922,7 @@ io.on("connection", (socket) => {
     // });
     socket.on("joinRoom", async (data) => {
         try {
-            // console.log(data)
+            console.log('socket',socket.id)
             // console.log(data.roomID)
 
             roomID = socketDecrypt(data.roomID)
