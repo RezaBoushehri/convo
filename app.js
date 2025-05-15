@@ -311,7 +311,19 @@ app.post("/register", (req, res) => {
         first_name: DOMPurify.sanitize(req.body.first_name),
         last_name: DOMPurify.sanitize(req.body.last_name),
         password: DOMPurify.sanitize(req.body.password),
-        pic: DOMPurify.sanitize(req.body.pic)
+        pic: DOMPurify.sanitize(req.body.pic),
+        settings : {
+                marginLeft: "10%",
+                marginRight: "%10",
+                chatWindowBgColor: "245, 245, 245",
+                chatWindowFgColor: "33, 33, 33",
+                bgColor: "204, 238, 191", // Assuming a background color picker exists
+                fgColor: "0, 0, 0", // Assuming a background color picker exists
+                sideBgColor: "242, 242, 242", // Assuming a background color picker exists
+                sideFgColor: "33, 33, 33", // Assuming a background color picker exists
+                fontSize: "16px", // Get font size from range input
+                borderRad: "17px", // Get font size from range input
+            }
     });
 
     User.register(newUser, req.body.password, (error, user) => {
