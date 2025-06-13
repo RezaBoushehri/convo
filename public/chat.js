@@ -316,7 +316,7 @@ message.addEventListener("input", function () {
     this.style.height = `${this.scrollHeight}px`; // Set height based on content
 });
 
-document.getElementById('username').value = ''
+// document.getElementById('username').value = ''
 let image = "";
 let fileData ;
 $("#up").html('<i class= "fa fa-arrow-up" >').hide();
@@ -792,7 +792,7 @@ socket.on("newconnection", (data) => {
 //Handle User joined the room event
 socket.on("joined", (data) => {
     // const data = decryptMessage(encryptedData)
-    // console.log("User joined room:", data);
+    console.log("User joined room:", data);
 
     // Ensure required fields exist
     // if (!data.room || !data.room.roomID || !data.room.admin) {
@@ -836,7 +836,7 @@ socket.on("joined", (data) => {
     
     // Toggle UI elements
     if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
-    document.getElementById("chat-window").style.display = "block";
+    chat_window.style.display = "block";
     document.querySelector(".form-inline").style.display = "flex";
     document.querySelector("footer").style.display = "none";
     

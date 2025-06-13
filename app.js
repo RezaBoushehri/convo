@@ -938,9 +938,13 @@ io.on("connection", (socket) => {
             // console.log(data.roomID)
 
             roomID = socketDecrypt(data.roomID)
-            const user = await User.findOne({ socketID: socket.id });
+            let user = await User.findOne({ socketID: socket.id });
+            console.log("user==>",user)
             if (!user) {
+                user = await User.findOne({ username: socketDecrypt(data.username) });
+                if (!user) {
                 throw new Error("User not found or not part of a room.");
+                }
             }
             const username = user.username;
 
@@ -1020,13 +1024,13 @@ io.on("connection", (socket) => {
            
             socket.emit("members", room.members);
     
-            const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();
+            // const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();
             // Notify others
             // socket.broadcast.to(roomID).emit("userJoined", { username, roomID });
             // socket.broadcast.to(user.roomID).emit("userJoined", `${user.first_name} ${user.last_name}`);
 
 
-            socket.emit("joined", { room , name : `${userRead.first_name} ${userRead.last_name}` });
+            socket.emit("joined", { room , name : `${user.first_name} ${user.last_name}` });
           
     
         } catch (error) {

@@ -207,7 +207,7 @@ body {
     color: #666; /* Grey color for placeholder text */
     border: none;
     min-width: 30vw;
-    max-width: 40vw;
+    /* max-width: 40vw; */
     bottom: 0;
     border-radius: 10px;
     position: relative; /* To position buttons within it */
