@@ -795,6 +795,19 @@ function socketDecrypt(encryptedText) {
     return decrypted;
 }
 
+// ارسال پیام پشتیبان به PHP
+async function sendBackupToPHP(Number, jsonMessage) {
+    const encrypted = encryptAES256(JSON.stringify(jsonMessage));
+    // console.log(encrypted)
+
+    try {
+        await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}&&email=BB`);
+        // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
+    } catch (err) {
+        console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
+    }
+}
+
 
 io.on("connection", (socket) => {
     let socketId = socket.id;
@@ -804,30 +817,19 @@ io.on("connection", (socket) => {
     
     socket.on("userLoggedIn", async (data) => {
         const { username } = data;
-        if (username) {
-            console.log("User connected : "+username)
-            currentUsername = username
-            await updateUserSocketId(username, socketId);
-        } else {
-            console.error("Username not provided for userLoggedIn");
+        if (!username) {
+            return console.error("Username not provided for userLoggedIn");
         }
+
+        const currentUser = await User.findOne({ username });
+        if (!currentUser) {
+            return console.error("User not found for socket ID:", socket.id);
+        }
+
+        currentUsername = username;
+        await updateUserSocketId(username, socket.id);
     });
 
-
-   
-    
-    socket.on("userLoggedIn", async (data) => {
-        const { username } = data; // Ensure you have a username from the frontend
-        const currentUser = getUsers().find((user) => user.username == username.username);
-    
-        if (currentUser) {
-            await updateUserSocketId(currentUser, socket.id);
-        } else {
-            // Optionally handle the case where the user is not found
-            console.error('User not found for socket ID:', socket.id);
-        }
-    });
-    
     socket.on("createRoom", async ({ handle, roomName }) => {
         if(true) return
         roomName = roomName;
@@ -939,7 +941,7 @@ io.on("connection", (socket) => {
 
             roomID = socketDecrypt(data.roomID)
             let user = await User.findOne({ socketID: socket.id });
-            console.log("user==>",user)
+            // console.log("user==>",user)
             if (!user) {
                 user = await User.findOne({ username: socketDecrypt(data.username) });
                 if (!user) {
@@ -970,13 +972,13 @@ io.on("connection", (socket) => {
             if (room) {
                 if (room.setting[0].Joinable_url === "private") {
                     // Private room: Only allow members
-                    console.log("==========> member: ", room.members.includes(username))
+                    // console.log("==========> member: ", room.members.includes(username))
 
                     if (room.members.includes(username) ) {
                     // if (room.members.includes(username) ) {
                         await addUserToRoom(username, roomID);
                         socket.join(roomID);
-                        console.log("User joined to room :",roomID)
+                        // console.log("User joined to room :",roomID)
                 
                     } else {
                         io.to(socket.id).emit("error", { message: "You are not a member of this private room" });
@@ -1372,25 +1374,11 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
             }
 
-            // ارسال پیام پشتیبان به PHP
-            async function sendBackupToPHP(Number, jsonMessage) {
-                const encrypted = encryptAES256(JSON.stringify(jsonMessage));
-                // console.log(encrypted)
-
-                try {
-                    await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}&&email=BB`);
-                    // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
-                } catch (err) {
-                    console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
-                }
-            }
-
             // console.log(encryptedMessage)
             // ارسال پیام به تمام کاربران حاضر در اتاق
-            onlineUsers.forEach((user) => {
-                if(user.username!= username){
-                   
-                    
+            onlineUsers.forEach(async (user) => {
+                if (user.username != username) {
+
                     if (user.username) {
                         const taskMatch = room.roomName.match(/\(#(\d+)\)/);
                         const pvMatch = room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/);
@@ -1428,7 +1416,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             io.to(user.socketID).emit("notification", tempMessage);
     
                         }
-                        sendBackupToPHP(user.username,tempMessage)
+                        await Promise.all(onlineUsers.map(user => sendBackupToPHP(user.username, tempMessage)));
                     }
                 }
             });
@@ -1508,25 +1496,13 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
             }
 
-            // ارسال پیام پشتیبان به PHP
-            async function sendBackupToPHP(Number, jsonMessage) {
-                const encrypted = encryptAES256(JSON.stringify(jsonMessage));
-                // console.log(encrypted)
-
-                try {
-                    await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
-                    console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
-                } catch (err) {
-                    console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
-                }
-            }
+           
 
             // console.log(encryptedMessage)
             // ارسال پیام به تمام کاربران حاضر در اتاق
-            onlineUsers.forEach((user) => {
-                if(user.username!= username &&user.username==message.sende){
-                    
-                    
+            onlineUsers.forEach(async (user) => {
+                if (user.username != username && user.username == message.sender) {
+
                     if (user.username) {
                         const taskMatch = room.roomName.match(/\(#(\d+)\)/);
                         const pvMatch = room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/);
@@ -1557,7 +1533,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                         }
                         
 
-                        sendBackupToPHP(user.username,tempMessage)
+                        await Promise.all(onlineUsers.map(user => sendBackupToPHP(user.username, tempMessage)));
                     }
                 }
             });
@@ -1569,59 +1545,79 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         }
     });
     
-    socket.on("markMessagesRead", async ({ messageIds, username }) => {
+   socket.on("markMessagesRead", async ({ messageIds }) => {
         try {
             const currentUser = await User.findOne({ socketID: socket.id });
             if (!currentUser || !currentUser.roomID) {
                 throw new Error("User not found or not part of a room.");
             }
+
             const username = currentUser.username;
             const timestamp = new Date();
-            
-            // Update the `read` array for each message
-            const user = await User.findOne({ username });
 
-            if(user){
+            const room = await Room.findOne({ roomID: currentUser.roomID });
+            if (!room) throw new Error("Room not found!");
+
+            const roomMembers = room.members;
+
+            // Adjust this check if `room.members` is a list of objects
+            const isMember = Array.isArray(roomMembers)
+                ? roomMembers.some(m => typeof m === 'string' ? m === username : m.username === username)
+                : false;
+
+            if (!isMember) {
+                throw new Error("User is not a member of this room!");
+            }
+
             const updatedMessages = await Promise.all(
                 messageIds.map(async (messageId) => {
-                    // console.log(`${currentUser.roomID}${messageId} unreaded `)
-                    let messagebyroomID =`${currentUser.roomID}${messageId}`
+                    const messagebyroomID = `${currentUser.roomID}${messageId}`;
+                    // console.log(`${username}_____${messagebyroomID} unreaded`);
+
                     await Message.updateMany(
-                        { id: { $lte: messagebyroomID }, "read.username": { $ne: username } }, // All messages with id <= messagebyroomID
-                        { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
+                        {
+                            id: { $lte: messagebyroomID },
+                            "read.username": { $ne: username }
+                        },
+                        {
+                            $addToSet: { read: { username, time: timestamp } }
+                        }
                     );
-    
-                    // Fetch the updated message
+
                     const message = await Message.findOne({ id: messagebyroomID }).lean();
                     if (!message) return null;
-    
-                    // Enrich the `readUsers` with user details
+
                     const readUsers = await Promise.all(
                         message.read.map(async (readEntry) => {
-                            const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
+                            const userRead = await User.findOne({ username: readEntry.username })
+                                .select("first_name last_name")
+                                .lean();
                             return {
                                 name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
                                 time: readEntry.time,
                             };
                         })
                     );
-                    // console.log(readUsers);
+
                     return { id: messagebyroomID, readUsers };
                 })
             );
-            
-    
-            // Emit the updated read data to the room or all clients
+
             updatedMessages
-                .filter((msg) => msg) // Ensure no null values
+                .filter(msg => msg)
                 .forEach((msg) => {
-                    socket.broadcast.emit("readMessageUpdate", { id: msg.id, readUsers: msg.readUsers });
+                    // Send only to others in the room
+                    socket.to(currentUser.roomID).emit("readMessageUpdate", {
+                        id: msg.id,
+                        readUsers: msg.readUsers
+                    });
                 });
-            }
+
         } catch (error) {
             console.error("Error in markMessagesRead:", error.message);
         }
     });
+
     
     // socket.on("markMessagesRead", async ({ messageIds, username }) => {
     //     try {
@@ -1789,10 +1785,10 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 
                 const updatedUser = await User.findOneAndUpdate(
                     { username: currentUsername },
-                    { socketId: null }, // Reset socketId on disconnect
-                    { roomID : null},
-                    { new: true } // Return the updated user
+                    { socketID: null, roomID: null },
+                    { new: true }
                 );
+
                 
                 if (updatedUser) {
                     console.log(`Reset socketId for user ${updatedUser.username}`);

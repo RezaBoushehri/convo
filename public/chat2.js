@@ -1669,8 +1669,8 @@ socket.on("restoreMessages", async  (data) => {
     if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
         if (messageId && !visibleMessages.includes(messageId)) {
             visibleMessages.push(messageId);  // Add the data-id of visible messages
-            console.log("read messageId",messageId)
-            console.log("read user",currentUser.username)
+            // console.log("read messageId",messageId)
+            // console.log("read user",currentUser.username)
         }
     }
     })
