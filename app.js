@@ -1378,7 +1378,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 // console.log(encrypted)
 
                 try {
-                    await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
+                    await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}&&email=BB`);
                     // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
                 } catch (err) {
                     console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
@@ -1402,6 +1402,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             tempMessage = {
                                 title: 'New private message (MetaChat)',
                                 message: `<i>${selfSender.first_name} ${selfSender.last_name}</i> said: <br>${newMessage.message}`,
+                                reciver:`<i>${user.first_name} ${user.last_name}`,
                                 timestamp
                             };
                         } else if (taskMatch) {
@@ -1411,12 +1412,14 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                                 message: `<br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message}`,
                                 taskID:taskID,
                                 link: "/view?TaskID=" + taskID,
+                                reciver:`<i>${user.first_name} ${user.last_name}`,
                                 timestamp
                             };
                         } else {
                             tempMessage = {
                                 title: `New Message (MetaChat): ${room.roomName}`,
                                 message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>${newMessage.message}`,
+                                reciver:`<i>${user.first_name} ${user.last_name}`,
                                 timestamp
                             };
                         }
