@@ -807,6 +807,7 @@ async function sendBackupToPHP(Number, jsonMessage) {
         console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
     }
 }
+const onlineUsers = new Map(); // socket.id => username
 
 
 io.on("connection", (socket) => {
@@ -827,6 +828,8 @@ io.on("connection", (socket) => {
         }
 
         currentUsername = username;
+        onlineUsers.set(socket.id, username); // Track online
+
         await updateUserSocketId(username, socket.id);
     });
 
@@ -936,111 +939,75 @@ io.on("connection", (socket) => {
     // });
     socket.on("joinRoom", async (data) => {
         try {
-            console.log('socket',socket.id)
-            // console.log(data.roomID)
+            console.log('socket', socket.id);
 
-            roomID = socketDecrypt(data.roomID)
+            roomID = socketDecrypt(data.roomID);
             let user = await User.findOne({ socketID: socket.id });
-            // console.log("user==>",user)
+
             if (!user) {
                 user = await User.findOne({ username: socketDecrypt(data.username) });
                 if (!user) {
-                throw new Error("User not found or not part of a room.");
+                    throw new Error("User not found or not part of a room.");
                 }
             }
+
             const username = user.username;
 
-            // Check if the roomID is valid
-            const lastroom=user.roomID
-            console.log("lastroom :",lastroom)
-            console.log("data.roomID :",roomID)
-            if(user.roomID){
-                // اول از روم قبلی خارج شو
-                // socket.broadcast.to(roomID).emit("userLeft", { username, lastroom });
+            const lastroom = user.roomID;
+            if (lastroom && lastroom !== roomID) {
+                console.log(`User ${username} is leaving previous room: ${lastroom}`);
                 socket.leave(lastroom);
-            }
-          
-            
 
-            // Notify others in the room about the user's departure
-            console.log(`User ${username} is trying to join room ${roomID}`);
-            // Emit user settings
-            socket.emit("applySettings", user.settings);
-            // Ensure the room exists
-            let room = await Room.findOne({ roomID:roomID });
+                // Optional: notify others in previous room
+                socket.broadcast.to(lastroom).emit("userLeft", { username, roomID: lastroom });
+
+                // Clear previous room reference
+                await User.findOneAndUpdate(
+                    { username },
+                    { roomID: null }
+                );
+            }
+
+            // Check if target room exists
+            let room = await Room.findOne({ roomID });
             if (!room) throw new Error(`Room "${roomID}" does not exist`);
-            if (room) {
-                if (room.setting[0].Joinable_url === "private") {
-                    // Private room: Only allow members
-                    // console.log("==========> member: ", room.members.includes(username))
 
-                    if (room.members.includes(username) ) {
-                    // if (room.members.includes(username) ) {
-                        await addUserToRoom(username, roomID);
-                        socket.join(roomID);
-                        // console.log("User joined to room :",roomID)
-                
-                    } else {
-                        io.to(socket.id).emit("error", { message: "You are not a member of this private room" });
-                        return
-                    }
-                }
-                else{
-                    await addUserToRoom(username, roomID);
-                    socket.join(roomID);
-                    console.log("User joined to room :",roomID)
-                }
+            // Permission check for private rooms
+            if (room.setting[0].Joinable_url === "private" && !room.members.includes(username)) {
+                io.to(socket.id).emit("error", { message: "You are not a member of this private room" });
+                return;
             }
-            console.log(`Fetching all unread messages for room: ${roomID}`);
+
+            // Join the new room
+            socket.join(roomID);
+            await addUserToRoom(username, roomID);
+
+            // Update user's roomID
+            await User.findOneAndUpdate({ username }, { roomID });
+
+            console.log(`User ${username} joined room ${roomID}`);
+
+            // Send settings, messages, and members
+            socket.emit("applySettings", user.settings);
+
             const unreadMessages = await getUnreadMessages(roomID, username);
-            // Process each message
-
-            // console.log("unreadMessage :",unreadMessages);
-
-                // Emit unread messages first
             if (unreadMessages.length > 0) {
-                socket.emit("restoreMessages", { messages: unreadMessages, prepend: true , unread:true , join:true});
+                socket.emit("restoreMessages", { messages: unreadMessages, prepend: true, unread: true, join: true });
             } else {
-                try {
-                    console.log("No unread messages. Fetching the last 50 messages.");
-                    
-                    // Fetch the last 50 messages for the room
-                    const lastMessages = await getMessagesByLimit(roomID, 50);
-                     // Process each message
-                    const processedMessages = await Promise.all(
-                        lastMessages.map(async (msg) => await processMessage(msg))
-                    );
-                    if (processedMessages.length > 0) {
-                        // console.log("Fetched last 50 messages:", processedMessages);
-                        socket.emit("restoreMessages", { messages: processedMessages, prepend: true , join:true });
-                    } else {
-                        console.log("No messages found for the room.");
-                        socket.emit("noMoreMessages", { message: "No messages available." });
-                    }
-                } catch (err) {
-                    console.error("Error fetching last 50 messages:", err);
-                    socket.emit("error", { message: "Failed to load messages." });
-                }
+                const lastMessages = await getMessagesByLimit(roomID, 50);
+                const processedMessages = await Promise.all(lastMessages.map(msg => processMessage(msg)));
+                socket.emit("restoreMessages", { messages: processedMessages, prepend: true, join: true });
             }
 
-           
             socket.emit("members", room.members);
-    
-            // const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();
-            // Notify others
-            // socket.broadcast.to(roomID).emit("userJoined", { username, roomID });
-            // socket.broadcast.to(user.roomID).emit("userJoined", `${user.first_name} ${user.last_name}`);
+            socket.emit("joined", { room, name: `${user.first_name} ${user.last_name}` });
 
-
-            socket.emit("joined", { room , name : `${user.first_name} ${user.last_name}` });
-          
-    
         } catch (error) {
-            console.error("Error joining room:", error);
+            console.error("Error joining room:", error.message);
             socket.emit("error", { message: error.message });
         }
     });
-    
+
     // Create an in-memory object to track the last fetched date for each room (or user)
     socket.on("requestOlderMessages", async ({ roomID, counter=0 , type='first'}) => {
         try {
@@ -1729,60 +1696,61 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     // socket.emit("countNewMessage", "09173121943", "krrlnB6aMRm6symph2", (count) => {
     //     console.log(`You have ${count} new messages.`);
     // });
-    socket.on("leaveRoom", async ({ username , roomID }) => {
-        try {
-            if (!username || !roomID) {
-                socket.emit("error", { error: `${username} : ${roomID} Invalid data provided for leaving the room` });
-                return;
-            }
-    
-            // Find the room
-            const room = await Room.findOne({ roomID: roomID });
-            if (!room) {
-                socket.emit("error", { error: `Room "${roomID}" does not exist` });
-                return;
-            }
-    
-            // Check if the user is a member of the room
-            if (!room.members.includes(username)) {
-                socket.emit("error", { error: `User "${username}" is not a member of room "${roomID}"` });
-                return;
-            }
-    
-            // Remove the user from the room's members list
-            room.members = room.members.filter(member => member !== username);
-            await room.save();
-    
-            // Have the socket leave the room
-            socket.leave(roomID);
-            const updatedUser = await User.findOneAndUpdate(
-                { username: username },
-                { roomID : null},
-                { new: true } // Return the updated user
-            );
-            if (updatedUser) {
-                console.log(`${username} left ${roomID} room`);
-            }
-            // Notify the user that they have successfully left
-            socket.emit("leftRoom", { roomID });
-    
-            // Notify others in the room about the user's departure
-            socket.broadcast.to(roomID).emit("userLeft", { username, roomID });
-    
-        } catch (error) {
-            console.error("Error handling leaveRoom event:", error);
-            socket.emit("error", { error: "Failed to leave the room due to an internal error" });
+socket.on("leaveRoom", async ({ username , roomID }) => {
+    try {
+        if (!username || !roomID) {
+            socket.emit("error", { error: `${username} : ${roomID} Invalid data provided for leaving the room` });
+            return;
         }
-    });
-    
-    
 
+        // Find the room
+        const room = await Room.findOne({ roomID });
+        if (!room) {
+            socket.emit("error", { error: `Room "${roomID}" does not exist` });
+            return;
+        }
+
+        // Optional: Check if user is a member (for logging/debugging only)
+        if (!room.members.includes(username)) {
+            console.warn(`User "${username}" is leaving room "${roomID}" but not listed as a member.`);
+        }
+
+        // Leave the socket.io room (but do NOT remove from DB)
+        socket.leave(roomID);
+
+        // Clear user.roomID
+        const updatedUser = await User.findOneAndUpdate(
+            { username },
+            { roomID: null },
+            { new: true }
+        );
+
+        if (updatedUser) {
+            console.log(`${username} left ${roomID} (remains a member).`);
+        }
+
+        // Notify this user
+        socket.emit("leftRoom", { roomID });
+
+        // Notify others in the room
+        socket.broadcast.to(roomID).emit("userLeft", { username, roomID });
+
+    } catch (error) {
+        console.error("Error handling leaveRoom event:", error);
+        socket.emit("error", { error: "Failed to leave the room due to an internal error" });
+    }
+});
+
+    
+    
+    
     socket.on("disconnect", async () => {
         try {
             const user = await User.findOne({ username: currentUsername });
             if (user) {
                 socket.broadcast.to(user.roomID).emit("userDisconnected", `${user.first_name} ${user.last_name}`);
-                
+                onlineUsers.delete(socket.id);
+
                 const updatedUser = await User.findOneAndUpdate(
                     { username: currentUsername },
                     { socketID: null, roomID: null },
@@ -1822,3 +1790,4 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             });
     
 });
+io.emit("onlineUsers", Array.from(onlineUsers.values()));
