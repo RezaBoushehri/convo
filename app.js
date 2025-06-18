@@ -831,8 +831,14 @@ io.on("connection", (socket) => {
         onlineUsersServer.set(socket.id, username); // Track online
 
         await updateUserSocketId(username, socket.id);
-        socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // send array of usernames
 
+        socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
+    });
+    socket.on("ping", () => {
+        console.log("📡 Ping received from client");
+
+        socket.emit("pong");
+        socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
     });
 
     socket.on("createRoom", async ({ handle, roomName }) => {

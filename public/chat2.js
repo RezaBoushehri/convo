@@ -3436,10 +3436,20 @@ socket.on("connect", () => {
 });
 
 
-socket.on("ping", () => {
-    console.log("📡 Ping received from server");
-});
+// socket.on("ping", () => {
+//     console.log("📡 Ping received from server");
+// });
+// Ping the server every 15 seconds (1000 ms is too frequent)
 
+setInterval(() => {
+    socket.emit("ping");
+    console.log("📡 Ping received from server");
+}, 15000); // ⏱ Recommended: every 15 seconds
+// Server responds
 socket.on("pong", () => {
-    console.log("✅ Server is alive!");
+  console.log("✅ Server is alive!");
 });
+// socket.on("onlineUsers", (onlineUsernames) => {
+//   // Update UI with who’s online
+//   console.log("👥 Online users:", onlineUsernames);
+// });
