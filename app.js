@@ -807,7 +807,7 @@ async function sendBackupToPHP(Number, jsonMessage) {
         console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
     }
 }
-const onlineUsers = new Map(); // socket.id => username
+const onlineUsersServer = new Map(); // socket.id => username
 
 
 io.on("connection", (socket) => {
@@ -828,9 +828,11 @@ io.on("connection", (socket) => {
         }
 
         currentUsername = username;
-        onlineUsers.set(socket.id, username); // Track online
+        onlineUsersServer.set(socket.id, username); // Track online
 
         await updateUserSocketId(username, socket.id);
+        socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // send array of usernames
+
     });
 
     socket.on("createRoom", async ({ handle, roomName }) => {
@@ -937,6 +939,7 @@ io.on("connection", (socket) => {
     //         socket.emit("error", { message: error.message });
     //     }
     // });
+
     socket.on("joinRoom", async (data) => {
         try {
             console.log('socket', socket.id);
@@ -1749,7 +1752,7 @@ socket.on("leaveRoom", async ({ username , roomID }) => {
             const user = await User.findOne({ username: currentUsername });
             if (user) {
                 socket.broadcast.to(user.roomID).emit("userDisconnected", `${user.first_name} ${user.last_name}`);
-                onlineUsers.delete(socket.id);
+                onlineUsersServer.delete(socket.id);
 
                 const updatedUser = await User.findOneAndUpdate(
                     { username: currentUsername },
@@ -1790,4 +1793,3 @@ socket.on("leaveRoom", async ({ username , roomID }) => {
             });
     
 });
-io.emit("onlineUsers", Array.from(onlineUsers.values()));
