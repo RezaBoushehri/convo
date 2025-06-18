@@ -191,9 +191,9 @@ message.addEventListener('paste', (e) => {
 
 
 if (roomID != "") {
-    if(document.getElementById('loading').classList.contains('hide')){
-        document.getElementById('loading').classList.remove("hide");
-        document.getElementById('loading').classList.add("show");
+    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+        document.getElementById('loadingChatWindow').classList.remove("d-none");
+        document.getElementById('loadingChatWindow').classList.add("show");
     } 
     var encryptedRoomID =encryptMessage(roomID)
     var encryptedData =encryptMessage(currentUser.username)
@@ -1259,11 +1259,11 @@ const scrollDown = () => {
 
     if (loadedForClicking) {
     
-        // Show the loading spinner if hidden
-        const loadingElement = document.getElementById('loading');
-        if (loadingElement.classList.contains('hide')) {
-            loadingElement.classList.remove("hide");
-            loadingElement.classList.add("show");
+        // Show the loadingChatWindow spinner if hidden
+        const loadingChatWindowElement = document.getElementById('loadingChatWindow');
+        if (loadingChatWindowElement.classList.contains('d-none')) {
+            loadingChatWindowElement.classList.remove("d-none");
+            loadingChatWindowElement.classList.add("show");
         }
     
         // Emit the event and wait for the server's acknowledgment
@@ -1372,9 +1372,9 @@ if (message) {
             if (isSmallerThanAll) {
                 
                 // console.log(firstMessageId)
-                if(document.getElementById('loading').classList.contains('hide')){
-                    document.getElementById('loading').classList.remove("hide");
-                    document.getElementById('loading').classList.add("show");
+                if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                    document.getElementById('loadingChatWindow').classList.remove("d-none");
+                    document.getElementById('loadingChatWindow').classList.add("show");
                 } 
                 sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                     // Emit the request for older messages to the server and wait for a response
@@ -1490,9 +1490,9 @@ socket.on("restoreMessages", async  (data) => {
         // console.log(decryptedMessages);
    
       
-    if(document.getElementById('loading').classList.contains('hide')){
-        document.getElementById('loading').classList.remove("hide");
-        document.getElementById('loading').classList.add("show");
+    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+        document.getElementById('loadingChatWindow').classList.remove("d-none");
+        document.getElementById('loadingChatWindow').classList.add("show");
     } 
     if(data.reply){
         sentMessagesIdLast=[]
@@ -1634,9 +1634,9 @@ socket.on("restoreMessages", async  (data) => {
                 let messageId = messages[0].getAttribute('data-id');
                 
                 if (messageId) {
-                    if(document.getElementById('loading').classList.contains('hide')){
-                        document.getElementById('loading').classList.remove("hide");
-                        document.getElementById('loading').classList.add("show");
+                    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                        document.getElementById('loadingChatWindow').classList.remove("d-none");
+                        document.getElementById('loadingChatWindow').classList.add("show");
                     } 
                     messageId = "-"+ messageId.split('-')[1]
                     // Emit the request for older messages to the server
@@ -1645,9 +1645,9 @@ socket.on("restoreMessages", async  (data) => {
                     console.error("Message ID is null or undefined.");
                 }
             } else {
-                if(document.getElementById('loading').classList.contains('hide')){
-                    document.getElementById('loading').classList.remove("hide");
-                    document.getElementById('loading').classList.add("show");
+                if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                    document.getElementById('loadingChatWindow').classList.remove("d-none");
+                    document.getElementById('loadingChatWindow').classList.add("show");
                 } 
                 socket.emit("requestOlderMessages", { roomID: roomID, counter:`${roomID}-0` , type:'latest' });
             }
@@ -1718,9 +1718,9 @@ socket.on("restoreMessages", async  (data) => {
             }
             
         });
-        if(document.getElementById('loading').classList.contains('show')){
-            document.getElementById('loading').classList.remove("show");
-            document.getElementById('loading').classList.add("hide");
+        if(document.getElementById('loadingChatWindow').classList.contains('show')){
+            document.getElementById('loadingChatWindow').classList.remove("show");
+            document.getElementById('loadingChatWindow').classList.add("d-none");
         }
         if(data.latest){
             const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
@@ -1809,9 +1809,9 @@ socket.on("restoreMessages", async  (data) => {
 
     socket.on("noMoreMessages",(data) =>{
         console.log(data.message)
-        if(document.getElementById('loading').classList.contains('show')){
-            document.getElementById('loading').classList.remove("show");
-            document.getElementById('loading').classList.add("hide");
+        if(document.getElementById('loadingChatWindow').classList.contains('show')){
+            document.getElementById('loadingChatWindow').classList.remove("show");
+            document.getElementById('loadingChatWindow').classList.add("d-none");
         }
         
         // output.querySelector('.firstMessage').innerHTML=''
@@ -2284,7 +2284,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     <img class="img-fluid m-1" 
                          src="https://mc.farahoosh.ir:4000${file.file}" 
                          style="border-radius: ${borderRadiusFalse()};width: auto;height: 100px;" 
-                         loading="lazy" 
+                         loadingChatWindow="lazy" 
                          alt="Image" 
                          onclick="openImage('https://mc.farahoosh.ir:4000${file.file}')">
                     
@@ -2370,7 +2370,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         </div>
     </div>`;
       // <div class="file-actions" >
-                    //         <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" loading="lazy"></iframe>
+                    //         <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" loadingChatWindow="lazy"></iframe>
                     //         <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
                     //     </div>
     let firstMessage = `
@@ -2875,9 +2875,9 @@ if(scrolling){
     
                         sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                         // Emit the request for older messages to the server
-                        if(document.getElementById('loading').classList.contains('hide')){
-                            document.getElementById('loading').classList.remove("hide");
-                            document.getElementById('loading').classList.add("show");
+                        if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                            document.getElementById('loadingChatWindow').classList.remove("d-none");
+                            document.getElementById('loadingChatWindow').classList.add("show");
                             disableScrolling()
                         } 
                         socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
@@ -2911,9 +2911,9 @@ if(scrolling){
     
                         sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
                         // Emit the request for older messages to the server
-                        if(document.getElementById('loading').classList.contains('hide')){
-                            document.getElementById('loading').classList.remove("hide");
-                            document.getElementById('loading').classList.add("show");
+                        if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                            document.getElementById('loadingChatWindow').classList.remove("d-none");
+                            document.getElementById('loadingChatWindow').classList.add("show");
                             disableScrolling()
                         } 
                         socket.emit("requestOlderMessages", { roomID: roomID, counter: lastMessageId, type: 'last' });
@@ -2943,9 +2943,9 @@ function loadfirstButton(){
 
                 sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                 // Emit the request for older messages to the server
-                if(document.getElementById('loading').classList.contains('hide')){
-                    document.getElementById('loading').classList.remove("hide");
-                    document.getElementById('loading').classList.add("show");
+                if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                    document.getElementById('loadingChatWindow').classList.remove("d-none");
+                    document.getElementById('loadingChatWindow').classList.add("show");
                     disableScrolling()
                 } 
                 socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
@@ -3421,11 +3421,11 @@ socket.on("connect", () => {
     console.log("🟢 Reconnected to server!");
     
     // if(roomID){
-            // Show the loading spinner if hidden
-            const loadingElement = document.getElementById('loading');
-            if (loadingElement.classList.contains('hide')) {
-                loadingElement.classList.remove("hide");
-                loadingElement.classList.add("show");
+            // Show the loadingChatWindow spinner if hidden
+            const loadingChatWindowElement = document.getElementById('loadingChatWindow');
+            if (loadingChatWindowElement.classList.contains('d-none')) {
+                loadingChatWindowElement.classList.remove("d-none");
+                loadingChatWindowElement.classList.add("show");
             }
             var encryptedRoomID =encryptMessage(roomID)
             var encryptedData =encryptMessage(currentUser.username)
