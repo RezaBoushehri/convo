@@ -1521,7 +1521,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         }
     });
     
-   socket.on("markMessagesRead", async ({ messageIds }) => {
+   socket.on("markMessagesRead", async ({ messageIds ,roomID}) => {
         try {
             const currentUser = await User.findOne({ socketID: socket.id });
             if (!currentUser || !currentUser.roomID) {
@@ -1530,25 +1530,26 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
             const username = currentUser.username;
             const timestamp = new Date();
+            // console.log(messageIds)
+            // let roomFromMess= roomID;
+            // const room = await Room.findOne({ roomID: roomFromMess });
+            // if (!room) throw new Error("Room not found!");
 
-            const room = await Room.findOne({ roomID: currentUser.roomID });
-            if (!room) throw new Error("Room not found!");
+            // const roomMembers = room.members;
 
-            const roomMembers = room.members;
+            // // Adjust this check if `room.members` is a list of objects
+            // const isMember = Array.isArray(roomMembers)
+            //     ? roomMembers.some(m => typeof m === 'string' ? m === username : m.username === username)
+            //     : false;
 
-            // Adjust this check if `room.members` is a list of objects
-            const isMember = Array.isArray(roomMembers)
-                ? roomMembers.some(m => typeof m === 'string' ? m === username : m.username === username)
-                : false;
-
-            if (!isMember) {
-                throw new Error("User is not a member of this room!");
-            }
+            // if (!isMember) {
+            //     throw new Error("User is not a member of this room!");
+            // }
 
             const updatedMessages = await Promise.all(
                 messageIds.map(async (messageId) => {
                     const messagebyroomID = `${messageId}`;
-                    // console.log(`${username}_____${messagebyroomID} unreaded`);
+                    console.log(`${username}_____${messagebyroomID} unreaded`);
 
                     await Message.updateMany(
                         {

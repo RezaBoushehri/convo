@@ -903,9 +903,10 @@ socket.on("chat",async(data , ack) => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
+            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
             messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
-            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight  && dataReadStatus=='unread') {
                 if (messageId && !visibleMessages.includes(messageId)) {
                     visibleMessages.push(messageId);  // Add the data-id of visible messages
                     // console.log(messageId)
@@ -915,7 +916,7 @@ socket.on("chat",async(data , ack) => {
     
         // Emit the IDs of visible messages to the server
         if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
         }
     }
 
@@ -1102,9 +1103,11 @@ socket.on("chat",async(data , ack) => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
+            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
             messageId = roomID+"-"+ messageId.split('-')[1]
+
             // Check if the message is in the viewport (visible)
-            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight && dataReadStatus=='unread') {
                 if (messageId && !visibleMessages.includes(messageId)) {
                     visibleMessages.push(messageId);  // Add the data-id of visible messages
                     // console.log(messageId)
@@ -1114,7 +1117,7 @@ socket.on("chat",async(data , ack) => {
     
         // Emit the IDs of visible messages to the server
         if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
         }
     }
 });
@@ -1664,11 +1667,12 @@ socket.on("restoreMessages", async  (data) => {
     messageReads.forEach((message) => {
         
     let messageId = message.getAttribute("data-id");
+    let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
     const rect = message.getBoundingClientRect();
     messageId = roomID+"-"+ messageId.split('-')[1]
     // Check if the message is in the viewport (visible)
     if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-        if (messageId && !visibleMessages.includes(messageId)) {
+        if (messageId && !visibleMessages.includes(messageId) && dataReadStatus=='unread') {
             visibleMessages.push(messageId);  // Add the data-id of visible messages
             // console.log("read messageId",messageId)
             // console.log("read user",currentUser.username)
@@ -1678,7 +1682,7 @@ socket.on("restoreMessages", async  (data) => {
     
     // Emit the IDs of visible messages to the server
     if (visibleMessages.length > 0) {
-        socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+        socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
     }
     // Initialize a variable to store the last seen date to compare
 
@@ -1721,8 +1725,8 @@ socket.on("restoreMessages", async  (data) => {
         });
         if(document.getElementById('loadingChatWindow').classList.contains('show')){
             document.getElementById('loadingChatWindow').classList.remove("show");
-            document.getElementById('loadingChatWindow').classList.add("d-none");
         }
+        document.getElementById('loadingChatWindow').classList.add("d-none");
         if(data.latest){
             const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
 
@@ -1778,11 +1782,13 @@ socket.on("restoreMessages", async  (data) => {
             messageReadsUnread.forEach((message) => {
                 
             let messageId = message.getAttribute("data-id");
+            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+
             const rect = message.getBoundingClientRect();
             messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
         
-            if (messageId && !visibleMessagesUnread.includes(messageId)) {
+            if (messageId && !visibleMessagesUnread.includes(messageId) && dataReadStatus=='unread') {
                 visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
                 console.log("read messageId",messageId)
                 console.log("read user",currentUser.username)
@@ -1792,7 +1798,7 @@ socket.on("restoreMessages", async  (data) => {
             
             // Emit the IDs of visible messages to the server
             if (visibleMessagesUnread.length > 0) {
-                socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, username: currentUser.username });
+                socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, roomID: roomID });
             }
         }
         // setTimeout(() => {
@@ -1812,8 +1818,8 @@ socket.on("restoreMessages", async  (data) => {
         console.log(data.message)
         if(document.getElementById('loadingChatWindow').classList.contains('show')){
             document.getElementById('loadingChatWindow').classList.remove("show");
-            document.getElementById('loadingChatWindow').classList.add("d-none");
         }
+        document.getElementById('loadingChatWindow').classList.add("d-none");
         
         // output.querySelector('.firstMessage').innerHTML=''
     })
@@ -2151,10 +2157,14 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     }   
 
     // Main message content
+    let readStatus='unread';
     const reactionMember = data.readUsers
     ? data.readUsers
         .map((r) => {
             r.username= decryptMessage(r.username)
+            if(r.username == currentUser.username){
+                readStatus = 'read'
+            }
           return r.reaction
             ? `<span class='${r.username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' ${r.username == currentUser.username ? `onClick="addStickerReaction('',${messageId})"`:''} user-id="${r.username}">${r.reaction}</span>`
             : "";
@@ -2339,7 +2349,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             `).join('') : ""}
                 
             <div class="text-content" style="display: flex; justify-content: space-between;">
-                <div class="dataMessage" message-id="Message-${messageId}" dir="auto">
+                <div class="dataMessage"  message-id="Message-${messageId}" dir="auto">
                     ${data.message.replace(/&lt;br&gt;/g, '<br>')}
                 </div>
 
@@ -2363,7 +2373,9 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         </div>
     </div>
 
-    <div class="messageRead" data-id="Message-${messageId}">
+    <div class="messageRead"
+    data-readStatus='${readStatus}'
+    data-id="Message-${messageId}">
         <div style="${divStyle}" class="footerMessage">
             <div class="${reactionMember!=''?'my-4':''}" reactionMessage="${messageId}">
                 ${reactionMember}
@@ -2979,10 +2991,11 @@ chat_window.addEventListener("scroll", () => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
+            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
             messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                if (messageId && !visibleMessages.includes(messageId)) {
+                if (messageId && !visibleMessages.includes(messageId)&& dataReadStatus=='unread') {
                     visibleMessages.push(messageId);  // Add the data-id of visible messages
                     // console.log(messageId)
                 }
@@ -2991,7 +3004,7 @@ chat_window.addEventListener("scroll", () => {
     
         // Emit the IDs of visible messages to the server
         if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
         }
     }
 });
