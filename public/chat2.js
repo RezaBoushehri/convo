@@ -903,7 +903,7 @@ socket.on("chat",async(data , ack) => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
-            messageId = "-"+ messageId.split('-')[1]
+            messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
                 if (messageId && !visibleMessages.includes(messageId)) {
@@ -1102,7 +1102,7 @@ socket.on("chat",async(data , ack) => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
-            messageId = "-"+ messageId.split('-')[1]
+            messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
                 if (messageId && !visibleMessages.includes(messageId)) {
@@ -1665,7 +1665,7 @@ socket.on("restoreMessages", async  (data) => {
         
     let messageId = message.getAttribute("data-id");
     const rect = message.getBoundingClientRect();
-    messageId = "-"+ messageId.split('-')[1]
+    messageId = roomID+"-"+ messageId.split('-')[1]
     // Check if the message is in the viewport (visible)
     if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
         if (messageId && !visibleMessages.includes(messageId)) {
@@ -1779,7 +1779,7 @@ socket.on("restoreMessages", async  (data) => {
                 
             let messageId = message.getAttribute("data-id");
             const rect = message.getBoundingClientRect();
-            messageId = "-"+ messageId.split('-')[1]
+            messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
         
             if (messageId && !visibleMessagesUnread.includes(messageId)) {
@@ -2979,7 +2979,7 @@ chat_window.addEventListener("scroll", () => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
-            messageId = "-"+ messageId.split('-')[1]
+            messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
                 if (messageId && !visibleMessages.includes(messageId)) {

@@ -1547,7 +1547,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
             const updatedMessages = await Promise.all(
                 messageIds.map(async (messageId) => {
-                    const messagebyroomID = `${currentUser.roomID}${messageId}`;
+                    const messagebyroomID = `${messageId}`;
                     // console.log(`${username}_____${messagebyroomID} unreaded`);
 
                     await Message.updateMany(
