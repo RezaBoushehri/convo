@@ -379,7 +379,7 @@ $("#file-input").on("change", async (e) => {
     fileInput.disabled = true;
 
     const file = e.target.files[0];
-    const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
+    const maxSize = 50 * 1024 * 1024; // 10 MB in bytes
 
     if (!file) {
         ref("No file selected.",null,null,'warning');
@@ -400,7 +400,8 @@ $("#file-input").on("change", async (e) => {
     }
 
     const fileName = file.name.toLowerCase();
-    const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
+    const harmfulExtensions = [];
+    // const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
     const fileExtension = fileName.split('.').pop();
 
     if (harmfulExtensions.includes(fileExtension)) {
