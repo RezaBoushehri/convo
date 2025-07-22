@@ -1368,23 +1368,23 @@ if (message) {
             let messageIdreplied = "-"+ messageId.split('-')[1]
             
             if (!sentMessagesId.includes(firstMessageId)) {
-            const isSmallerThanAll = sentMessagesId.every((id) => {
-                return firstMessageId < id; // Compare lexicographically (string comparison)
-            });
-            
-            // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
-            if (isSmallerThanAll) {
+                const isSmallerThanAll = sentMessagesId.every((id) => {
+                    return firstMessageId < id; // Compare lexicographically (string comparison)
+                });
                 
-                // console.log(firstMessageId)
-                if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-                    document.getElementById('loadingChatWindow').classList.remove("d-none");
-                    document.getElementById('loadingChatWindow').classList.add("show");
-                } 
-                sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
-                    // Emit the request for older messages to the server and wait for a response
-                socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
-            }
-        }              
+                // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+                if (isSmallerThanAll) {
+                    
+                    // console.log(firstMessageId)
+                    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                        document.getElementById('loadingChatWindow').classList.remove("d-none");
+                        document.getElementById('loadingChatWindow').classList.add("show");
+                    } 
+                    sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+                        // Emit the request for older messages to the server and wait for a response
+                    socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
+                }
+            }              
 
             // Wait for the server response
             socket.on("olderMessagesLoaded", (prepend) => {
@@ -2866,40 +2866,40 @@ if(scrolling){
    
     // Iterate through Dates to check if they are in view
     
-    if(firstMessage){
+    // if(firstMessage){
 
-        if( firstMessage.getAttribute('data-id')){
-            let firstMessageId = firstMessage.getAttribute('data-id');
-            firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-            const threshold = 50; // Proximity in pixels to the top of the viewport
+    //     if( firstMessage.getAttribute('data-id')){
+    //         let firstMessageId = firstMessage.getAttribute('data-id');
+    //         firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+    //         const threshold = 50; // Proximity in pixels to the top of the viewport
 
-            if (firstMessage.getBoundingClientRect().top >= -threshold && 
-            firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
-                // Check if the message has not been sent before and it's the first message of the day
-                if (!sentMessagesId.includes(firstMessageId)) {
-                    const isSmallerThanAll = sentMessagesId.every((id) => {
-                        return firstMessageId < id; // Compare lexicographically (string comparison)
-                    });
+    //         if (firstMessage.getBoundingClientRect().top >= -threshold && 
+    //         firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
+    //             // Check if the message has not been sent before and it's the first message of the day
+    //             if (!sentMessagesId.includes(firstMessageId)) {
+    //                 const isSmallerThanAll = sentMessagesId.every((id) => {
+    //                     return firstMessageId < id; // Compare lexicographically (string comparison)
+    //                 });
                     
-                    // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
-                    if (isSmallerThanAll) {
+    //                 // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+    //                 if (isSmallerThanAll) {
                         
-                        console.log(firstMessageId)
+    //                     console.log(firstMessageId)
     
-                        sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
-                        // Emit the request for older messages to the server
-                        if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-                            document.getElementById('loadingChatWindow').classList.remove("d-none");
-                            document.getElementById('loadingChatWindow').classList.add("show");
-                            disableScrolling()
-                        } 
-                        socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
-                    }
-                }
+    //                     sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+    //                     // Emit the request for older messages to the server
+    //                     if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+    //                         document.getElementById('loadingChatWindow').classList.remove("d-none");
+    //                         document.getElementById('loadingChatWindow').classList.add("show");
+    //                         disableScrolling()
+    //                     } 
+    //                     socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
+    //                 }
+    //             }
             
-            }
-        }  
-    }
+    //         }
+    //     }  
+    // }
 
     if(lastMessage){
         if( lastMessage.getAttribute('data-id')){

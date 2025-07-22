@@ -1003,7 +1003,7 @@ io.on("connection", (socket) => {
             if (unreadMessages.length > 0) {
                 socket.emit("restoreMessages", { messages: unreadMessages, prepend: true, unread: true, join: true });
             } else {
-                const lastMessages = await getMessagesByLimit(roomID, 50);
+                const lastMessages = await getMessagesByLimit(roomID, 20);
                 const processedMessages = await Promise.all(lastMessages.map(msg => processMessage(msg)));
                 socket.emit("restoreMessages", { messages: processedMessages, prepend: true, join: true });
             }
@@ -1031,9 +1031,9 @@ io.on("connection", (socket) => {
             
             const limit =()=>{
                 if(counter!==0){
-                return (counter < 50) ? counter-1 : 50; // Use counter if it's less than 50, otherwise limit to 50
+                return (counter < 20) ? counter-1 : 20; // Use counter if it's less than 20, otherwise limit to 20
                 }
-                else return 50;
+                else return 20;
             }
             // Fetch the older messages using the starting ID and dynamic limit
             const olderMessages = await getMessagesByID(startingID, limit(),type); // Function to fetch messages
@@ -1046,7 +1046,7 @@ io.on("connection", (socket) => {
                     olderMessages.map(async (msg) => await processMessage(msg))
                 );
                 if(type=='latest'){
-                    const lastMessages = await getMessagesByLimit(roomID, 50);
+                    const lastMessages = await getMessagesByLimit(roomID, 20);
                     const processedLatestMessages = await Promise.all(
                         lastMessages.map(async (msg) => {
                             return await processMessage(msg); // پردازش پیام رمزنگاری‌شده
@@ -1104,7 +1104,7 @@ async function getMessagesByID(startingID, limit,type) {
             roomID: room,
         })
         .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
-        .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
+        .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
         .lean(); // Use lean() to get plain JavaScript objects
         }
     else if(type=='last'){
@@ -1116,7 +1116,7 @@ async function getMessagesByID(startingID, limit,type) {
             id: { $gt: `${room}-${counter}` }, // The id format should still be 'room-counter'
         })
         .sort({  timestamp: 1 }) // Sort by 'id' in descending order to get older messages first
-        .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
+        .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
         .lean(); // Use lean() to get plain JavaScript objects
     }
     else if(type=='first'){
@@ -1127,7 +1127,7 @@ async function getMessagesByID(startingID, limit,type) {
         id: { $lt: `${room}-${counter}` }, // The id format should still be 'room-counter'
     })
     .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
-    .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
+    .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
     .lean(); // Use lean() to get plain JavaScript objects
     }
     else if(type.split('-')[0]=="reply"){
