@@ -1298,7 +1298,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 quote: quote ? `${currentUser.roomID}-${quote}`:null,
                 message: clean ? clean : '',
                 file: fileDetails, // Map over the uploaded file to structure them correctly
-                read: [],
+                read: [{ username, time: timestamp }], // <- Mark as read by sender
                 members: [username],
                 timestamp,
             });
