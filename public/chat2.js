@@ -35,7 +35,6 @@ const
     joinRoomName = document.getElementById("joinRoomName"),
     fileInput = document.getElementById("file-input"),
     headTag = document.getElementById('headTag'),
-    
     options = {
         maxSizeMB: 0.3,
         maxWidthOrHeight: 1920,
@@ -43,6 +42,7 @@ const
         fileType: "",
     };
 let sentMessagesId=[],
+    loadNextMessage = false;    
     sentMessagesIdLast=[],
     loadedForClicking=false
     , hasScrolledDown = false; // Flag to track if the scroll has already occurred
@@ -1494,7 +1494,7 @@ socket.on("restoreMessages", async  (data) => {
         // console.log(decryptedMessages);
    
       
-    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+    if(document.getElementById('loadingChatWindow').classList.contains('d-none') && msg.length > 0){
         document.getElementById('loadingChatWindow').classList.remove("d-none");
         document.getElementById('loadingChatWindow').classList.add("show");
     } 
@@ -1506,6 +1506,7 @@ socket.on("restoreMessages", async  (data) => {
         output.innerHTML=''
     }
     if(data.Latest){
+        loadNextMessage = false;
         sentMessagesIdLast=[]
         hasScrolledDown= false
         sentMessagesId=[]
@@ -1528,7 +1529,7 @@ socket.on("restoreMessages", async  (data) => {
                     loadedForClicking=true
                 }
             }
-           
+            loadNextMessage=true;
             sentMessagesIdLast=[]
         } else {
             
@@ -1820,7 +1821,8 @@ socket.on("restoreMessages", async  (data) => {
             document.getElementById('loadingChatWindow').classList.remove("show");
         }
         document.getElementById('loadingChatWindow').classList.add("d-none");
-        
+        loadNextMessage = false;
+
         // output.querySelector('.firstMessage').innerHTML=''
     })
 // -----------------setting----------------
@@ -2901,7 +2903,7 @@ if(scrolling){
     //     }  
     // }
 
-    if(lastMessage){
+    if(lastMessage   &&  loadNextMessage ){
         if( lastMessage.getAttribute('data-id')){
             let lastMessageId = lastMessage.getAttribute('data-id');
             lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]

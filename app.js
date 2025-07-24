@@ -1004,8 +1004,12 @@ io.on("connection", (socket) => {
                 socket.emit("restoreMessages", { messages: unreadMessages, prepend: true, unread: true, join: true });
             } else {
                 const lastMessages = await getMessagesByLimit(roomID, 20);
-                const processedMessages = await Promise.all(lastMessages.map(msg => processMessage(msg)));
-                socket.emit("restoreMessages", { messages: processedMessages, prepend: true, join: true });
+                if(lastMessages.length>0){
+                    const processedMessages = await Promise.all(lastMessages.map(msg => processMessage(msg)));
+                    socket.emit("restoreMessages", { messages: processedMessages, prepend: true, join: true });
+                }else{
+                    socket.emit("noMoreMessages", { message: "No more older messages." });
+                }
             }
 
             socket.emit("members", room.members);
