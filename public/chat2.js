@@ -18,7 +18,7 @@ function decryptMessage(encryptedMessage) {
     return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
-let roomID = document.getElementById('roomID').value.trim()
+let roomID = document.getElementById('roomID').value??'';
 document.getElementById('roomID').value='';
 
 
