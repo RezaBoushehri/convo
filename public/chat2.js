@@ -130,9 +130,9 @@ message.addEventListener('input', () => {
         // Clean up any Excel-specific formatting while preserving table structure
         const cleanedTable = pastedData
             // .replace(/^(<br>)+/g, '') // Remove leading <br> tags
-            .replace(/<table[^>]*>/g, '<table class="table table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
-            .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">')
-            .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">');
+            .replace(/<table[^>]*>/g, '<table class="table bg-white text-dark table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
+            .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px;">')
+            .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px;">');
             
         // Update message content with cleaned table
         message.innerHTML = cleanedTable;
@@ -168,9 +168,9 @@ message.addEventListener('paste', (e) => {
         if (pastedData.includes('<table')) {
             // Clean up Excel-specific formatting while preserving table structure
             const cleanedTable = pastedData
-                .replace(/<table[^>]*>/g, '<table class="table table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
-                .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">')
-                .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px; background-color: #f2f2f2;">');
+                .replace(/<table[^>]*>/g, '<table class="table bg-white text-dark table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
+                .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px; >')
+                .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px; >');
             
             // Update message content with cleaned table
             message.innerHTML = cleanedTable;
