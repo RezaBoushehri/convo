@@ -1525,79 +1525,79 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         }
     });
     
-   socket.on("markMessagesRead", async ({ messageIds ,roomID}) => {
-        try {
-            const currentUser = await User.findOne({ socketID: socket.id });
-            if (!currentUser || !currentUser.roomID) {
-                throw new Error("User not found or not part of a room.");
-            }
+//    socket.on("markMessagesRead", async ({ messageIds ,roomID}) => {
+//         try {
+//             const currentUser = await User.findOne({ socketID: socket.id });
+//             if (!currentUser || !currentUser.roomID) {
+//                 throw new Error("User not found or not part of a room.");
+//             }
 
-            const username = currentUser.username;
-            const timestamp = new Date();
-            // console.log(messageIds)
-            // let roomFromMess= roomID;
-            // const room = await Room.findOne({ roomID: roomFromMess });
-            // if (!room) throw new Error("Room not found!");
+//             const username = currentUser.username;
+//             const timestamp = new Date();
+//             // console.log(messageIds)
+//             // let roomFromMess= roomID;
+//             // const room = await Room.findOne({ roomID: roomFromMess });
+//             // if (!room) throw new Error("Room not found!");
 
-            // const roomMembers = room.members;
+//             // const roomMembers = room.members;
 
-            // // Adjust this check if `room.members` is a list of objects
-            // const isMember = Array.isArray(roomMembers)
-            //     ? roomMembers.some(m => typeof m === 'string' ? m === username : m.username === username)
-            //     : false;
+//             // // Adjust this check if `room.members` is a list of objects
+//             // const isMember = Array.isArray(roomMembers)
+//             //     ? roomMembers.some(m => typeof m === 'string' ? m === username : m.username === username)
+//             //     : false;
 
-            // if (!isMember) {
-            //     throw new Error("User is not a member of this room!");
-            // }
+//             // if (!isMember) {
+//             //     throw new Error("User is not a member of this room!");
+//             // }
 
-            const updatedMessages = await Promise.all(
-                messageIds.map(async (messageId) => {
-                    const messagebyroomID = `${messageId}`;
-                    console.log(`${username}_____${messagebyroomID} unreaded`);
+//             const updatedMessages = await Promise.all(
+//                 messageIds.map(async (messageId) => {
+//                     const messagebyroomID = `${messageId}`;
+//                     console.log(`${username}_____${messagebyroomID} unreaded`);
 
-                    await Message.updateMany(
-                        {
-                            id: { $lte: messagebyroomID },
-                            "read.username": { $ne: username }
-                        },
-                        {
-                            $addToSet: { read: { username, time: timestamp } }
-                        }
-                    );
+//                     await Message.updateMany(
+//                         {
+//                             id: { $lte: messagebyroomID },
+//                             "read.username": { $ne: username }
+//                         },
+//                         {
+//                             $addToSet: { read: { username, time: timestamp } }
+//                         }
+//                     );
 
-                    const message = await Message.findOne({ id: messagebyroomID }).lean();
-                    if (!message) return null;
+//                     const message = await Message.findOne({ id: messagebyroomID }).lean();
+//                     if (!message) return null;
 
-                    const readUsers = await Promise.all(
-                        message.read.map(async (readEntry) => {
-                            const userRead = await User.findOne({ username: readEntry.username })
-                                .select("first_name last_name")
-                                .lean();
-                            return {
-                                name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
-                                time: readEntry.time,
-                            };
-                        })
-                    );
+//                     const readUsers = await Promise.all(
+//                         message.read.map(async (readEntry) => {
+//                             const userRead = await User.findOne({ username: readEntry.username })
+//                                 .select("first_name last_name")
+//                                 .lean();
+//                             return {
+//                                 name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
+//                                 time: readEntry.time,
+//                             };
+//                         })
+//                     );
 
-                    return { id: messagebyroomID, readUsers };
-                })
-            );
+//                     return { id: messagebyroomID, readUsers };
+//                 })
+//             );
 
-            updatedMessages
-                .filter(msg => msg)
-                .forEach((msg) => {
-                    // Send only to others in the room
-                    socket.to(currentUser.roomID).emit("readMessageUpdate", {
-                        id: msg.id,
-                        readUsers: msg.readUsers
-                    });
-                });
+//             updatedMessages
+//                 .filter(msg => msg)
+//                 .forEach((msg) => {
+//                     // Send only to others in the room
+//                     socket.to(currentUser.roomID).emit("readMessageUpdate", {
+//                         id: msg.id,
+//                         readUsers: msg.readUsers
+//                     });
+//                 });
 
-        } catch (error) {
-            console.error("Error in markMessagesRead:", error.message);
-        }
-    });
+//         } catch (error) {
+//             console.error("Error in markMessagesRead:", error.message);
+//         }
+//     });
 
     
     // socket.on("markMessagesRead", async ({ messageIds, username }) => {
@@ -1623,7 +1623,85 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     //     }
     // });
     
-    
+    socket.on("markMessagesRead", async ({ messageIds, roomID }) => {
+        try {
+            const currentUser = await User.findOne({ socketID: socket.id });
+
+            if (!currentUser) {
+                throw new Error("User not found.");
+            }
+
+            if (!roomID) {
+                throw new Error("No room provided.");
+            }
+
+            // ✅ Validate room membership
+            const room = await Room.findOne({ roomID }).lean();
+            if (!room) {
+                throw new Error("Room not found!");
+            }
+
+            const isMember = room.members?.some(m =>
+                typeof m === 'string'
+                    ? m === currentUser.username
+                    : m.username === currentUser.username
+            );
+
+            if (!isMember) {
+                throw new Error("User is not a member of this room!");
+            }
+
+            const timestamp = new Date();
+            const username = currentUser.username;
+
+            // ✅ Update all messages in parallel
+            const updatedMessages = await Promise.all(
+                messageIds.map(async (messageId) => {
+                    await Message.updateMany(
+                        {
+                            id: { $lte: messageId },
+                            roomID,
+                            "read.username": { $ne: username }
+                        },
+                        {
+                            $addToSet: { read: { username, time: timestamp } }
+                        }
+                    );
+
+                    const message = await Message.findOne({ id: messageId })
+                        .select("id read")
+                        .lean();
+                    if (!message) return null;
+
+                    // Resolve read user names
+                    const readUsers = await Promise.all(
+                        message.read.map(async (entry) => {
+                            const user = await User.findOne({ username: entry.username })
+                                .select("first_name last_name")
+                                .lean();
+                            return {
+                                name: user ? `${user.first_name} ${user.last_name}` : entry.username,
+                                time: entry.time
+                            };
+                        })
+                    );
+
+                    return { id: messageId, readUsers };
+                })
+            );
+
+            // ✅ Emit updates only to other users in the room
+            updatedMessages
+                .filter(Boolean)
+                .forEach((msg) => {
+                    socket.to(roomID).emit("readMessageUpdate", msg);
+                });
+
+        } catch (error) {
+            console.error("Error in markMessagesRead:", error.message);
+        }
+    });
+
     
     socket.on("info", async () => {
         const currentUser = await User.findOne({ socketID: socket.id });
