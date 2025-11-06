@@ -1393,6 +1393,10 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                         }
                         
                         if (user.socketID) {
+                            tempMessage={
+                                ...tempMessage,
+                                roomID : currentUser.roomID
+                            }
                             io.to(user.socketID).emit("notification", tempMessage);
     
                         }
