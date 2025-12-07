@@ -1,95 +1,275 @@
 <%-include('partials/header.ejs') %>
-
-    <div id="form" class="p-3 pr-4 pl-4 rounded">
-        <form method="POST" action='/login'>
-            <div class="form-group">
-                <input 
-                    type="tel" 
-                    class="form-control phone-input" 
-                    name="username" 
-                    placeholder="Phone number">
-                <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
-
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" class="form-control" name="password" placeholder="Password">
-            </div>
-            <div class="form-group">
-                New to <span style="font-family: 'Pacifico';">meta chat</span> ?
-                <a class="badge badge-lg badge-success" data-toggle="modal" data-target="#signup">Sign Up</a>
-            </div>
-            <button type="submit" class="btn btn-primary">Submit</button>
-        </form>
-
+</nav>
+<div class="container row g-3 col-md-12  m-auto">
+    <div class="col-md-8">
+        <div id="message-container" class="text-left">
+                <p id="message"></p>
+        </div>
     </div>
-
-    <div class="modal fade" id="signup" tabindex="-1" role="dialog" aria-labelledby="label" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="label">Sign up</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-                </div>
-                <form method="POST" action='/register'>
-                    <div class="modal-body px-5">
-
-                        <div class="row">
-                            <div class="form-group col-md-6 col-md-xs-6">
-
-                                <input type="text" class="form-control" name="first_name" placeholder="First Name">
-                            </div>
-                            <div class="form-group  col-md-6 col-md-xs-6">
-                                <!-- <label for="last_name">Last Name</label> -->
-                                <input type="text" class="form-control" name="last_name" placeholder="Last Name">
-                            </div>
-                        </div>
+    <div class="col-md-4 ">
+        <!-- Two-Step Verification Modal -->
+        <div class="modal fade" id="twoStepVerification" tabindex="-1" role="dialog" aria-labelledby="verifyLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="verifyLabel">Two-Step Verification</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>A verification code has been sent to your phone number.</p>
                         <div class="form-group">
-                            <!-- <label for="email">Email address</label> -->
-                            <input 
-                                type="tel" 
-                                class="form-control phone-input" 
-                                name="username" 
-                                placeholder="Phone number">
-                            <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
-
-                        </div>
-
-                        <div class="form-group">
-                            <!-- <label for="password">Password</label> -->
-                            <input type="password" class="form-control" name="password" placeholder="Password">
-                        </div>
-                        <div class="form-group">
-                            Already a user ?
-                            <a href='/login'>Login</a>
+                            <label for="verificationCode">Enter Verification Code:</label>
+                            <input type="text" id="verificationCode" class="form-control" placeholder="Enter 6-digit code">
+                            <span class="error-message" style="color: red; display: none;">Invalid code</span>
                         </div>
                     </div>
                     <div class="modal-footer">
-
-                        <button type="submit" class="btn btn-primary">Submit</button>
+                        <button id="verifyCode"  class="btn btn-success">Verify</button>
                     </div>
-                </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Form -->
+        <div id="form" class="p-5 rounded">
+            <form method="POST" id="loginForm" action='/login'>
+                <div class="form-group">
+                    <label for="username">Phone Number:</label>
+                    <input type="tel" id="userPhone" class="form-control phone-input" name="username" placeholder="Phone number">
+                    <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="userPassword" class="form-control" name="password" placeholder="Password">
+                </div>
+                <div class="form-group">
+                    New to <span style="font-family: 'Pacifico';">meta chat</span> ?
+                    <a class="badge badge-lg badge-success p-2" data-toggle="modal" style="cursor: pointer;" data-target="#signup">Sign Up</a>
+                </div>
+
+                <p id="error-message" class="badge col-md-12 badge-danger py-2 my-3"></p>
+                <button type="submit" id="sendSMSlogin" class="col-md-12 btn btn-primary">Log in</button>
+
+            </form>
+        </div>
+
+        <div class="modal fade" id="signup" tabindex="-1" role="dialog" aria-labelledby="label" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="label">Sign up</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    </div>
+                    <form method="POST"  id="registrationForm" action='/register'>
+                        <div class="modal-body px-5">
+
+                            <div class="row">
+                                <div class="form-group col-md-6 col-md-xs-6">
+
+                                    <input type="text" class="form-control" name="first_name" placeholder="First Name">
+                                </div>
+                                <div class="form-group  col-md-6 col-md-xs-6">
+                                    <!-- <label for="last_name">Last Name</label> -->
+                                    <input type="text" class="form-control" name="last_name" placeholder="Last Name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <!-- <label for="email">Email address</label> -->
+                                <input 
+                                    type="tel" 
+                                    class="form-control phone-input" 
+                                    name="username" 
+                                    id="username"
+                                    placeholder="Phone number 09XXXXXXXXX">
+                                <span class="error-message" style="color: red; display: none;">Invalid phone number</span>
+
+                            </div>
+
+                            <div class="form-group">
+                                <!-- <label for="password">Password</label> -->
+                                <input id="password" type="password" class="form-control mb-2" name="password" placeholder="Password">
+                                <input id="passwordCheck" type="password" class="form-control" name="passwordCheck" placeholder="Confirm Password">
+                            </div>
+                            <div class="form-group">
+                                Already a user ?
+                                <a href='/login'>Login</a>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+
+                            <button type="button" onclick="$('#registrationForm').submit()" data-dismiss="modal" aria-label="Close" class=" btn btn-primary">Validaton</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-    <script>
-       const phoneInput = document.querySelector(".phone-input");
-        const errorMessage = document.querySelector(".error-message");
 
-        phoneInput.addEventListener("input", () => {
-            const phoneRegex = /^[0-9]{11}$/; // Adjust regex for your specific needs
-            if (!phoneRegex.test(phoneInput.value)) {
-                errorMessage.style.display = "block";
-            } else {
-                errorMessage.style.display = "none";
+</div>
+
+<script>
+// Extract query parameters from the URL
+var urlParams = new URLSearchParams(window.location.search);
+var error = urlParams.get('error');
+
+// If there's an error, display it in the <p> tag
+if (error) {
+    document.getElementById('error-message').textContent = error;
+}
+const message = "Welcome to the <strong>World of Unlimited Messages</strong>! Where your texts are faster than your Wi-Fi and your emoji game is stronger than your coffee. Log in, because let’s be real, you’re already checking your phone anyway. Grab a seat, make yourself comfortable, and let’s start chatting — just remember, no pressure. It's just a <strong>global</strong> conversation, no biggie.";
+const message2 = "Welcome to the World of Unlimited Messages! Where your texts are faster than your Wi-Fi and your emoji game is stronger than your coffee. Log in, because let’s be real, you’re already checking your phone anyway. Grab a seat, make yourself comfortable, and let’s start chatting — just remember, no pressure. It's just a global conversation, no biggie.";
+
+    let currentIndex = 0;
+    const messageElement = document.getElementById("message");
+
+
+    function typeMessage() {
+        // Convert markdown to HTML before typing it out
+        
+        if (currentIndex < message2.length) {
+            messageElement.innerHTML += message2.charAt(currentIndex);
+            currentIndex++;
+            setTimeout(typeMessage, 5); // Adjust typing speed here
+        }else{
+        
+            messageElement.innerHTML = message;
+            messageElement.innerHTML += "<br>--BB";
+            messageElement.innerHTML += "<img src='img/merlin.gif' title='Idea from: Mr.Moezi' style='width: 150px;'></img>";
+    
+        }
+    }
+    typeMessage();
+    $(document).ready(function() {
+        let verificationCode = "";
+        let formChoosed =''
+        // Generate and send SMS when user submits
+        // $('#sendSMSlogin').click(function() {
+        //     var mobileSMS = $('#userPhone').val();
+        //     if (!/^\d{10,15}$/.test(mobileSMS)) { // Basic phone number validation
+        //         alert("Please enter a valid phone number!");
+        //         return;
+        //     }
+        //     verificationCode = Math.floor(100000 + Math.random() * 900000); // Generate 6-digit code
+        //     var messageSMS = `Metachater, Your verification code is: ${verificationCode}`;
+        //     var username = "fara";
+        //     var password = "farahoosh";
+        //     var base64Credentials = btoa(username + ":" + password);
+
+        //     // Send SMS via AJAX
+        //     $.ajax({
+        //         url: 'https://portal.mellicloud.com/smss/smsService.php',
+        //         type: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json'
+        //         },
+        //         data: JSON.stringify({  // Stringify the data
+        //             mobileSMS: mobileSMS,
+        //             messageSMS: messageSMS
+        //         }),
+        //         dataType: 'json',
+        //         success: function(response) {
+        //             if (response.status === 'success') {
+        //                 $('#twoStepVerification').modal('show'); // نمایش مدال تأیید
+        //                 formChoosed = 'login'
+        //             } else {
+        //                 alert('Error sending SMS: ' + response.message);
+        //             }
+        //         },
+        //         error: function(xhr, status, error) {
+        //             alert('AJAX Error: ' + error + "\nStatus: " + status + "\nResponse: " + xhr.responseText);
+        //         }
+        //     });
+
+        // });
+        $('#sendSMSregistration').click(function() {
+            var mobileSMS = $('#username').val();
+            if (!/^\d{10,15}$/.test(mobileSMS)) { // Basic phone number validation
+                alert("Please enter a valid phone number!");
+                return;
             }
+            verificationCode = Math.floor(100000 + Math.random() * 900000); // Generate 6-digit code
+            var messageSMS = `Metachater, Your verification code is: ${verificationCode}`;
+            var username = "fara";
+            var password = "farahoosh";
+            var base64Credentials = btoa(username + ":" + password);
+
+            // Send SMS via AJAX
+            $.ajax({
+                url: 'https://portal.mellicloud.com/smss/smsService.php',
+                type: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({  // Stringify the data
+                    mobileSMS: mobileSMS,
+                    messageSMS: messageSMS
+                }),
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        $('#twoStepVerification').modal('show'); // نمایش مدال تأیید
+                        formChoosed = 'registration'
+                    } else {
+                        alert('Error sending SMS: ' + response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('AJAX Error: ' + error + "\nStatus: " + status + "\nResponse: " + xhr.responseText);
+                }
+            });
+
         });
 
-    </script>
-    <%-include('partials/footer.ejs')%>
-        </body>
+        // Verify code input
+        $('#verifyCode').click(function() {
+            var enteredCode = $('#verificationCode').val();
+            if (enteredCode == verificationCode) {
+                // alert("Verification successful!");
+                $('#twoStepVerification').modal('hide');
+                if(formChoosed=='login') $('#loginForm').submit(); // Submit the form after successful verification
+                if(formChoosed=='registration') $('#registrationForm').submit(); // Submit the form after successful verification
+            } else {
+                $('.error-message').show().text("Incorrect verification code");
+            }
+        });
+    });
 
-        </html>
+    document.getElementById('registrationForm').addEventListener('submit', function(event) {
+        var password = document.getElementById('password').value;
+        var passwordCheck = document.getElementById('passwordCheck').value;
+        var username = document.getElementById('username').value;
+        var Regex = /^[0-9]{11}$/; // Adjust regex for your specific needs
+        if (!Regex.test(username.value)) {
+            errorMessage.style.display = "block";
+            alert('You must enter a valid phone number.');
+            event.preventDefault();  // Prevent form submission
+        } else {
+            errorMessage.style.display = "none";
+        }
+        if (password !== passwordCheck) {
+            alert('Passwords do not match.');
+            event.preventDefault();  // Prevent form submission
+        }
+    });
+    const phoneInput = document.querySelector(".phone-input");
+    const errorMessage = document.querySelector(".error-message");
+
+    phoneInput.addEventListener("input", () => {
+        const phoneRegex = /^[0-9]{11}$/; // Adjust regex for your specific needs
+        if (!phoneRegex.test(phoneInput.value)) {
+            errorMessage.style.display = "block";
+        } else {
+            errorMessage.style.display = "none";
+        }
+    });
+
+</script>
+<%-include('partials/footer.ejs')%>
+    </body>
+
+    </html>

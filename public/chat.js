@@ -1,6 +1,6 @@
 
 // const socket = io.connect(window.location.hostname),
-const production = false;
+const production = true;
 
 const secretKey = CryptoJS.enc.Hex.parse('a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771');
 
@@ -23,9 +23,8 @@ function decryptMessage(encryptedMessage) {
 
 
 
-
-const href = production ? window.location.hostname : "172.16.28.166",
-    socket = io.connect(`https://172.16.28.166:4000`, {
+const href = production ? `https://mc.farahoosh.ir:4000` : "https://94.74.128.194:4000",
+    socket = io.connect(href, {
         transports: ['polling','websocket'], // Allows both WebSocket and Polling
         secure: true, // Ensures that the connection uses HTTPS
         withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
@@ -58,7 +57,7 @@ let sentMessagesId=[],
     loadedForClicking=false
     , hasScrolledDown = false; // Flag to track if the scroll has already occurred
     let scrolling = true;
-
+console.log("URL: ",href)
 // =====================
 // for right click menu
 const windowWidth = window.innerWidth;
@@ -317,7 +316,7 @@ message.addEventListener("input", function () {
     this.style.height = `${this.scrollHeight}px`; // Set height based on content
 });
 
-document.getElementById('username').value = ''
+// document.getElementById('username').value = ''
 let image = "";
 let fileData ;
 $("#up").html('<i class= "fa fa-arrow-up" >').hide();
@@ -329,19 +328,21 @@ $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 // })
 $("#file-input").on("change", async (e) => {
     output.innerHTML+=`
-    <div id="upload-container"style="
+    <div id="upload-container"
+    class="px-5 m-3 backdrop-blur-chat-fg"
+    style="
     justify-content: flex-end;
     display: flex;
     ">
-        <progress id="upload-progress" value="0" max="100" style="width: 100%; height: 20px;"></progress>
+        <progress id="upload-progress"  value="0" max="100" style="width: 100%; height: 20px;"></progress>
         <span id="upload-status">0% uploaded</span>
     </div>
-
     `;
+    
     button.disabled = true;
     fileInput.disabled = true;
 
-    const file = e.target.files[0]; // Use e.target for modern jQuery
+    const file = e.target.files[0];
     const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
 
     if (!file) {
@@ -358,14 +359,29 @@ $("#file-input").on("change", async (e) => {
         return;
     }
 
+    const fileName = file.name.toLowerCase();
+    const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
+    const fileExtension = fileName.split('.').pop();
+
+    if (harmfulExtensions.includes(fileExtension)) {
+        alerting("The selected file has a potentially harmful extension. Please upload a safe file.", 'danger');
+        button.disabled = false;
+        fileInput.disabled = false;
+        return;
+    }
+
     try {
-        let processedFile;
-        // Send the file to the server with progress updates
+        // let processedFile;
+        // // Convert the file to Base64
+        // processedFile = await convertFileToBase64(file);
+        // console.log("Processed file (Base64):", processedFile);
+
+        // Send Base64 encoded file to the server
         const formData = new FormData();
         formData.append("file", file);
-        // Reset progress bar
         $("#upload-progress").val(0);
         $("#upload-status").text("0% uploaded");
+
         const xhr = new XMLHttpRequest();
         xhr.open("POST", "/upload", true);
     
@@ -375,70 +391,51 @@ $("#file-input").on("change", async (e) => {
                 const percent = (e.loaded / e.total) * 100;
                 // Emit progress to the server
                 socket.emit("uploadProgress", { progress: percent });
+                $("#upload-progress").val(percent);
+                $("#upload-status").text(`${Math.round(percent)}% uploaded`);
             }
         };
-       
-        const fileType = file.type;
-        if (fileType.startsWith("image/") && fileType !== "image/gif") {
-            // Handle image compression
-            options.fileType = fileType;
-            const compressedFile = await imageCompression(file, options);
-            console.log("Compressed image:", compressedFile);
-            processedFile = await setImage(compressedFile);
-        } else if (fileType === "application/pdf" || fileType.startsWith("video/") || fileType === "application/x-msdownload" || fileType === "image/gif") {
-            // Handle PDF, video, EXE, or GIF files
-            console.log(`${fileType} file selected:`, file);
-            processedFile = await setFile(file);
-        } else {
-            alerting("Unsupported file type. Please select an image, PDF, video, or EXE file.", 'warning');
-            return;
-        }
 
-        // Simulating upload progress (you can replace this with your actual upload logic)
-        const fakeProgressUpload = new Promise((resolve, reject) => {
-            let progress = 0;
-            const interval = setInterval(() => {
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    resolve();
-                } else {
-                    progress += 10;  // Increase progress (simulate upload)
-                    $("#upload-progress").val(progress);
-                    $("#upload-status").text(`${progress}% uploaded`);
-                }
-            }, 1000);  // Update every second (1 second)
-        });
-
-        // await fakeProgressUpload;
-
-        // After upload completes
-        console.log("Processed file data:", processedFile);
-
-        // Example: Use `processedFile` to send to the server or further process
-        // Example AJAX call:
-        // $.post("/upload", processedFile, (response) => console.log(response));
         xhr.onload = () => {
             if (xhr.status === 200) {
-                console.log("File uploaded successfully");
+                 // Parse the response data and extract file metadata
+                const response = JSON.parse(xhr.responseText);
+                fileData = response.fileData;
+                console.log("File uploaded successfully", fileData);
                 alerting("Upload complete.", "success");
             } else {
                 alerting("Failed to upload the file.", "danger");
             }
         };
+
         xhr.send(formData);
+        socket.on("uploadSuccess", (data) => {
+            alerting(`File ${data.dir} uploaded successfully!`);
+            document.getElementById('upload-container').remove();
+
+        });
     } catch (error) {
         console.error("Error processing file:", error);
         alerting("An error occurred while processing the file.", 'danger');
     } finally {
-
-       
-
-     
         $("#upload-progress").hide();
         button.disabled = false;
         fileInput.disabled = false;
     }
+    document.getElementById('file-input').value = '';
+    // document.getElementById('upload-container').remove();
+
 });
+
+function convertFileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result); // Base64 encoded data
+        reader.onerror = reject;
+        reader.readAsDataURL(file); // Reads the file as base64
+    });
+}
+
 const setImage = (file) => {
     const reader = new FileReader();
     return new Promise((resolve, reject) => {
@@ -467,14 +464,14 @@ const setImage = (file) => {
 //         console.log(image)
 //     };
 // };
-const setFile = (file) => {
+const setFile = (file,dir) => {
+    
     const reader = new FileReader();
     return new Promise((resolve, reject) => {
         reader.readAsDataURL(file);
         reader.onload = (event) => {
-            const base64File = event.target.result; // The base64-encoded file content
             fileData = {
-                fileData: base64File,
+                fileData: dir,
                 fileType: file.type,
                 fileName: file.name,
             };
@@ -522,7 +519,7 @@ socket.emit("userLoggedIn", { username: currentUser.username });
 
 //=================================================================
 //emit chat event (send message)
-button.addEventListener("click", () => {
+button.addEventListener("click", async () => {
     const replyBox = document.getElementById('replyBox')
     let quote = replyBox.getAttribute('reply-id') || null;
     let text = message.innerText; // Get the HTML content
@@ -627,7 +624,7 @@ button.addEventListener("click", () => {
             // Conditionally map over the file if there are any
             fileDetails = filesArray.length > 0
                 ? filesArray.map(file => ({
-                    file: file.fileData,  // Assuming fileData contains base64 data or a URL
+                    file: file.file,  // Assuming fileData contains base64 data or a URL
                     fileType: file.fileType,
                     fileName: file.fileName || null,  // Default to null if fileName is not present
                 }))
@@ -795,41 +792,58 @@ socket.on("newconnection", (data) => {
 //Handle User joined the room event
 socket.on("joined", (data) => {
     // const data = decryptMessage(encryptedData)
-    // console.log("User joined room:", data);
+    console.log("User joined room:", data);
 
     // Ensure required fields exist
     // if (!data.room || !data.room.roomID || !data.room.admin) {
     //     console.error("Invalid data received in 'joined' event:", data);
     //     return;
     // }
+    if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
+
     if(document.querySelector(".close")) document.querySelector(".close").click();
     document.querySelector("#roomInfo").innerHTML = `
-        <div class=" mx-3">
-            <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true" 
-                title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
-                Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
-                Admin : <em class='text-warning'>${data.name}</em>
-            </button>
-            <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
-            <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
-                class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
-                target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
-                <i class='bi bi-whatsapp'></i>
-            </a>
-            <button type='button' title="Leave the room" data-toggle="tooltip" data-placement="bottom" class='btn btn-danger ml-1' onclick='leaveRoom()'>
-                <i class='bi bi-door-closed'></i>
-            </button>
-        </div>`;
+        <div style="z-index:99" class="mx-3">
+    <!-- Toggle button for mobile -->
+    <button class="btn btn-secondary d-md-none" type="button" data-toggle="collapse" data-target="#roomControls" 
+        aria-expanded="false" aria-controls="roomControls">
+        Room Info <i class="bi bi-chevron-down"></i>
+    </button>
+
+    <!-- Collapsible Room Info -->
+    <div id="roomControls" class="collapse d-md-block">
+        <button type="button" class="btn btn-secondary " data-toggle="tooltip" data-html="true" 
+            title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
+            Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
+            Admin : <em class='text-warning'>${data.name}</em>
+        </button>
+        
+        <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
+        
+        <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
+            class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
+            target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
+            <i class='bi bi-whatsapp'></i>
+        </a>
+        
+        <button type='button' title="Leave the room" data-toggle="tooltip" data-placement="bottom" 
+            class='btn btn-danger ml-1' onclick='leaveRoom()'>
+            <i class='bi bi-door-closed'></i>
+        </button>
+    </div>
+</div>
+`;
     
     // Toggle UI elements
     if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
-    document.getElementById("chat-window").style.display = "block";
+    chat_window.style.display = "block";
     document.querySelector(".form-inline").style.display = "flex";
     document.querySelector("footer").style.display = "none";
     
     // Initialize tooltips
     $('[data-toggle="tooltip"]').tooltip();
     
+    // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 });
 
 //=================================================================
@@ -893,47 +907,7 @@ socket.on("chat",async(data , ack) => {
             };
     if (ack.success) {
    
-        
-    // let style,
-    //     bg,
-    //     color,
-    //     users = "";
-
-    // if (data.handle === name.textContent) {
-    //     style = "display:flex;justify-content:flex-end";
-    //     data.users.forEach((item) => {
-    //         if (item.name.trim() !== data.handle.trim())
-    //             users += `${item.name} , `;
-    //     });
-    //     users = users.slice(0, users.length - 3);
-    //     if (users !== "") {
-    //         output.innerHTML += `<div style=${style}><div class='bg-success seen pl-2 pr-2 p-1 mr-2 rounded col-md-8 '><strong><em>Seen by ${users} </em></strong></div></div>`;
-    //     }
-    //     $(".spinner-border")
-    //         .parent()
-    //         .append("<i class='fa fa-check text-warning'></i>");
-    //     $(".spinner-border").remove();
-    // } else {
-    //     style = "display:flex;justify-content:flex-start";
-    //     bg = `bg-dark mess p-2 mr-1 m-2 rounded col-md-8 `;
-    //     color = `text-success text-capitalize`;
-    //     output.innerHTML += `<div style=${style} ><div class='${bg}'><h6 class= ${color}>${
-    //         data.handle
-    //     }</h6><div>${
-    //         data.message
-    //     }</div><img class="img-fluid rounded mb-2" src='${
-    //         data.image
-    //     }'/><div style="text-align:right;font-size:2vmin"> 
-    // ${new Intl.DateTimeFormat("fa-IR", {
-    //     hour: "numeric",
-    //     minute: "numeric",
-    // }).format(new Date(data.date))}&nbsp &nbsp</div></div></div>`;
-    // }
-    // $("file-input").val("");
-    // image = "";
-    // socket.emit("typing", "stop");
-    // showUp();
-    // scroll();
+  
    
     const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
@@ -983,10 +957,32 @@ socket.on("chat",async(data , ack) => {
         applyShowMore();
     },100);
     if(decryptedMessage.sender != currentUser.username){
-        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message)
+        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
         playNotificationSound()
     }
+    const messages = document.querySelectorAll(".messageRead"); // Class of each message div
 
+    if(!document.hidden){
+        const visibleMessages = [];
+
+        messages.forEach((message) => {
+            const rect = message.getBoundingClientRect();
+            let messageId = message.getAttribute('data-id');
+            messageId = roomID +"-"+ messageId.split('-')[1]
+            // Check if the message is in the viewport (visible)
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+                if (messageId && !visibleMessages.includes(messageId)) {
+                    visibleMessages.push(messageId);  // Add the data-id of visible messages
+                    // console.log(messageId)
+                }
+            }
+        });
+    
+        // Emit the IDs of visible messages to the server
+        if (visibleMessages.length > 0) {
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+        }
+    }
 });
 
 //=================================================================
@@ -998,7 +994,7 @@ socket.on("typing", (data) => {
         // Add a typing indicator if one doesn't already exist
         if (!$(`#typing-${username}`).length && !$(`#typing-${username}Btn`).length) {
            
-            const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
+            const lastMessage = output.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
             const roomID = document.getElementById('roomIDVal').value;
 
@@ -1023,17 +1019,17 @@ socket.on("typing", (data) => {
                                 </div>`
                             );
                         }else{
-                            $("#down").fadeIn()
+                            // $("#down").fadeIn()
 
-                            $("#chat_windowFooter").append( `<div id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
-                                <em style="
-                                        display: flex;
-                                        align-content: center;
-                                        align-items: center;
-                                    ">${name} is typing <div class="typingLoader"></div></em>
+                            // $("#chat_windowFooter").append( `<div id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
+                            //     <em style="
+                            //             display: flex;
+                            //             align-content: center;
+                            //             align-items: center;
+                            //         ">${name} is typing <div class="typingLoader"></div></em>
                                 
-                                </div>`
-                            );
+                            //     </div>`
+                            // );
                         }
                     }
             }
@@ -1104,6 +1100,7 @@ socket.on("userDisconnected", (data) => {
 //=================================================================
 //Handle error
 socket.on("error", ({ message }) => {
+    console.log(message)
     $("#alert")
         .html(
             `<div class='alert alert-danger' role='alert'>
@@ -1710,52 +1707,56 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
     }
 });
-document.getElementById("settingsButton").addEventListener("click", () => {
-    const panel = document.getElementById("settingsPanel");
-    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "#ffff";
-    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
-    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
-    const fgColor = savedSettings?.fgColor || "#cccc";
-    const fontSize = savedSettings?.fontSize || "16px";
-    panel.style.display = panel.style.display === "block" ? "none" : "block";
-    document.getElementById("bgColorPicker").value = bgColor
-    document.getElementById("fgColorPicker").value = fgColor
-    document.getElementById("chatWindowBg-color").value = chatWindowBgColor
-    document.getElementById("chatWindowFg-color").value = chatWindowFgColor
-    fontSizeValue.textContent = fontSize;
-    // Initialize with default preview
-    updatePreview();
+if(document.getElementById("settingsButton")){
+    document.getElementById("settingsButton").addEventListener("click", () => {
+        const panel = document.getElementById("settingsPanel");
+        const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+        const bgColor = savedSettings?.bgColor || "#ffff";
+        const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
+        const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+        const fgColor = savedSettings?.fgColor || "#cccc";
+        const fontSize = savedSettings?.fontSize || "16px";
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
+        document.getElementById("bgColorPicker").value = bgColor
+        document.getElementById("fgColorPicker").value = fgColor
+        document.getElementById("chatWindowBg-color").value = chatWindowBgColor
+        document.getElementById("chatWindowFg-color").value = chatWindowFgColor
+        fontSizeValue.textContent = fontSize;
+        // Initialize with default preview
+        updatePreview();
 
-});
-document.getElementById("saveSettings").addEventListener("click", () => {
-    const panel = document.getElementById("settingsPanel");
+    });
+}
+if(document.getElementById("saveSettings")){
+    document.getElementById("saveSettings").addEventListener("click", () => {
+        const panel = document.getElementById("settingsPanel");
 
-    panel.style.display = panel.style.display === "block" ? "none" : "block";
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
 
-    // Save settings locally
-    const userSettings = {
-        marginLeft: document.getElementById('margin-left').value,
-        marginRight: document.getElementById('margin-right').value,
-        chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
-        chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
-        bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
-        fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
-        sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
-        sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
-        fontSize: `${fontSizeRange.value}px`, // Get font size from range input
-        borderRad: `${borderRadRange.value}px`, // Get font size from range input
-    };
-    localStorage.setItem("userSettings", JSON.stringify(userSettings));
+        // Save settings locally
+        const userSettings = {
+            marginLeft: document.getElementById('margin-left').value,
+            marginRight: document.getElementById('margin-right').value,
+            chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
+            chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
+            bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
+            fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
+            sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
+            sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
+            fontSize: `${fontSizeRange.value}px`, // Get font size from range input
+            borderRad: `${borderRadRange.value}px`, // Get font size from range input
+        };
+        localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
-    // Optionally save settings to the server
-    socket.emit("saveSettings", userSettings , currentUser.username);
+        // Optionally save settings to the server
+        socket.emit("saveSettings", userSettings , currentUser.username);
 
-    alerting("Settings saved successfully!");
-    document.getElementById("settingsPanel").style.display = "none"; // Close panel
-    window.location.reload(); // This will refresh the page and reset the UI
+        alerting("Settings saved successfully!");
+        document.getElementById("settingsPanel").style.display = "none"; // Close panel
+        window.location.reload(); // This will refresh the page and reset the UI
 
-});
+    });
+}
 socket.on("applySettings", (settings) => {
 
     localStorage.setItem("userSettings", JSON.stringify(settings));
@@ -1768,31 +1769,33 @@ socket.on("applySettings", (settings) => {
     document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
     document.documentElement.style.setProperty("--user-border-radius", settings.borderRad);
 });
-document.getElementById("resetSettings").addEventListener("click", () => {
-    if(confirm("Are u sure ? (It may delete all customized setting.)")){
-        const userSettings = {
-            marginLeft: "10%",
-            marginRight: "%10",
-            chatWindowBgColor: "245, 245, 245",
-            chatWindowFgColor: "33, 33, 33",
-            bgColor: "204, 238, 191", // Assuming a background color picker exists
-            fgColor: "0, 0, 0", // Assuming a background color picker exists
-            sideBgColor: "242, 242, 242", // Assuming a background color picker exists
-            sideFgColor: "33, 33, 33", // Assuming a background color picker exists
-            fontSize: "16px", // Get font size from range input
-            borderRad: "17px", // Get font size from range input
-        };
-        localStorage.setItem("userSettings", JSON.stringify(userSettings));
+if(document.getElementById("resetSettings")){
+    document.getElementById("resetSettings").addEventListener("click", () => {
+        if(confirm("Are u sure ? (It may delete all customized setting.)")){
+            const userSettings = {
+                marginLeft: "10%",
+                marginRight: "%10",
+                chatWindowBgColor: "245, 245, 245",
+                chatWindowFgColor: "33, 33, 33",
+                bgColor: "204, 238, 191", // Assuming a background color picker exists
+                fgColor: "0, 0, 0", // Assuming a background color picker exists
+                sideBgColor: "242, 242, 242", // Assuming a background color picker exists
+                sideFgColor: "33, 33, 33", // Assuming a background color picker exists
+                fontSize: "16px", // Get font size from range input
+                borderRad: "17px", // Get font size from range input
+            };
+            localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
-        // Optionally save settings to the server
-        socket.emit("saveSettings", userSettings , currentUser.username);
-    
-        alert("Settings saved successfully!");
-        document.getElementById("settingsPanel").style.display = "none"; // Close panel
-        window.location.reload(); // This will refresh the page and reset the UI
+            // Optionally save settings to the server
+            socket.emit("saveSettings", userSettings , currentUser.username);
+        
+            alert("Settings saved successfully!");
+            document.getElementById("settingsPanel").style.display = "none"; // Close panel
+            window.location.reload(); // This will refresh the page and reset the UI
 
-    }
-})
+        }
+    })
+}
 // ----------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
@@ -1824,6 +1827,24 @@ document.addEventListener("DOMContentLoaded", () => {
         document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
         document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
         document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
+    }else{
+        const userSettings = {
+            marginLeft: "10%",
+            marginRight: "%10",
+            chatWindowBgColor: "245, 245, 245",
+            chatWindowFgColor: "33, 33, 33",
+            bgColor: "204, 238, 191", // Assuming a background color picker exists
+            fgColor: "0, 0, 0", // Assuming a background color picker exists
+            sideBgColor: "242, 242, 242", // Assuming a background color picker exists
+            sideFgColor: "33, 33, 33", // Assuming a background color picker exists
+            fontSize: "16px", // Get font size from range input
+            borderRad: "17px", // Get font size from range input
+        };
+        localStorage.setItem("userSettings", JSON.stringify(userSettings));
+
+        // Optionally save settings to the server
+        socket.emit("saveSettings", userSettings , currentUser.username);
+    
     }
 });
 
@@ -2099,7 +2120,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <span class="close" onclick="closeModal()">&times;</span>
                             <img id="modalImage" class="imageModal-content" src="${file.file}" alt="Enlarged Image">
                             <div class="imageModal-caption">
-                                <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="download-btn">Download</a>
+                                <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="btn btn-primary">
+                                    <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                                    Download
+                                </a>
                             </div>
                         </div>
                     ` : file.fileType === "application/pdf" ? `
@@ -2115,7 +2139,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             Your browser does not support the video tag.
                         </video>
                         <div class="file-actions">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="download-btn">Download Video</a>
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     ` : `
                         <!-- Generic File Display -->
@@ -2123,7 +2147,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <p>File: ${file.fileName || 'Unknown File'}</p>
                         </div>
                         <div class="file-actions">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="download-btn">Download File</a>
+                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
                         </div>
                     `}
                 `).join('') : ""}
@@ -2233,9 +2257,7 @@ if (isLastMessage) {
         output.insertAdjacentHTML("beforeend", lastMessage);
     
 }
-    // Reset file input and image
-    $("file-input").val("");
-    image = "";
+
     searchMessageReply()
     // Run the function to apply the functionality
 
@@ -3107,18 +3129,106 @@ function playNotificationSound() {
 }
 
 // Function to show browser notification
-function showBrowserNotification(sender,messageContent) {
-    if (document.hidden) {
+function showBrowserNotification(sender,messageContent,roomID) {
+    if (document.hidden || !window.location.pathname.includes(`/join/${roomID}`)) {
         Notification.requestPermission().then(permission => {
             if (permission === "granted") {
-                const notification = new Notification(`New Message from ${sender} :`, {
+                const notification = new Notification(`${sender}:`, {
                     body: messageContent,
-                    icon: "/svg/logo.svg"  // Optional: Set a notification icon
+                    icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
                 });
+        
+                // اضافه کردن قابلیت باز کردن لینک هنگام کلیک
+                notification.onclick = () => {
+                    let chatTab = null;
+    
+                    // بررسی همه تب‌های باز برای پیدا کردن تب چت
+                    for (let i = 0; i < window.length; i++) {
+                        if (window[i].location.href.includes(`/join/${roomID}`)) {
+                            chatTab = window[i];
+                            break;
+                        }
+                    }
+    
+                    // اگر تب چت پیدا شد، به آن سوییچ کن؛ در غیر این‌صورت، یک تب جدید باز کن
+                    if (chatTab) {
+                        chatTab.focus();
+                    } else {
+                        window.open(`${href}/join/${roomID}`, "_blank");
+                    }
+                };
             }
         });
+        
         playNotificationSound()
     }else{
-        console.log(Notification.permission)
+        console.log("Notification==> ",Notification.permission)
     }
 }
+socket.on("notification",async(data , ack) => {
+    const decryptedMessage = await {
+        // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
+            ...data,
+            message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
+            // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
+            handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
+            roomID : data.roomID ? decryptMessage(data.roomID): data.roomID,
+            title : data.title ? decryptMessage(data.title): data.title
+        };
+
+        console.log(decryptedMessage)
+
+    if(decryptedMessage.sender != currentUser.username){
+        showBrowserNotification(`In ${decryptedMessage.title} ${decryptedMessage.handle} said`,decryptedMessage.message,decryptedMessage.roomID)
+        playNotificationSound()
+    }
+})
+
+
+setInterval(() => {
+    if (!socket.connected) {
+        console.warn("🔴 Connection lost! Reconnecting...");
+        socket.connect();
+    }
+}, 5000); // هر ۵ ثانیه یک‌بار بررسی کنه
+
+socket.on("disconnect", () => {
+    console.warn("🔴 Disconnected from server! Trying to reconnect...");
+    setTimeout(() => {
+        socket.connect();
+    }, 2000); // تلاش برای اتصال مجدد بعد از ۲ ثانیه
+});
+
+socket.on("connect", () => {
+    console.log("🟢 Reconnected to server!");
+    const roomID = document.querySelector("#roomID").textContent.trim();
+    
+    if(roomID){
+            // Show the loading spinner if hidden
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement.classList.contains('hide')) {
+                loadingElement.classList.remove("hide");
+                loadingElement.classList.add("show");
+            }
+            // Emit the event and wait for the server's acknowledgment
+            socket.emit("requestOlderMessages", { 
+                roomID: roomID, 
+                counter: `${roomID}-0`, 
+                type: 'latest' 
+            }, () => { // Callback function for when the server acknowledges
+                // Scroll after emitting the event
+                chat_window.scrollTo({
+                    top: chat_window.scrollHeight, // Scroll to the bottom
+                    behavior: "auto",
+                });
+            });
+        }
+    
+});
+socket.on("ping", () => {
+    console.log("📡 Ping received from server");
+});
+
+socket.on("pong", () => {
+    console.log("✅ Server is alive!");
+});

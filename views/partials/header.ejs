@@ -37,9 +37,14 @@
         " integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
     <script type="text/javascript" src="/js/browser-image-compression.js"></script>
+    <script src="/js/sweetAlert.js"></script>
+    <script src="/js/side.js"></script>
+
 </head>
 
 <body>
+    <div id="backgroundImg" class="backgroundImg"></div>
+
     <audio id="notification-sound" src="/sound/notif.wav" preload="auto"></audio>
 
 
@@ -47,7 +52,7 @@
         <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
                 <span>Loading, please wait...</span>
     </div>
-    <nav class="navbar navbar-dark bg-dark">
+    <nav class="headerMain navbar navbar-dark bg-dark">
         <a class="navbar-brand" href='/'><img class='img-fluid' src='../svg/logo.svg' width='45px'><span class='my-auto'>&nbspMETA CHAT</span></a>
         <% if(!currentUser){ %>
             <a class="btn btn-primary btn align-right text-white" href='/login'>login <i class='fa fa-user'></i></a>

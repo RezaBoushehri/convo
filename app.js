@@ -1,21 +1,27 @@
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 const crypto = require('crypto');
-
+const ipRangeCheck = require("ip-range-check");
+const express = require("express");
+const multer = require("multer");
+const jwt = require('jsonwebtoken');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
-const express = require("express"),
     fs = require('fs'),
     https = require('https'),
     app = express(),
     port = process.env.PORT || 4000,
     // SSL certificate and key options
     options = {
-        key: fs.readFileSync('private-key.pem', 'utf8'),
-        cert: fs.readFileSync('certificate.pem', 'utf8'),
-        ca_cert: fs.readFileSync('ca-certificate.pem', 'utf8'),
-        ca_key: fs.readFileSync('ca-key.pem', 'utf8'),
-        passphrase: 'farahoosh'
+        // key: fs.readFileSync('private-key.pem', 'utf8'),
+        // cert: fs.readFileSync('certificate.pem', 'utf8'),
+        // ca_cert: fs.readFileSync('ca-certificate.pem', 'utf8'),
+        // ca_key: fs.readFileSync('ca-key.pem', 'utf8'),
+        // passphrase: 'farahoosh'
+        key: fs.readFileSync('/etc/letsencrypt/live/mc.farahoosh.ir/privkey.pem', 'utf8'),
+        cert: fs.readFileSync('/etc/letsencrypt/live/mc.farahoosh.ir/fullchain.pem', 'utf8'),
+         
+        
     },
     cors = require("cors"),
     socket = require("socket.io"),
@@ -31,7 +37,7 @@ const express = require("express"),
     { v4: uuidv4 } = require('uuid'),
     Message = require("./models/message"),
     server = https.createServer(options, app),
-    { addUser, getUsers, deleteUser, getRoomUsers   } = require("./users/users"),
+    { getUsers } = require("./users/users"),
     rooms = [],
      
     io = socket(server, {
@@ -51,13 +57,19 @@ env.config();
 // Set up CORS (if needed for front-end)
 const corsOptions = {
     
-    origin: 'https://localhost:4000', // replace with your front-end domain
+    origin:  ['https://portal.mellicloud.com', 'https://mc.farahoosh.ir'], // replace with your front-end domain
     methods: ['GET', 'POST'],
     credentials: true
 };
 
 app.use(cors(corsOptions));
-
+// Middleware to enforce HTTPS
+app.use((req, res, next) => {
+    if (req.headers.host && req.protocol === 'http') {
+        return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+});
 // کلید و توکن نمونه
 const secretKey = process.env.SECRETKEY;
 
@@ -76,7 +88,8 @@ function encrypt(text) {
 
 console.log(process.env.SESSION_SECRET)
 
-const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
+// const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
+const mongoURI = "mongodb://adminChat:XMUZWqR4CnOwf@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 mongoose
     .connect(mongoURI, {})
     .then(() => console.log("MongoDB connected"))
@@ -84,6 +97,7 @@ mongoose
 
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
+// File upload storage settings
 
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -101,17 +115,20 @@ const sessionMiddleware = session({
 app.use(
     session({
         store: new MemoryStore({
-            checkPeriod: 86400000 // prune expired entries every 24h
+            checkPeriod: 86400000, // بررسی هر 24 ساعت (1 روز)
         }),
         secret:
             process.env.SESSION_SECRET ||
             "a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771",
         resave: false,
         saveUninitialized: true,
-        cookie: { secure: true }, // Set to true in production
+        cookie: { 
+            secure: true, // فقط در HTTPS
+            maxAge: 3 * 30 * 24 * 60 * 60 * 1000 // زمان انقضا: 3 ماه
+        },
     })
-    
 );
+
 // Apply session middleware for socket.io
 io.use((socket, next) => {
     sessionMiddleware(socket.request, socket.request.res || {}, (err) => {
@@ -146,34 +163,45 @@ app.use(function (req, res, next) {
 app.use(express.json());
 
 // Routes
+app.get("/:path", (req, res, next) => {
+    if (req.params.path === 'undefined') {
+        return res.redirect('/');  // Redirect to the root route if path is 'undefined'
+    }
+    next();  // Proceed with the normal flow if path is not 'undefined'
+});
+
 app.get("/", middleware.isLoggedIn, (req, res) => {
     res.render("index", { roomID: "" });
 });
 
 app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
     const roomID = DOMPurify.sanitize(req.params.id);
-    const username = req.user.username; // Assuming the username is stored in req.user
+    const username = req.user.username; // Assuming username is stored in req.user
 
     try {
-        // Find the room using Mongoose's Model.findOne() method
         const room = await Room.findOne({ roomID: roomID });
 
         if (room) {
-            // Check if the username exists in the room's members array
-            if (room.members.includes(username)) {
-                // Render the room and provide the room ID
+            if (room.setting[0].Joinable_url === "private") {
+                // Private room: Only allow members
+                if (room.members.includes(username) || username == '09173121943') {
+                // if (room.members.includes(username) ) {
+                    res.render("index", { roomID: roomID });
+                } else {
+                    res.redirect(`/?error=${encodeURIComponent("You are not a member of this private room")}`);
+                }
+            } else if (room.setting[0].Joinable_url === "public") {
+                // Public room: Anyone can join
                 res.render("index", { roomID: roomID });
             } else {
-                // If the user is not a member, send an error or redirect
-                res.status(403).json({ error: "You are not a member of this room" });
+                res.redirect(`/?error=${encodeURIComponent("Invalid room setting")}`);
             }
         } else {
-            // If the room does not exist, redirect or send an error
-            res.status(404).json({ error: "Room not found" });
+            res.redirect(`/?error=${encodeURIComponent("Room not found")}`);
         }
     } catch (err) {
         console.error("Error fetching room:", err);
-        res.status(500).json({ error: "Internal server error" });
+        res.redirect(`/?error=${encodeURIComponent("Internal server error")}`);
     }
 });
 
@@ -185,59 +213,117 @@ app.get("/login", (req, res) => {
 // Using async/await properly for login and handling redirects
 app.post("/login", async (req, res, next) => {
     try {
-        const user = await User.findByUsername(DOMPurify.sanitize(req.body.username));
+        const sanitizedUsername = DOMPurify.sanitize(req.body.username);
+        const user = await User.findByUsername(sanitizedUsername);
         if (!user) {
-            return res.redirect("/");
+            // User not found
+            return res.redirect("/login?error=User Not Found");
         }
-
+    
+        // Direct comparison for cleartext password
+        if (req.body.password !== user.password) {
+            // Invalid password
+            return res.redirect("/login?error=Invalid Password");
+        }
+    
         passport.authenticate("local", async (err, authenticatedUser, info) => {
             if (err) {
+                // Passport authentication error
+                console.error("Passport authentication error:", err);
                 return next(err);
             }
-
+    
             if (!authenticatedUser) {
-                return res.redirect("/");
+                // Authentication failed
+                return res.redirect("/login?error=Authentication Failed");
             }
-
+    
             req.logIn(authenticatedUser, async (err) => {
                 if (err) {
+                    // Error during login
+                    console.error("Error during login:", err);
                     return next(err);
                 }
-
+    
                 req.session.username = authenticatedUser.username;
-
-                // Reset socketID to null after login
-                await User.updateOne(
-                    { _id: authenticatedUser._id },
-                    { $set: { socketID: null } } 
-                );
-
-                req.session.save((err) => {
-                    if (err) {
-                        console.error("Error saving session:", err);
-                    }
-                });
-               if(req.session.redirectUrl !== "/"|| req.session.redirectUrl !== "/login") res.redirect(req.session.redirectUrl); // Redirect after login
-                else{res.redirect("/");} // Redirect after login
+    
+                try {
+                    // Reset socketID to null after login
+                    await User.updateOne(
+                        { _id: authenticatedUser._id },
+                        { $set: { socketID: null } }
+                    );
+                } catch (updateErr) {
+                    console.error("Error resetting socketID:", updateErr);
+                    return next(updateErr);
+                }
+    
+                try {
+                    req.session.save((err) => {
+                        if (err) {
+                            // Session save error
+                            console.error("Error saving session:", err);
+                            return next(err);
+                        }
+                    });
+                } catch (saveErr) {
+                    console.error("Error during session save:", saveErr);
+                    return next(saveErr);
+                }
+    
+                if (req.session.redirectUrl && req.session.redirectUrl.startsWith("/join/")) {
+                    res.redirect(req.session.redirectUrl); // Redirect to the URL starting with /join/
+                } else {
+                    res.redirect("/"); // Default redirect after login
+                }
+    
             });
         })(req, res, next);
     } catch (err) {
+        // General error handling
+        console.error("Unexpected error:", err);
         return next(err);
     }
+    
+    
 });
 
 
 
   
-
 app.post("/register", (req, res) => {
-    // phoneVal(req.body.username,res)
+    const clientIP = req.ip || req.connection.remoteAddress;
+    const allowedRanges = [
+        "172.16.28.0/24",  // existing range
+        "94.74.128.194",   // additional IP
+        "94.74.128.193"    // additional IP
+    ];
+    
+    const ipIsAllowed = allowedRanges.some(range => ipRangeCheck(clientIP, range));
+    
+    if (!ipIsAllowed) {
+        return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
+    }
+    
+    // Sanitize and create new user
     const newUser = new User({
         username: DOMPurify.sanitize(req.body.username),
         first_name: DOMPurify.sanitize(req.body.first_name),
         last_name: DOMPurify.sanitize(req.body.last_name),
         password: DOMPurify.sanitize(req.body.password),
-        pic: DOMPurify.sanitize(req.body.pic)
+        pic: DOMPurify.sanitize(req.body.pic),
+        settings : {
+                marginLeft: "10%",
+                marginRight: "%10",
+                chatWindowBgColor: "245, 245, 245",
+                chatWindowFgColor: "33, 33, 33",
+                bgColor: "204, 238, 191", // Assuming a background color picker exists
+                fgColor: "0, 0, 0", // Assuming a background color picker exists
+                sideBgColor: "242, 242, 242", // Assuming a background color picker exists
+                sideFgColor: "33, 33, 33", // Assuming a background color picker exists
+                fontSize: "16px", // Get font size from range input
+                borderRad: "17px", // Get font size from range input
+            }
     });
 
     User.register(newUser, req.body.password, (error, user) => {
@@ -250,9 +336,73 @@ app.post("/register", (req, res) => {
         });
     });
 });
-app.post("/upload", (req, res) => {
-   
+
+
+
+
+const uploadDir = path.join(__dirname, "uploads");
+
+// Ensure upload directory exists
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const safeFileName = Buffer.from(file.originalname, "latin1").toString("utf8"); // Ensure UTF-8
+        cb(null, Date.now() + "_" + safeFileName.replace(/\s+/g, "_")); // Avoid spaces
+    },
 });
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 50 * 1024 * 1024 }, // 10 MB max
+}).single("file");
+
+// Handle file upload (existing code)
+app.post("/upload", (req, res) => {
+    upload(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+
+        // File successfully uploaded
+        const filePath = `/uploads/${req.file.filename}`;
+
+        // Respond with the file data (including the file path and metadata)
+        res.json({
+            message: "File uploaded successfully",
+            fileData: {
+                file: filePath,
+                fileType: req.file.mimetype, // MIME type of the uploaded file
+                fileName:  Buffer.from(req.file.originalname, "latin1").toString("utf8"), // Original file name
+            },
+        });
+        console.log("File uploaded successfully:", req.file.originalname);
+        console.log("File path:", filePath);
+        // Broadcast upload success event (emit file data)
+        io.emit("uploadSuccess", { fileData: { filePath, fileName: req.file.originalname } });
+    });
+});
+
+// Serve the files from the 'uploads' directory
+app.get('/uploads/:file', (req, res) => {
+    const fileName = req.params.file;
+
+    const filePath = path.join(uploadDir, fileName);
+  
+    // Check if the file exists
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error("File not found:", err);
+        return res.status(404).send('File not found');
+      }
+    });
+  });
+
 
 // API to Save a Message
 // app.post("/messages", async (req, res) => {
@@ -320,59 +470,190 @@ app.post('/createRoom', async (req, res) => {
         const decryptedData = decrypt(encryptedData, secretKey);
         console.log("Decrypted Data:", decryptedData);
 
-        const { phoneNumbers, roomName } = decryptedData;
+        const { phoneNumbers, roomName, roomIDreq, Domain } = decryptedData;
 
         if (!Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
             return res.status(400).json({ error: "Phone numbers must be a non-empty array" });
         }
-
+        
         const phoneRegex = /^[0-9]{11}$/; // شماره تلفن 11 رقمی
         const invalidPhones = phoneNumbers.filter((phone) => !phoneRegex.test(phone));
         if (invalidPhones.length > 0) {
             return res.status(400).json({ error: `Invalid phone numbers: ${invalidPhones.join(", ")}` });
         }
-
-        function generateRoomID() {
+        
+        async function generateRoomID() {
             const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
             let roomID = "";
-            for (let i = 0; i < 10; i++) { // Generate a 10-character ID
+            for (let i = 0; i < 10; i++) {
                 roomID += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
             }
-            // Append a timestamp to ensure uniqueness
             roomID += Date.now().toString(36); // Convert timestamp to base 36
             return roomID;
         }
         
-        // Usage example:
-        const uniqueRoomID = generateRoomID();
-        console.log("Unique Room ID:", uniqueRoomID);
+        async function createOrUpdateRoom() {
+            if (roomIDreq) {
+                // Check if the requested room ID exists
+                const existingRoom = await Room.findOne({ roomID: roomIDreq });
+                if (existingRoom) {
+                    // Update members list
+                    // console.log('decryptedData=>',decryptedData)
+                    console.log(existingRoom.members)
+                    if(decryptedData.append==1){
+                        existingRoom.members = [...new Set([...existingRoom.members, ...phoneNumbers])]; // Avoid duplicates
+                    }else if(decryptedData.append=='delete'){
+                        // Remove phoneNumbers from members
+                        existingRoom.members = existingRoom.members.filter(member => !phoneNumbers.includes(member));
+                        
+                    }else{
+                        existingRoom.members = [...new Set([existingRoom.admin, ...phoneNumbers])];
+                    }
+                    console.log(existingRoom.members)
+                    await existingRoom.save();
+                    return res.status(200).json({
+                        success: true,
+                        message: "Room members updated successfully",
+                        roomID: existingRoom.roomID,
+                    });
+                }
+            }
+            
+            // If roomIDreq is null or doesn't exist, create a new room
+            let uniqueRoomID = await generateRoomID();
+            while (await Room.findOne({ roomID: uniqueRoomID })) {
+                uniqueRoomID = `${uniqueRoomID}-${Math.floor(Math.random() * 1000)}`; 
+            }
         
-        // Ensure room name uniqueness
-        while (await Room.findOne({ roomID : uniqueRoomID })) {
-            roomID = `${uniqueRoomID}-${Math.floor(Math.random() * 1000)}`; // Generate a unique name
+            const room = new Room({
+                roomID: uniqueRoomID,
+                Domain:Domain,
+                roomName,
+                setting: [{ Joinable_url: decryptedData.privacy === 'public' ? 'public' : 'private' }],  // Check privacy setting
+                admin: phoneNumbers[0],
+                members: phoneNumbers,
+            });
+            
+        
+            await room.save();
+            res.status(201).json({
+                success: true,
+                message: "Room created successfully",
+                roomID: uniqueRoomID,
+            });
         }
-    
-        const room = new Room({
-            roomID : uniqueRoomID,
-            roomName : roomName,
-            admin: phoneNumbers[0],
-            members: phoneNumbers, // Initialize the members array
-        });
-    
-        await room.save(); // Save the room to the database
-    
-        console.log("Room Created:", room);
-   
-        res.status(201).json({
-            success: true,
-            message: "Room created successfully",
-            roomID: uniqueRoomID,
-        });
+        createOrUpdateRoom().catch(error => res.status(500).json({ error: error.message }));
+        
     } catch (err) {
         console.error("Error:", err.message);
         res.status(400).json({ error: 'Decryption error or invalid data' });
     }
 });
+
+
+// auto from domains login
+
+// API برای ورود از دامنه‌های مختلف
+// app.post('/5ecd285c5bac42c33f903e8332cb01d3dcba3fc4ac2fd8a9c6273ef23387f989', async (req, res, next) => {
+//     try {
+//         // استخراج توکن از هدر
+//         const token = req.headers['authorization']?.split(' ')[1];
+//         const secret = '12425cb7d8ce5b125e9279ad233ecb079ec57ec9f050c9af5ac8856a2d21f65c';
+//         if (!token) {
+//             return res.status(400).json({ error: 'Authorization token missing' });
+//         }
+
+//         // رمزگشایی توکن
+//         const decryptedToken = decrypt(token, secret);
+//         console.log("Decrypted Token:", decryptedToken);
+
+//         // رمزگشایی داده‌های رمزگذاری‌شده
+//         const encryptedData = req.body.data;
+//         const decryptedData = decrypt(encryptedData, secret);
+//         console.log("Decrypted Data:", decryptedData);
+
+//         const { phoneNumber, Domain } = decryptedData;
+
+//         const sanitizedUsername = DOMPurify.sanitize(phoneNumber);
+
+//         // پیدا کردن کاربر
+//         const user = await User.findOne({ username: sanitizedUsername });
+        
+//         if (!user) {
+//             return res.status(400).json({ error: "User not found" });
+//         }
+
+//         // به‌روزرسانی دامنه برای کاربر
+//         // const updatedUser = await User.findOneAndUpdate(
+//         //     { username: sanitizedUsername },
+//         //     { 
+//         //         $setOnInsert: { Domain: [Domain] },  // اگر Domain وجود نداشت، اضافه می‌شود
+//         //         $addToSet: { Domain } // در صورت وجود، به مجموعه اضافه می‌شود
+//         //     },
+//         //     { lean: false } // upsert به معنای ایجاد کاربر جدید است اگر پیدا نشد
+//         // );
+        
+//         // console.log("Updated user:", updatedUser);
+//         let superSECRET =encrypt(secretKey)
+//         // تولید توکن JWT برای ورود کاربر
+//         const jwtToken = jwt.sign(
+//             { id: user._id, username: user.username },
+//             superSECRET,
+//             { expiresIn: "24h" } // توکن 1 ساعت معتبر است
+//         );
+
+//         // توکن JWT را به سایت دیگر ارسال می‌کنیم
+//         res.json({ success: true, token: jwtToken });
+
+//         // عملیات احراز هویت با Passport
+//         passport.authenticate("local", async (err, authenticatedUser, info) => {
+//             if (err) {
+//                 console.error("Passport authentication error:", err);
+//                 return next(err);
+//             }
+
+//             if (!authenticatedUser) {
+//                 return res.status(400).json({ error: "Authentication failed" });
+//             }
+
+//             req.logIn(authenticatedUser, async (err) => {
+//                 if (err) {
+//                     console.error("Error during login:", err);
+//                     return next(err);
+//                 }
+
+//                 try {
+//                     // تنظیم socketID به null پس از ورود
+//                     await User.updateOne(
+//                         { _id: authenticatedUser._id },
+//                         { $set: { socketID: null } }
+//                     );
+//                 } catch (updateErr) {
+//                     console.error("Error resetting socketID:", updateErr);
+//                     return next(updateErr);
+//                 }
+
+//                 try {
+//                     req.session.save((err) => {
+//                         if (err) {
+//                             console.error("Error saving session:", err);
+//                             return next(err);
+//                         }
+//                     });
+//                 } catch (saveErr) {
+//                     console.error("Error during session save:", saveErr);
+//                     return next(saveErr);
+//                 }
+
+//                 res.status(200).json({ success: "User Login successful" });
+//             });
+//         })(req, res, next);
+//     } catch (err) {
+//         console.error("Error:", err.message);
+//         res.status(400).json({ error: 'Decryption error or invalid data' });
+//     }
+// });
+
 
 // یک endpoint برای کلاینت ایجاد کنید
 // app.get('/SECRETKEY', (req, res) => {
@@ -396,7 +677,7 @@ app.get("/sitemap.xml", function (req, res) {
 });
 
 app.use(function (req, res) {
-    res.status(404).render("404");
+    // res.status(404).render("404");
 });
 
 
@@ -514,6 +795,20 @@ function socketDecrypt(encryptedText) {
     return decrypted;
 }
 
+// ارسال پیام پشتیبان به PHP
+async function sendBackupToPHP(Number, jsonMessage) {
+    const encrypted = encryptAES256(JSON.stringify(jsonMessage));
+    // console.log(encrypted)
+
+    try {
+        await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}&&email=BB`);
+        // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
+    } catch (err) {
+        console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
+    }
+}
+const onlineUsersServer = new Map(); // socket.id => username
+
 
 io.on("connection", (socket) => {
     let socketId = socket.id;
@@ -523,30 +818,29 @@ io.on("connection", (socket) => {
     
     socket.on("userLoggedIn", async (data) => {
         const { username } = data;
-        if (username) {
-            console.log("User connected : "+username)
-            currentUsername = username
-            await updateUserSocketId(username, socketId);
-        } else {
-            console.error("Username not provided for userLoggedIn");
+        if (!username) {
+            return console.error("Username not provided for userLoggedIn");
         }
+
+        const currentUser = await User.findOne({ username });
+        if (!currentUser) {
+            return console.error("User not found for socket ID:", socket.id);
+        }
+
+        currentUsername = username;
+        onlineUsersServer.set(socket.id, username); // Track online
+
+        await updateUserSocketId(username, socket.id);
+
+        socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
+    });
+    socket.on("ping", () => {
+        console.log("📡 Ping received from client");
+
+        socket.emit("pong");
+        socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
     });
 
-
-   
-    
-    socket.on("userLoggedIn", async (data) => {
-        const { username } = data; // Ensure you have a username from the frontend
-        const currentUser = getUsers().find((user) => user.username == username.username);
-    
-        if (currentUser) {
-            await updateUserSocketId(currentUser, socket.id);
-        } else {
-            // Optionally handle the case where the user is not found
-            console.error('User not found for socket ID:', socket.id);
-        }
-    });
-    
     socket.on("createRoom", async ({ handle, roomName }) => {
         if(true) return
         roomName = roomName;
@@ -651,74 +945,82 @@ io.on("connection", (socket) => {
     //         socket.emit("error", { message: error.message });
     //     }
     // });
+
     socket.on("joinRoom", async (data) => {
         try {
-            console.log(data)
-            console.log(data.roomID)
+            console.log('socket', socket.id);
 
-            roomID = socketDecrypt(data.roomID)
-            username = socketDecrypt(data.username)
-            const user = await User.findOne({ username });
-            console.log(`User ${username} is trying to join room ${roomID}`);
-            // Emit user settings
-            socket.emit("applySettings", user.settings);
-            // Ensure the room exists
-            let room = await Room.findOne({ roomID:roomID });
-            if (!room) throw new Error(`Room "${roomID}" does not exist`);
-    
-            await addUserToRoom(username, roomID);
-            socket.join(roomID);
-    
-            console.log(`Fetching all unread messages for room: ${roomID}`);
-            const unreadMessages = await getUnreadMessages(roomID, username);
-            // Process each message
+            roomID = socketDecrypt(data.roomID);
+            let user = await User.findOne({ socketID: socket.id });
 
-            // console.log("unreadMessage :",unreadMessages);
-
-                // Emit unread messages first
-            if (unreadMessages.length > 0) {
-                socket.emit("restoreMessages", { messages: unreadMessages, prepend: true , unread:true , join:true});
-            } else {
-                try {
-                    console.log("No unread messages. Fetching the last 50 messages.");
-                    
-                    // Fetch the last 50 messages for the room
-                    const lastMessages = await getMessagesByLimit(roomID, 50);
-                     // Process each message
-                    const processedMessages = await Promise.all(
-                        lastMessages.map(async (msg) => await processMessage(msg))
-                    );
-                    if (processedMessages.length > 0) {
-                        // console.log("Fetched last 50 messages:", processedMessages);
-                        socket.emit("restoreMessages", { messages: processedMessages, prepend: true , join:true });
-                    } else {
-                        console.log("No messages found for the room.");
-                        socket.emit("noMoreMessages", { message: "No messages available." });
-                    }
-                } catch (err) {
-                    console.error("Error fetching last 50 messages:", err);
-                    socket.emit("error", { message: "Failed to load messages." });
+            if (!user) {
+                user = await User.findOne({ username: socketDecrypt(data.username) });
+                if (!user) {
+                    throw new Error("User not found or not part of a room.");
                 }
             }
 
-           
+            const username = user.username;
+
+            const lastroom = user.roomID;
+            if (lastroom && lastroom !== roomID) {
+                console.log(`User ${username} is leaving previous room: ${lastroom}`);
+                socket.leave(lastroom);
+
+                // Optional: notify others in previous room
+                socket.broadcast.to(lastroom).emit("userLeft", { username, roomID: lastroom });
+
+                // Clear previous room reference
+                await User.findOneAndUpdate(
+                    { username },
+                    { roomID: null }
+                );
+            }
+
+            // Check if target room exists
+            let room = await Room.findOne({ roomID });
+            if (!room) throw new Error(`Room "${roomID}" does not exist`);
+
+            // Permission check for private rooms
+            if (room.setting[0].Joinable_url === "private" && !room.members.includes(username)) {
+                io.to(socket.id).emit("error", { message: "You are not a member of this private room" });
+                return;
+            }
+
+            // Join the new room
+            socket.join(roomID);
+            await addUserToRoom(username, roomID);
+
+            // Update user's roomID
+            await User.findOneAndUpdate({ username }, { roomID });
+
+            console.log(`User ${username} joined room ${roomID}`);
+
+            // Send settings, messages, and members
+            socket.emit("applySettings", user.settings);
+
+            const unreadMessages = await getUnreadMessages(roomID, username);
+            if (unreadMessages.length > 0) {
+                socket.emit("restoreMessages", { messages: unreadMessages, prepend: true, unread: true, join: true });
+            } else {
+                const lastMessages = await getMessagesByLimit(roomID, 20);
+                if(lastMessages.length>0){
+                    const processedMessages = await Promise.all(lastMessages.map(msg => processMessage(msg)));
+                    socket.emit("restoreMessages", { messages: processedMessages, prepend: true, join: true });
+                }else{
+                    socket.emit("noMoreMessages", { message: "No more older messages." });
+                }
+            }
+
             socket.emit("members", room.members);
-    
-            const userRead = await User.findOne({ username: room.admin }).select("first_name last_name").lean();
-            // Notify others
-            // socket.broadcast.to(roomID).emit("userJoined", { username, roomID });
-            socket.broadcast.to(user.roomID).emit("userJoined", `${user.first_name} ${user.last_name}`);
+            socket.emit("joined", { room, name: `${user.first_name} ${user.last_name}` });
 
-
-            socket.emit("joined", { room , name : `${userRead.first_name} ${userRead.last_name}` });
-          
-    
         } catch (error) {
-            console.error("Error joining room:", error);
+            console.error("Error joining room:", error.message);
             socket.emit("error", { message: error.message });
         }
     });
-    
+
     // Create an in-memory object to track the last fetched date for each room (or user)
     socket.on("requestOlderMessages", async ({ roomID, counter=0 , type='first'}) => {
         try {
@@ -733,9 +1035,9 @@ io.on("connection", (socket) => {
             
             const limit =()=>{
                 if(counter!==0){
-                return (counter < 50) ? counter-1 : 50; // Use counter if it's less than 50, otherwise limit to 50
+                return (counter < 20) ? counter-1 : 20; // Use counter if it's less than 20, otherwise limit to 20
                 }
-                else return 50;
+                else return 20;
             }
             // Fetch the older messages using the starting ID and dynamic limit
             const olderMessages = await getMessagesByID(startingID, limit(),type); // Function to fetch messages
@@ -748,7 +1050,7 @@ io.on("connection", (socket) => {
                     olderMessages.map(async (msg) => await processMessage(msg))
                 );
                 if(type=='latest'){
-                    const lastMessages = await getMessagesByLimit(roomID, 50);
+                    const lastMessages = await getMessagesByLimit(roomID, 20);
                     const processedLatestMessages = await Promise.all(
                         lastMessages.map(async (msg) => {
                             return await processMessage(msg); // پردازش پیام رمزنگاری‌شده
@@ -806,7 +1108,7 @@ async function getMessagesByID(startingID, limit,type) {
             roomID: room,
         })
         .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
-        .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
+        .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
         .lean(); // Use lean() to get plain JavaScript objects
         }
     else if(type=='last'){
@@ -818,7 +1120,7 @@ async function getMessagesByID(startingID, limit,type) {
             id: { $gt: `${room}-${counter}` }, // The id format should still be 'room-counter'
         })
         .sort({  timestamp: 1 }) // Sort by 'id' in descending order to get older messages first
-        .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
+        .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
         .lean(); // Use lean() to get plain JavaScript objects
     }
     else if(type=='first'){
@@ -829,7 +1131,7 @@ async function getMessagesByID(startingID, limit,type) {
         id: { $lt: `${room}-${counter}` }, // The id format should still be 'room-counter'
     })
     .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
-    .limit(limit || 50) // Limit the result to 50 messages, or the specified limit
+    .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
     .lean(); // Use lean() to get plain JavaScript objects
     }
     else if(type.split('-')[0]=="reply"){
@@ -945,10 +1247,18 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("chat", async (data , callback) => {
         try {
+            const currentUser = await User.findOne({ socketID: socket.id });
             console.log(data)
-            let { username, message, file , quote } = data;
-            username = socketDecrypt(username);
+            let { message, file , quote } = data;
+            if (!currentUser || !currentUser.roomID) {
+                throw new Error("User not found or not part of a room.");
+            }
+            const username = currentUser.username;
             message = socketDecrypt(message);
+            message = DOMPurify.sanitize(message, {
+                ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+                ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
+            });
             quote = socketDecrypt(quote);
             let fileDetails = null;
 
@@ -959,7 +1269,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 // Conditionally map over the file if there are any
                 fileDetails = filesArray.length > 0
                     ? filesArray.map(file => ({
-                        file: file.fileData,  // Assuming fileData contains base64 data or a URL
+                        file: file.file,  // Assuming fileData contains base64 data or a URL
                         fileType: file.fileType,
                         fileName: file.fileName || null,  // Default to null if fileName is not present
                     }))
@@ -975,10 +1285,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             if(!username) throw new Error("User not found or not part of a room.");
             if (!message  && !file)                 throw new Error("no message.");
             // Validate the user
-            const currentUser = await User.findOne({ username });
-            if (!currentUser || !currentUser.roomID) {
-                throw new Error("User not found or not part of a room.");
-            }
+            
             // Get the next sequence value from the counter collection
             const counter = await Room.findOneAndUpdate(
                 { roomID: currentUser.roomID },  // Find the counter for this room
@@ -995,26 +1302,111 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 quote: quote ? `${currentUser.roomID}-${quote}`:null,
                 message: clean ? clean : '',
                 file: fileDetails, // Map over the uploaded file to structure them correctly
-                read: [],
+                read: [{ username, time: timestamp }], // <- Mark as read by sender
                 members: [username],
                 timestamp,
             });
             // console.log("message : ",newMessage.file)
             await newMessage.save();
-    
+            // Update room's last update timestamp
+            let timeUp = await Room.findOneAndUpdate(
+                { roomID: currentUser.roomID },
+                { $set: { lastUpdated: timestamp } }
+            );
+            console.log("updated : ",timeUp)
             // Enrich the message with sender details
             let enrichedMessage = {
                 ...newMessage.toObject(),
                 sender: username,
                 // handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
-            console.log(await processMessage(enrichedMessage))
+            let encryptedMessage = await processMessage(enrichedMessage)  
             // Broadcast the message to the room
-            io.in(currentUser.roomID).emit("chat",await processMessage(enrichedMessage),{ success: true });
+            io.in(currentUser.roomID).emit("chat",await encryptedMessage,{ success: true });
+            // console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
+            callback({ success: true });
+            // پیدا کردن همه اعضای اتاق
+                    // دریافت اطلاعات اتاق از دیتابیس
+            const room = await Room.findOne({ roomID : currentUser.roomID});
+            if (!room) throw new Error("Room not found!");
+
+            const roomMembers = room.members; // لیست اعضای اتاق
+            
+            // گرفتن Socket ID کاربران از دیتابیس
+            const onlineUsers = await User.find({ username: { $in: roomMembers } });
+            encryptedMessage ={
+                ...data,
+                roomID : socketEncrypt(currentUser.roomID),
+                title : socketEncrypt(room.roomName)
+            }
+            const selfSender = await User.findOne({ username });
+            
+            const axios = require('axios');
+
+            const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
+            const AES_IV = crypto.randomBytes(16); // Initialization Vector
+
+            // رمزنگاری AES-256
+            function encryptAES256(text) {
+                const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), AES_IV);
+                let encrypted = cipher.update(text);
+                encrypted = Buffer.concat([encrypted, cipher.final()]);
+                return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
+            }
+
+            // console.log(encryptedMessage)
+            // ارسال پیام به تمام کاربران حاضر در اتاق
+            onlineUsers.forEach(async (user) => {
+                if (user.username != username) {
+
+                    if (user.username) {
+                        const taskMatch = room.roomName.match(/\(#(\d+)\)/);
+                        const pvMatch = room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/);
+                        let tempMessage;
+                        
+                        if (pvMatch) {
+                            const senderNumber = pvMatch[1];
+                            const receiverNumber = pvMatch[2];
+                            tempMessage = {
+                                title: 'New private message (MetaChat)',
+                                message: `<i>${selfSender.first_name} ${selfSender.last_name}</i> said: <br>${newMessage.message}`,
+                                reciver:`<i>${user.first_name} ${user.last_name}`,
+                                timestamp
+                            };
+                        } else if (taskMatch) {
+                            const taskID = taskMatch[1];
+                            tempMessage = {
+                                title: 'New comment (MetaChat): '+room.roomName,
+                                message: `<br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message}`,
+                                taskID:taskID,
+                                link: "/view?TaskID=" + taskID,
+                                reciver:`<i>${user.first_name} ${user.last_name}`,
+                                timestamp
+                            };
+                        } else {
+                            tempMessage = {
+                                title: `New Message (MetaChat): ${room.roomName}`,
+                                message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>${newMessage.message}`,
+                                reciver:`<i>${user.first_name} ${user.last_name}`,
+                                timestamp
+                            };
+                        }
+                        
+                        if (user.socketID) {
+                            tempMessage={
+                                ...tempMessage,
+                                roomID : currentUser.roomID
+                            }
+                            io.to(user.socketID).emit("notification", tempMessage);
     
-            console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
+                        }
+                        await Promise.all(onlineUsers.map(user => sendBackupToPHP(user.username, tempMessage)));
+                    }
+                }
+            });
+            
+            // console.log(`🔔 Notification sent to users in room "${roomID}"`);
         // }
-        callback({ success: true });
     } catch (error) {
         console.error("Error handling chat message:", error);
 
@@ -1029,14 +1421,19 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         console.log(`Upload Progress: ${progress}%`);
 
         // Broadcast the progress to the room (optional)
-        io.emit("uploadProgress", { progress });
+        io.emit("uploadProgress", { progress: progress });
     });
 
     
     socket.on("addReaction", async ({ username, messageId, reaction }) => {
         try {
             const time = new Date();
-    
+            const timestamp = new Date();
+            const currentUser = await User.findOne({ socketID: socket.id });
+            if (!currentUser || !currentUser.roomID) {
+                throw new Error("User not found or not part of a room.");
+            }
+            const username = currentUser.username;
             // Find the message by its ID
             const message = await Message.findOne({ id: messageId });
             if (!message) throw new Error("Message not found");
@@ -1060,83 +1457,255 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
             // Emit the updated message to the room
             io.to(message.roomID).emit("reactionAdded", { messageId, username, time, reaction });
+            const room = await Room.findOne({ roomID : currentUser.roomID});
+            if (!room) throw new Error("Room not found!");
+
+            const roomMembers = room.members; // لیست اعضای اتاق
+            
+            // گرفتن Socket ID کاربران از دیتابیس
+            const onlineUsers = await User.find({ username: { $in: roomMembers } });
+            
+            const selfSender = await User.findOne({ username });
+            
+            const axios = require('axios');
+
+            const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
+            const AES_IV = crypto.randomBytes(16); // Initialization Vector
+
+            // رمزنگاری AES-256
+            function encryptAES256(text) {
+                const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), AES_IV);
+                let encrypted = cipher.update(text);
+                encrypted = Buffer.concat([encrypted, cipher.final()]);
+                return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
+            }
+
+           
+
+            // console.log(encryptedMessage)
+            // ارسال پیام به تمام کاربران حاضر در اتاق
+            onlineUsers.forEach(async (user) => {
+                if (user.username != username && user.username == message.sender) {
+
+                    if (user.username) {
+                        const taskMatch = room.roomName.match(/\(#(\d+)\)/);
+                        const pvMatch = room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/);
+                        let tempMessage;
+                        
+                        if (pvMatch) {
+                            const senderNumber = pvMatch[1];
+                            const receiverNumber = pvMatch[2];
+                            tempMessage = {
+                                title: 'New private message (MetaChat)',
+                                message: `<b>Private Chat</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> said: <br>Reacted to your message`,
+                                timestamp
+                            };
+                        } else if (taskMatch) {
+                            const taskID = taskMatch[1];
+                            tempMessage = {
+                                title: 'New comment (MetaChat)',
+                                message: `<b>In ${room.roomName}</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>Reacted to your message`,
+                                link: "/view?TaskID=" + taskID,
+                                timestamp
+                            };
+                        } else {
+                            tempMessage = {
+                                title: 'New Message (MetaChat)',
+                                message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>Reacted to your message`,
+                                timestamp
+                            };
+                        }
+                        
+
+                        await Promise.all(onlineUsers.map(user => sendBackupToPHP(user.username, tempMessage)));
+                    }
+                }
+            });
+            
+            console.log(`🔔 Notification sent to users in room "${roomID}"`);
         } catch (error) {
             console.error("Error adding reaction:", error);
             socket.emit("error", { message: "Failed to add reaction." });
         }
     });
     
-    socket.on("markMessagesRead", async ({ messageIds, username }) => {
+//    socket.on("markMessagesRead", async ({ messageIds ,roomID}) => {
+//         try {
+//             const currentUser = await User.findOne({ socketID: socket.id });
+//             if (!currentUser || !currentUser.roomID) {
+//                 throw new Error("User not found or not part of a room.");
+//             }
+
+//             const username = currentUser.username;
+//             const timestamp = new Date();
+//             // console.log(messageIds)
+//             // let roomFromMess= roomID;
+//             // const room = await Room.findOne({ roomID: roomFromMess });
+//             // if (!room) throw new Error("Room not found!");
+
+//             // const roomMembers = room.members;
+
+//             // // Adjust this check if `room.members` is a list of objects
+//             // const isMember = Array.isArray(roomMembers)
+//             //     ? roomMembers.some(m => typeof m === 'string' ? m === username : m.username === username)
+//             //     : false;
+
+//             // if (!isMember) {
+//             //     throw new Error("User is not a member of this room!");
+//             // }
+
+//             const updatedMessages = await Promise.all(
+//                 messageIds.map(async (messageId) => {
+//                     const messagebyroomID = `${messageId}`;
+//                     console.log(`${username}_____${messagebyroomID} unreaded`);
+
+//                     await Message.updateMany(
+//                         {
+//                             id: { $lte: messagebyroomID },
+//                             "read.username": { $ne: username }
+//                         },
+//                         {
+//                             $addToSet: { read: { username, time: timestamp } }
+//                         }
+//                     );
+
+//                     const message = await Message.findOne({ id: messagebyroomID }).lean();
+//                     if (!message) return null;
+
+//                     const readUsers = await Promise.all(
+//                         message.read.map(async (readEntry) => {
+//                             const userRead = await User.findOne({ username: readEntry.username })
+//                                 .select("first_name last_name")
+//                                 .lean();
+//                             return {
+//                                 name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
+//                                 time: readEntry.time,
+//                             };
+//                         })
+//                     );
+
+//                     return { id: messagebyroomID, readUsers };
+//                 })
+//             );
+
+//             updatedMessages
+//                 .filter(msg => msg)
+//                 .forEach((msg) => {
+//                     // Send only to others in the room
+//                     socket.to(currentUser.roomID).emit("readMessageUpdate", {
+//                         id: msg.id,
+//                         readUsers: msg.readUsers
+//                     });
+//                 });
+
+//         } catch (error) {
+//             console.error("Error in markMessagesRead:", error.message);
+//         }
+//     });
+
+    
+    // socket.on("markMessagesRead", async ({ messageIds, username }) => {
+    //     try {
+    //         const timestamp = new Date();
+    
+    //         // Update the `read` array for each message
+    //         await Promise.all(
+    //             messageIds.map((messageId) =>
+    //                 Message.updateOne(
+    //                     { id: messageId, "read.username": { $ne: username } }, // Ensure username isn't already marked
+    //                     { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
+    //                 )
+    //             )
+    //         );
+    
+    //         // console.log(`Messages marked as read for user "${username}":`, messageIds);
+    
+    //         // Optionally notify others in the room of read receipts
+    //         socket.broadcast.emit("messagesRead", { messageIds, username, timestamp });
+    //     } catch (error) {
+    //         console.error("Error in markMessagesRead:", error.message);
+    //     }
+    // });
+    
+    socket.on("markMessagesRead", async ({ messageIds, roomID }) => {
         try {
+            const currentUser = await User.findOne({ socketID: socket.id });
+
+            if (!currentUser) {
+                throw new Error("User not found.");
+            }
+
+            if (!roomID) {
+                throw new Error("No room provided.");
+            }
+
+            // ✅ Validate room membership
+            const room = await Room.findOne({ roomID }).lean();
+            if (!room) {
+                throw new Error("Room not found!");
+            }
+
+            const isMember = room.members?.some(m =>
+                typeof m === 'string'
+                    ? m === currentUser.username
+                    : m.username === currentUser.username
+            );
+
+            if (!isMember) {
+                throw new Error("User is not a member of this room!");
+            }
+
             const timestamp = new Date();
-            // console.log(messageIds)
-            
-            // Update the `read` array for each message
-            const user = await User.findOne({ username });
-            if(user){
+            const username = currentUser.username;
+
+            // ✅ Update all messages in parallel
             const updatedMessages = await Promise.all(
                 messageIds.map(async (messageId) => {
                     await Message.updateMany(
-                        { id: { $lte: messageId }, "read.username": { $ne: username } }, // All messages with id <= messageId
-                        { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
+                        {
+                            id: { $lte: messageId },
+                            roomID,
+                            "read.username": { $ne: username }
+                        },
+                        {
+                            $addToSet: { read: { username, time: timestamp } }
+                        }
                     );
-    
-                    // Fetch the updated message
-                    const message = await Message.findOne({ id: messageId }).lean();
+
+                    const message = await Message.findOne({ id: messageId })
+                        .select("id read")
+                        .lean();
                     if (!message) return null;
-    
-                    // Enrich the `readUsers` with user details
+
+                    // Resolve read user names
                     const readUsers = await Promise.all(
-                        message.read.map(async (readEntry) => {
-                            const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
+                        message.read.map(async (entry) => {
+                            const user = await User.findOne({ username: entry.username })
+                                .select("first_name last_name")
+                                .lean();
                             return {
-                                name: userRead ? `${userRead.first_name} ${userRead.last_name}` : readEntry.username,
-                                time: readEntry.time,
+                                name: user ? `${user.first_name} ${user.last_name}` : entry.username,
+                                time: entry.time
                             };
                         })
                     );
-    
+
                     return { id: messageId, readUsers };
                 })
             );
-            
-    
-            // Emit the updated read data to the room or all clients
+
+            // ✅ Emit updates only to other users in the room
             updatedMessages
-                .filter((msg) => msg) // Ensure no null values
+                .filter(Boolean)
                 .forEach((msg) => {
-                    socket.broadcast.emit("readMessageUpdate", { id: msg.id, readUsers: msg.readUsers });
+                    socket.to(roomID).emit("readMessageUpdate", msg);
                 });
-            }
+
         } catch (error) {
             console.error("Error in markMessagesRead:", error.message);
         }
     });
-    
-    socket.on("markMessagesRead", async ({ messageIds, username }) => {
-        try {
-            const timestamp = new Date();
-    
-            // Update the `read` array for each message
-            await Promise.all(
-                messageIds.map((messageId) =>
-                    Message.updateOne(
-                        { id: messageId, "read.username": { $ne: username } }, // Ensure username isn't already marked
-                        { $addToSet: { read: { username, time: timestamp } } } // Add username and timestamp
-                    )
-                )
-            );
-    
-            // console.log(`Messages marked as read for user "${username}":`, messageIds);
-    
-            // Optionally notify others in the room of read receipts
-            socket.broadcast.emit("messagesRead", { messageIds, username, timestamp });
-        } catch (error) {
-            console.error("Error in markMessagesRead:", error.message);
-        }
-    });
-    
-    
+
     
     socket.on("info", async () => {
         const currentUser = await User.findOne({ socketID: socket.id });
@@ -1193,68 +1762,97 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             socket.emit("error", { message: "Failed to save settings" });
         }
     });
+    socket.on("countNewMessage", async(username, roomID, callback) => {
+       
+        // Fetch messages from the database (adjust this based on your database query)
+        Message.find({ roomID: roomID }) // Get all messages in the room
+            .then(messages => {
+                let newMessageCount = messages.filter(msg =>
+                    !msg.read.some(r => r.username === username) // Check if the user has NOT read it
+                ).length;
     
-
-    socket.on("leaveRoom", async ({ username , roomID }) => {
-        try {
-            if (!username || !roomID) {
-                socket.emit("error", { error: `${username} : ${roomID} Invalid data provided for leaving the room` });
-                return;
-            }
-    
-            // Find the room
-            const room = await Room.findOne({ roomID: roomID });
-            if (!room) {
-                socket.emit("error", { error: `Room "${roomID}" does not exist` });
-                return;
-            }
-    
-            // Check if the user is a member of the room
-            if (!room.members.includes(username)) {
-                socket.emit("error", { error: `User "${username}" is not a member of room "${roomID}"` });
-                return;
-            }
-    
-            // Remove the user from the room's members list
-            room.members = room.members.filter(member => member !== username);
-            await room.save();
-    
-            // Have the socket leave the room
-            socket.leave(roomID);
-            const updatedUser = await User.findOneAndUpdate(
-                { username: username },
-                { roomID : null},
-                { new: true } // Return the updated user
-            );
-            if (updatedUser) {
-                console.log(`${username} left ${roomID} room`);
-            }
-            // Notify the user that they have successfully left
-            socket.emit("leftRoom", { roomID });
-    
-            // Notify others in the room about the user's departure
-            socket.broadcast.to(roomID).emit("userLeft", { username, roomID });
-    
-        } catch (error) {
-            console.error("Error handling leaveRoom event:", error);
-            socket.emit("error", { error: "Failed to leave the room due to an internal error" });
-        }
+                // Send back the count
+                callback(newMessageCount);
+            })
+            .catch(error => {
+                console.error("Error counting new messages:", error);
+                callback(0); // Default to 0 in case of an error
+            });
     });
-    
-    
+    socket.on("lastUpdatedTime", async (username, roomID, callback) => {
+        const room = await Room.findOne({ roomID: roomID });
+      
+        const time = room.lastUpdated ?? null;  // ❗️ اینجا دیگه تاریخ ساختگی نمی‌دیم
+        // console.log(`${room.roomName}  lastUpdate: ${time}`);
+        callback(time);
+      });
+      
+    // for count
+// fornt code    
+    // socket.emit("countNewMessage", "09173121943", "krrlnB6aMRm6symph2", (count) => {
+    //     console.log(`You have ${count} new messages.`);
+    // });
+socket.on("leaveRoom", async ({ username , roomID }) => {
+    try {
+        if (!username || !roomID) {
+            socket.emit("error", { error: `${username} : ${roomID} Invalid data provided for leaving the room` });
+            return;
+        }
 
+        // Find the room
+        const room = await Room.findOne({ roomID });
+        if (!room) {
+            socket.emit("error", { error: `Room "${roomID}" does not exist` });
+            return;
+        }
+
+        // Optional: Check if user is a member (for logging/debugging only)
+        if (!room.members.includes(username)) {
+            console.warn(`User "${username}" is leaving room "${roomID}" but not listed as a member.`);
+        }
+
+        // Leave the socket.io room (but do NOT remove from DB)
+        socket.leave(roomID);
+
+        // Clear user.roomID
+        const updatedUser = await User.findOneAndUpdate(
+            { username },
+            { roomID: null },
+            { new: true }
+        );
+
+        if (updatedUser) {
+            console.log(`${username} left ${roomID} (remains a member).`);
+        }
+
+        // Notify this user
+        socket.emit("leftRoom", { roomID });
+
+        // Notify others in the room
+        socket.broadcast.to(roomID).emit("userLeft", { username, roomID });
+
+    } catch (error) {
+        console.error("Error handling leaveRoom event:", error);
+        socket.emit("error", { error: "Failed to leave the room due to an internal error" });
+    }
+});
+
+    
+    
+    
     socket.on("disconnect", async () => {
         try {
             const user = await User.findOne({ username: currentUsername });
             if (user) {
                 socket.broadcast.to(user.roomID).emit("userDisconnected", `${user.first_name} ${user.last_name}`);
-                
+                onlineUsersServer.delete(socket.id);
+
                 const updatedUser = await User.findOneAndUpdate(
                     { username: currentUsername },
-                    { socketId: null }, // Reset socketId on disconnect
-                    { roomID : null},
-                    { new: true } // Return the updated user
+                    { socketID: null, roomID: null },
+                    { new: true }
                 );
+
                 
                 if (updatedUser) {
                     console.log(`Reset socketId for user ${updatedUser.username}`);
