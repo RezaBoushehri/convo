@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const ipRangeCheck = require("ip-range-check");
 const express = require("express");
 const multer = require("multer");
+const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
@@ -204,6 +205,17 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
         res.redirect(`/?error=${encodeURIComponent("Internal server error")}`);
     }
 });
+
+const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
+const AES_IV = crypto.randomBytes(16); // Initialization Vector
+
+// رمزنگاری AES-256
+function encryptAES256(text) {
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), AES_IV);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
+}
 
 // Login/Registration Routes (Passport Auth)
 app.get("/login", (req, res) => {
@@ -795,6 +807,8 @@ function socketDecrypt(encryptedText) {
     return decrypted;
 }
 
+
+
 // ارسال پیام پشتیبان به PHP
 async function sendBackupToPHP(Number, jsonMessage) {
     const encrypted = encryptAES256(JSON.stringify(jsonMessage));
@@ -1340,19 +1354,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 title : socketEncrypt(room.roomName)
             }
             const selfSender = await User.findOne({ username });
-            
-            const axios = require('axios');
 
-            const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
-            const AES_IV = crypto.randomBytes(16); // Initialization Vector
-
-            // رمزنگاری AES-256
-            function encryptAES256(text) {
-                const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), AES_IV);
-                let encrypted = cipher.update(text);
-                encrypted = Buffer.concat([encrypted, cipher.final()]);
-                return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
-            }
 
             // console.log(encryptedMessage)
             // ارسال پیام به تمام کاربران حاضر در اتاق
@@ -1414,7 +1416,108 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         callback({ success: false });
     }
     });
+    socket.on("delete", async (data, callback) => {
+        try {
+            const { messageId } = data;
 
+            if (!messageId || typeof messageId !== "string") {
+                throw new Error("Invalid or missing messageId.");
+            }
+
+            // Find the current user by socket ID
+            const currentUser = await User.findOne({ socketID: socket.id });
+            if (!currentUser || !currentUser.roomID) {
+                throw new Error("User not authenticated or not in a room.");
+            }
+
+            const username = currentUser.username;
+
+            // Find the message
+            const message = await Message.findOne({ id: messageId });
+            if (!message) {
+                throw new Error("Message not found.");
+            }
+
+            // Extract roomID from message ID (format: roomID-1000001 etc.)
+            const [roomIDFromId] = messageId.split('-');
+            if (roomIDFromId !== currentUser.roomID) {
+                throw new Error("Message does not belong to your current room.");
+            }
+
+            // Authorization: Only the sender can delete their own message
+            if (message.sender !== username) {
+                throw new Error("You can only delete your own messages.");
+            }
+
+            // === Handle file deletion if files exist ===
+            if (message.file && Array.isArray(message.file) && message.file.length > 0) {
+                const fs = require('fs').promises;
+                const path = require('path');
+
+                // Assuming files are saved on disk with filename stored in file.fileName
+                // Adjust the upload directory path according to your setup
+                for (const fileItem of message.file) {
+                    if (fileItem.file) {
+                        const filePath = path.join(uploadDir,fileItem.file.split('/')[2]);
+                        try {
+                            await fs.unlink(filePath);
+                            console.log(`Deleted file: ${filePath}`);
+                        } catch (err) {
+                            if (err.code !== 'ENOENT') {
+                                console.error(`Failed to delete file ${filePath}:`, err);
+                            } else {
+                                console.log(`File already missing (not found): ${filePath}`);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // === Delete the message from database ===
+            await Message.deleteOne({ id: messageId });
+
+            // === Update room's lastUpdated timestamp ===
+            await Room.findOneAndUpdate(
+                { roomID: currentUser.roomID },
+                { $set: { lastUpdated: new Date() } }
+            );
+
+            // === Broadcast deletion to all clients in the room ===
+
+
+            io.in(currentUser.roomID).emit("delete", messageId);
+
+            // Optional: Send notification to others that a message was deleted
+            const room = await Room.findOne({ roomID: currentUser.roomID });
+            if (room) {
+                const onlineUsers = await User.find({ username: { $in: room.members } });
+
+                onlineUsers.forEach((user) => {
+                    if (user.username !== username && user.socketID) {
+                        io.to(user.socketID).emit("notification", {
+                            title: `Message deleted (MetaChat): ${room.roomName}`,
+                            message: `<i>${currentUser.first_name} ${currentUser.last_name}</i> deleted a message.`,
+                            roomID: currentUser.roomID,
+                            timestamp: new Date()
+                        });
+                    }
+                });
+            }
+
+            // Success callback
+            if (typeof callback === "function") {
+                callback({ success: true });
+            }
+
+            console.log(`Message ${messageId} deleted by ${username}`);
+
+        } catch (error) {
+            console.error("Error deleting message:", error);
+            if (typeof callback === "function") {
+                callback({ success: false, error: error.message });
+            }
+        }
+    });
     // Listen for upload progress from clients
     socket.on("uploadProgress", (data) => {
         const { progress } = data;
@@ -1472,14 +1575,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
             const AES_IV = crypto.randomBytes(16); // Initialization Vector
 
-            // رمزنگاری AES-256
-            function encryptAES256(text) {
-                const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), AES_IV);
-                let encrypted = cipher.update(text);
-                encrypted = Buffer.concat([encrypted, cipher.final()]);
-                return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
-            }
-
+ 
            
 
             // console.log(encryptedMessage)
