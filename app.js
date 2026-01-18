@@ -855,6 +855,37 @@ io.on("connection", (socket) => {
         socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
     });
 
+    console.log("Socket connected:", socket.id);
+
+    // Listen for authentication / identification from client
+    socket.on("authenticate", async (encryptedUsername, callback) => {
+        try {
+            const username = socketDecrypt(encryptedUsername); // Your decrypt function
+
+            const user = await User.findOneAndUpdate(
+                { username },
+                { $set: { socketID: socket.id, online: true, lastSeen: new Date() } },
+                { new: true }
+            );
+
+            if (!user) {
+                return callback({ success: false, message: "User not found" });
+            }
+
+            // Join the user's room if they have one
+            if (user.roomID) {
+                socket.join(user.roomID);
+                console.log(`${username} joined room ${user.roomID}`);
+            }
+
+            callback({ success: true, roomID: user.roomID });
+            console.log(`User authenticated and socketID updated: ${username} -> ${socket.id}`);
+        } catch (err) {
+            console.error("Authentication error:", err);
+            callback({ success: false, message: "Authentication failed" });
+        }
+    });
+
     socket.on("createRoom", async ({ handle, roomName }) => {
         if(true) return
         roomName = roomName;
@@ -1261,13 +1292,25 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("chat", async (data , callback) => {
         try {
-            const currentUser = await User.findOne({ socketID: socket.id });
-            console.log(data)
-            let { message, file , quote } = data;
+            let { username: encryptedUsername, message, file, quote } = data;
+
+            const username = socketDecrypt(encryptedUsername);
+
+            // Find user by username AND update socketID if needed
+            const currentUser = await User.findOneAndUpdate(
+                { username },
+                { $set: { socketID: socket.id } }, // Always update socketID
+                { new: true }
+            );
+
             if (!currentUser || !currentUser.roomID) {
-                throw new Error("User not found or not part of a room.");
+                throw new Error("User not found or not in a room.");
             }
-            const username = currentUser.username;
+
+            // Ensure socket is in the room
+            socket.join(currentUser.roomID);
+
+            // Proceed with message processing...
             message = socketDecrypt(message);
             message = DOMPurify.sanitize(message, {
                 ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
