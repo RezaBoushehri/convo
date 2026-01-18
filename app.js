@@ -1413,7 +1413,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         console.error("Error handling chat message:", error);
 
         // Send failure acknowledgment
-        callback({ success: false });
+        callback({ success: false , message : error});
     }
     });
     socket.on("delete", async (data, callback) => {
