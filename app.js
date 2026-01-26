@@ -1287,14 +1287,31 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         };
     }
 
-        
+    socket.on("roomCounterId", async (userRoomID ,callback)=>{
+                    // Get the next sequence value from the counter collection
+            const counter = await Room.findOneAndUpdate(
+                { roomID: userRoomID },  // Find the counter for this room
+                // { $inc: { seq: 1 } },  // Increment the sequence number
+                // { new: true, upsert: true }  // Create if it doesn't exist
+            );
+            // Create and save the message
+            if(counter){
+                const updatedCounter= 1000000+ (counter.seq||0) + 1
+                callback({ success: true , messageId: `${userRoomID}-${updatedCounter}`});
+            }else{
+                callback({ success: false , message : error});
+
+            }
+
+    })  
     
     
     socket.on("chat", async (data , callback) => {
         try {
-            let { username: encryptedUsername, message, file, quote } = data;
+            let { username: encryptedUsername,roomID, message, file, quote } = data;
 
             const username = socketDecrypt(encryptedUsername);
+            const userRoomID = socketDecrypt(roomID);
 
             // Find user by username AND update socketID if needed
             const currentUser = await User.findOneAndUpdate(
@@ -1303,12 +1320,12 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 { new: true }
             );
 
-            if (!currentUser || !currentUser.roomID) {
+            if (!currentUser || !userRoomID) {
                 throw new Error("User not found or not in a room.");
             }
 
             // Ensure socket is in the room
-            socket.join(currentUser.roomID);
+            socket.join(userRoomID);
 
             // Proceed with message processing...
             message = socketDecrypt(message);
@@ -1345,18 +1362,18 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             
             // Get the next sequence value from the counter collection
             const counter = await Room.findOneAndUpdate(
-                { roomID: currentUser.roomID },  // Find the counter for this room
+                { roomID: userRoomID },  // Find the counter for this room
                 { $inc: { seq: 1 } },  // Increment the sequence number
                 { new: true, upsert: true }  // Create if it doesn't exist
             );
-            const clean = DOMPurify.sanitize(message);
             // Create and save the message
             const updatedCounter= 1000000+ (counter.seq||0)
+            const clean = DOMPurify.sanitize(message);
             const newMessage = new Message({
-                id: `${currentUser.roomID}-${updatedCounter}`,  // ID format: roomID-auto-increment number
-                roomID: currentUser.roomID,
+                id: `${userRoomID}-${updatedCounter}`,  // ID format: roomID-auto-increment number
+                roomID: userRoomID,
                 sender: username,
-                quote: quote ? `${currentUser.roomID}-${quote}`:null,
+                quote: quote ? `${userRoomID}-${quote}`:null,
                 message: clean ? clean : '',
                 file: fileDetails, // Map over the uploaded file to structure them correctly
                 read: [{ username, time: timestamp }], // <- Mark as read by sender
@@ -1367,7 +1384,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             await newMessage.save();
             // Update room's last update timestamp
             let timeUp = await Room.findOneAndUpdate(
-                { roomID: currentUser.roomID },
+                { roomID: userRoomID },
                 { $set: { lastUpdated: timestamp } }
             );
             console.log("updated : ",timeUp)
@@ -1379,12 +1396,12 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             };
             let encryptedMessage = await processMessage(enrichedMessage)  
             // Broadcast the message to the room
-            io.in(currentUser.roomID).emit("chat",await encryptedMessage,{ success: true });
-            // console.log(`Message sent by ${username} in room "${currentUser.roomID}"`);
-            callback({ success: true });
+            io.in(userRoomID).emit("chat",await encryptedMessage,{ success: true });
+            // console.log(`Message sent by ${username} in room "${userRoomID}"`);
+            callback({ success: true , messageId: `${userRoomID}-${updatedCounter}`});
             // پیدا کردن همه اعضای اتاق
                     // دریافت اطلاعات اتاق از دیتابیس
-            const room = await Room.findOne({ roomID : currentUser.roomID});
+            const room = await Room.findOne({ roomID : userRoomID});
             if (!room) throw new Error("Room not found!");
 
             const roomMembers = room.members; // لیست اعضای اتاق
@@ -1393,7 +1410,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             const onlineUsers = await User.find({ username: { $in: roomMembers } });
             encryptedMessage ={
                 ...data,
-                roomID : socketEncrypt(currentUser.roomID),
+                roomID : socketEncrypt(userRoomID),
                 title : socketEncrypt(room.roomName)
             }
             const selfSender = await User.findOne({ username });
@@ -1440,7 +1457,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                         if (user.socketID) {
                             tempMessage={
                                 ...tempMessage,
-                                roomID : currentUser.roomID
+                                roomID : userRoomID
                             }
                             io.to(user.socketID).emit("notification", tempMessage);
     
@@ -1456,7 +1473,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         console.error("Error handling chat message:", error);
 
         // Send failure acknowledgment
-        callback({ success: false , message : error});
+        callback({ success: false , messageId: `${userRoomID}-${updatedCounter}`, message : error});
     }
     });
     socket.on("delete", async (data, callback) => {
