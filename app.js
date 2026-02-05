@@ -845,7 +845,8 @@ io.on("connection", (socket) => {
         onlineUsersServer.set(socket.id, username); // Track online
 
         await updateUserSocketId(username, socket.id);
-
+        
+        socket.broadcast.emit("userCameBack", username);
         socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
     });
     socket.on("userSleep", async () => {
