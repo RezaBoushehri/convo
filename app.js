@@ -848,6 +848,39 @@ io.on("connection", (socket) => {
 
         socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
     });
+    socket.on("userSleep", async () => {
+        const username = onlineUsersServer.get(socket.id);
+        if (!username) return;
+
+        // mark user as inactive
+        await User.updateOne(
+            { username },
+            { status: "sleep", lastActive: new Date() }
+        );
+
+        onlineUsersServer.delete(socket.id);
+        socket.broadcast.emit("userWentSleep", username);
+        socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
+
+    });
+
+    socket.on("userWake", async () => {
+        const user = await User.findOne({ socketID: socket.id });
+        const username = user.username
+        if (!username) return;
+
+        await User.updateOne(
+            { username },
+            { status: "online", lastActive: new Date() }
+        );
+
+        // add back to online list
+        onlineUsersServer.set(socket.id, username);
+        socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
+        socket.broadcast.emit("userCameBack", username);
+    });
+
+
     socket.on("ping", () => {
         console.log("📡 Ping received from client");
 
