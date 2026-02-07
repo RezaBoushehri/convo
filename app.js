@@ -815,7 +815,7 @@ async function sendBackupToPHP(Number, jsonMessage) {
     // console.log(encrypted)
 
     try {
-        await axios.get(`https://portal.mellicloud.com/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}&&email=BB`);
+        await axios.get(`https://mc.farahoosh.ir/missionform/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}&&email=BB`);
         // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
     } catch (err) {
         console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
