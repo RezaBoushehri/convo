@@ -561,6 +561,62 @@ app.post('/createRoom', async (req, res) => {
         res.status(400).json({ error: 'Decryption error or invalid data' });
     }
 });
+app.post('/remove_user_rooms_data', async (req, res) => {
+    try {
+        const tokenHeader = req.headers['authorization']?.split(' ')[1];
+        if (!tokenHeader) return res.status(400).json({ error: 'Authorization token missing' });
+
+        // Decrypt the token
+        const secretKey = '9e107d9d372bb6826bd81d3542a419d6cc64ff4ab6356cd63a54d865b40a8c4a';
+        const decryptedToken = decrypt(tokenHeader, secretKey);
+        console.log('Decrypted Token:', decryptedToken);
+
+        // Decrypt the payload
+        const encryptedPayload = req.body.payload;
+        const decryptedData = decrypt(encryptedPayload, secretKey);
+        const { phone, roomIDs } = decryptedData;
+
+        let modifiedCount = 0;
+
+        for (const roomID of roomIDs) {
+            const room = await Room.findOne({ roomID });
+            if (!room) continue;
+
+            // Remove user from members
+            const pullResult = await Room.updateOne(
+                { roomID },
+                { $pull: { members: phone } }
+            );
+
+            if (pullResult.modifiedCount > 0) modifiedCount++;
+
+            // Handle admin reassignment if needed
+            if (room.admin === phone) {
+                const updatedRoom = await Room.findOne({ roomID });
+                const members = updatedRoom.members;
+
+                if (members.length === 1) {
+                    await Room.updateOne(
+                        { roomID },
+                        { $set: { admin: members[0] } }
+                    );
+                } else if (members.length === 0) {
+                    await Room.updateOne(
+                        { roomID },
+                        { $set: { admin: null } }
+                    );
+                }
+            }
+        }
+
+        res.json({ status: 'success', modifiedRooms: modifiedCount });
+        // Now you can continue with MongoDB logic as before...
+        res.json({ status: 'success', data: decryptedData });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
 
 
 // auto from domains login
