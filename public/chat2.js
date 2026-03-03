@@ -1,8 +1,6 @@
 
 // const socket = io.connect(window.location.hostname),
-const production = true;
-
-const secretKey = CryptoJS.enc.Hex.parse('a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771');
+// const production = true;
 
 // تابع برای رمزگذاری
 function encryptMessage(message) {
@@ -20,16 +18,11 @@ function decryptMessage(encryptedMessage) {
     return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
+let roomID = document.getElementById('roomID').value??'';
+document.getElementById('roomID').value='';
 
 
-
-const href = production ? `https://mc.farahoosh.ir:4000` : "https://94.74.128.194:4000",
-    socket = io.connect(href, {
-        transports: ['polling','websocket'], // Allows both WebSocket and Polling
-        secure: true, // Ensures that the connection uses HTTPS
-        withCredentials: false, // Ensure cookies are not sent with requests (set to true if needed)
-        rejectUnauthorized: true, // Bypass SSL verification for self-signed certificates (use with caution)
-    }),
+const 
 
     name = document.getElementById("dropdownMenuButton"),
     message = document.getElementById("editable-message-text"),
@@ -42,10 +35,6 @@ const href = production ? `https://mc.farahoosh.ir:4000` : "https://94.74.128.19
     joinRoomName = document.getElementById("joinRoomName"),
     fileInput = document.getElementById("file-input"),
     headTag = document.getElementById('headTag'),
-    currentUser = {
-        username: document.getElementById('username').value
-    },
-    
     options = {
         maxSizeMB: 0.3,
         maxWidthOrHeight: 1920,
@@ -53,16 +42,24 @@ const href = production ? `https://mc.farahoosh.ir:4000` : "https://94.74.128.19
         fileType: "",
     };
 let sentMessagesId=[],
+    loadNextMessage = false;    
     sentMessagesIdLast=[],
     loadedForClicking=false
     , hasScrolledDown = false; // Flag to track if the scroll has already occurred
-    let scrolling = true;
-console.log("URL: ",href)
+let scrolling = true;
+let lastMessageDate = null;
+let headTagVal = null;
+let lastProcessedDate = null;
+let ProcessedDate = null;
+let messagesCreated=[]
+let messagesCreatedHandler=[]
+let messageIdSplited=[]
+let lastSender = null;
+let unreadedScroll=0;
 // =====================
 // for right click menu
 const windowWidth = window.innerWidth;
 const windowHeight = window.innerHeight;
-const roomID = document.querySelector("#roomID").textContent.trim()
 // Function to disable scrolling
 const disableScrolling = () => {
     chat_window.removeEventListener("scroll", scrollLoader)
@@ -90,52 +87,113 @@ let previousLineCount = 1; // تعداد خطوط قبلی
 
 message.addEventListener('input', () => {
 
-   // محاسبه تعداد خطوط فعلی
-   const lineHeight = parseInt(window.getComputedStyle(message).lineHeight, 10); // ارتفاع خط از CSS
-
-    // تعداد خطوط فعلی
-    const currentLineCount = Math.ceil(message.scrollHeight / lineHeight);
-
-    // بررسی افزایش یا کاهش خطوط
-    if (currentLineCount !== previousLineCount) {
-        // محدود کردن تعداد خطوط به 5
-        const maxLines = 5;
-        const allowedLineCount = Math.min(currentLineCount, maxLines);
-
-        // محاسبه ارتفاع جدید بر اساس تعداد خطوط مجاز
-        const newHeight = allowedLineCount * lineHeight;
-
-        // محاسبه مدت زمان ترنزیشن بر اساس تغییرات ارتفاع
-        const heightDifference = Math.abs(newHeight - message.offsetHeight); // تفاوت بین ارتفاع فعلی و جدید
-        const transitionDuration = Math.min(heightDifference * 20, 1000); // مدت زمان ترنزیشن (محدود به 500ms)
-
-        // اعمال تغییرات در استایل
-        message.style.height = `${newHeight}px`;
-        message.style.transitionDuration = `${transitionDuration}ms`;
-        message.style.transform = `${transitionDuration}ms`;
-        // message.style.overflowY = currentLineCount > maxLines ? 'scroll' : 'hidden';
-       // محاسبه مقدار جابجایی به بالا (برای حفظ انیمیشن از بالا)
-       const translateY = -(newHeight ) / 2;
-       message.style.transform = `translateY(${translateY}px)`;
-       replyBox.style.transform = `translateY(${translateY - 5}px)`;
-
-        // به‌روزرسانی تعداد خطوط قبلی
-        previousLineCount = allowedLineCount-1;
-
+    // محاسبه تعداد خطوط فعلی
+    const lineHeight = parseInt(window.getComputedStyle(message).lineHeight, 10); // ارتفاع خط از CSS
+ 
+     // تعداد خطوط فعلی
+     const currentLineCount = Math.ceil(message.scrollHeight / lineHeight);
+ 
+     // بررسی افزایش یا کاهش خطوط
+     if (currentLineCount !== previousLineCount) {
+         // محدود کردن تعداد خطوط به 5
+         const maxLines = 5;
+         const allowedLineCount = Math.min(currentLineCount, maxLines);
+ 
+         // محاسبه ارتفاع جدید بر اساس تعداد خطوط مجاز
+         const newHeight = allowedLineCount * lineHeight;
+ 
+         // محاسبه مدت زمان ترنزیشن بر اساس تغییرات ارتفاع
+         const heightDifference = Math.abs(newHeight - message.offsetHeight); // تفاوت بین ارتفاع فعلی و جدید
+         const transitionDuration = Math.min(heightDifference * 20, 1000); // مدت زمان ترنزیشن (محدود به 500ms)
+ 
+         // اعمال تغییرات در استایل
+         message.style.height = `${newHeight}px`;
+         message.style.transitionDuration = `${transitionDuration}ms`;
+         message.style.transform = `${transitionDuration}ms`;
+         // message.style.overflowY = currentLineCount > maxLines ? 'scroll' : 'hidden';
+        // محاسبه مقدار جابجایی به بالا (برای حفظ انیمیشن از بالا)
+        const translateY = -(newHeight ) / 2;
+        message.style.transform = `translateY(${translateY}px)`;
+        replyBox.style.transform = `translateY(${translateY - 5}px)`;
+ 
+         // به‌روزرسانی تعداد خطوط قبلی
+         previousLineCount = allowedLineCount-1;
+ 
+     }
+     if(previousLineCount<=1){
+         message.style.transform = `translateY(0px)`;
+ 
+     }
+    // Handle Excel table paste events
+    const pastedData = message.innerHTML;
+    if (pastedData.includes('<table')) {
+        // Clean up any Excel-specific formatting while preserving table structure
+        const cleanedTable = pastedData
+            // .replace(/^(<br>)+/g, '') // Remove leading <br> tags
+            .replace(/<table[^>]*>/g, '<table class="table bg-white text-dark table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
+            .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px;">')
+            .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px;">');
+            
+        // Update message content with cleaned table
+        message.innerHTML = cleanedTable;
+        
+        // Adjust height for table content
+        const tableHeight = message.scrollHeight;
+        message.style.height = `${Math.min(tableHeight, 200)}px`; // Cap at 200px height
+        message.style.overflowY = tableHeight > 200 ? 'auto' : 'hidden';
     }
-    if(previousLineCount<=1){
-        message.style.transform = `translateY(0px)`;
-
+    // Keep text direction RTL (right-to-left) for Persian/Arabic text
+    if (/[\u0600-\u06FF]/.test(message.textContent)) {
+        message.style.direction = 'rtl';
+        message.style.textAlign = 'right';
+    } else {
+        message.style.direction = 'ltr';
+        message.style.textAlign = 'left';
     }
-  
+   
+    // // Only escape text nodes, preserve table structure
+    // message.innerHTML = message.innerHTML.replace(/[<>]/g, match => {
+    //     if (!message.innerHTML.includes('<table')) {
+    //         return (match);
+    //     }
+    //     return match;
+    // });
+
+})
+// Handle paste events to clean Excel table formatting
+message.addEventListener('paste', (e) => {
+    // Allow default paste behavior first
+    setTimeout(() => {
+        const pastedData = message.innerHTML;
+        if (pastedData.includes('<table')) {
+            // Clean up Excel-specific formatting while preserving table structure
+            const cleanedTable = pastedData
+                .replace(/<table[^>]*>/g, '<table class="table bg-white text-dark table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
+                .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px; >')
+                .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px; >');
+            
+            // Update message content with cleaned table
+            message.innerHTML = cleanedTable;
+            
+            // Adjust height for table content
+            const tableHeight = message.scrollHeight;
+            message.style.height = `${Math.min(tableHeight, 200)}px`;
+            message.style.overflowY = tableHeight > 200 ? 'auto' : 'hidden';
+        }
+        
+        // Sanitize the input while allowing table elements and Excel-specific attributes
+        message.innerHTML = DOMPurify.sanitize(message.innerHTML, {
+            ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+            ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type']
+        });
+    }, 0);
 });
 
 
-
 if (roomID != "") {
-    if(document.getElementById('loading').classList.contains('hide')){
-        document.getElementById('loading').classList.remove("hide");
-        document.getElementById('loading').classList.add("show");
+    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+        document.getElementById('loadingChatWindow').classList.remove("d-none");
+        document.getElementById('loadingChatWindow').classList.add("show");
     } 
     var encryptedRoomID =encryptMessage(roomID)
     var encryptedData =encryptMessage(currentUser.username)
@@ -144,32 +202,13 @@ if (roomID != "") {
     
 }
 
-{/* <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})"> */}
-function alerting(message,type='success'){
-    $("#alert")
-    .html(
-        `<div class='alert alert-${type}' role='alert'>
-          ${message}
-        </div>`,
-    )
-    .hide();
-$("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
-    return;
-    
-}
+
 function emoji(messageId) {
     if (document.querySelectorAll('.stickerPicker')) {
         document.querySelectorAll('.stickerPicker').forEach(el => el.remove());
     }
         const emojiDiv = `
-  <div id="emoji-${messageId}" class="stickerPicker">
+  <div id="emoji-${messageId}" class="stickerPicker show">
     <div id="emojiGrid">
         <div id="emojiContainer" >
                 <!-- Emoji spans that will be rendered by Twemoji -->
@@ -274,11 +313,6 @@ function toggleEmojiContainer(messageId) {
 // twemoji.parse(emojiContainer);
 
 
-// const message = document.getElementById("editable-message-text");
-// =======================================================
-// fouces inputDiv
-// const replyBox1 = document.getElementById("replyBox");
-
 // Set placeholder text
 var placeholderText = "Message ...";
 
@@ -310,13 +344,9 @@ setPlaceholder();
 
 
 
-// =======================================================
-message.addEventListener("input", function () {
-    this.style.height = "auto"; // Reset height to calculate content height
-    this.style.height = `${this.scrollHeight}px`; // Set height based on content
-});
 
-// document.getElementById('username').value = ''
+
+document.getElementById('username').value = ''
 let image = "";
 let fileData ;
 $("#up").html('<i class= "fa fa-arrow-up" >').hide();
@@ -329,44 +359,57 @@ $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 $("#file-input").on("change", async (e) => {
     output.innerHTML+=`
     <div id="upload-container"
-    class="px-5 m-3 backdrop-blur-chat-fg"
+    class="row m-3 backdrop-blur-chat-fg"
     style="
     justify-content: flex-end;
     display: flex;
     ">
-        <progress id="upload-progress"  value="0" max="100" style="width: 100%; height: 20px;"></progress>
-        <span id="upload-status">0% uploaded</span>
+    <span>Uplouding file</span>
+        <div id="upload-progress" class="progress w-100" role="progressbar" aria-label="Example with label" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            <div id='upload-bar' class="progress-bar" style="width: 25%"></div>
+        </div>
     </div>
-    `;
+        `;
+        // </div>
+        //     <progress id="upload-progress"  value="0" max="100" style="width: 100%; height: 20px;"></progress>
+        //     <span id="upload-status">0% uploaded</span>
+        // </div>
     
     button.disabled = true;
     fileInput.disabled = true;
 
     const file = e.target.files[0];
-    const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
+    const maxSize = 50 * 1024 * 1024; // 10 MB in bytes
 
     if (!file) {
-        alerting("No file selected.", 'warning');
+        ref("No file selected.",null,null,'warning');
         button.disabled = false;
         fileInput.disabled = false;
+        document.getElementById('upload-container').remove();
+
         return;
     }
 
     if (file.size > maxSize) {
-        alerting("The file is too large. Maximum size allowed is 10 MB.", 'warning');
+        ref("The file is too large. Maximum size allowed is 10 MB.",null,null, 'warning');
         button.disabled = false;
         fileInput.disabled = false;
+        document.getElementById('upload-container').remove();
+
         return;
     }
 
     const fileName = file.name.toLowerCase();
-    const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
+    const harmfulExtensions = [];
+    // const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
     const fileExtension = fileName.split('.').pop();
 
     if (harmfulExtensions.includes(fileExtension)) {
-        alerting("The selected file has a potentially harmful extension. Please upload a safe file.", 'danger');
+        ref("The selected file has a potentially harmful extension. Please upload a safe file.",null,null, 'error');
         button.disabled = false;
         fileInput.disabled = false;
+        document.getElementById('upload-container').remove();
+
         return;
     }
 
@@ -379,11 +422,13 @@ $("#file-input").on("change", async (e) => {
         // Send Base64 encoded file to the server
         const formData = new FormData();
         formData.append("file", file);
-        $("#upload-progress").val(0);
-        $("#upload-status").text("0% uploaded");
+        // Initialize progress value
+        $(".progress-bar").css("width", "0%"); // Set initial width to 0%
+        // $("#upload-status").text("0% uploaded"); // Set initial status text
+        $(".progress-bar").innerText= `0% uploaded`; // Update the progress bar's text
 
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/upload", true);
+        xhr.open("POST", "https://mc.farahoosh.ir:4000/upload", true);
     
         // Monitor progress
         xhr.upload.onprogress = (e) => {
@@ -391,7 +436,12 @@ $("#file-input").on("change", async (e) => {
                 const percent = (e.loaded / e.total) * 100;
                 // Emit progress to the server
                 socket.emit("uploadProgress", { progress: percent });
-                $("#upload-progress").val(percent);
+                 // Update the progress bar's width
+                // document.getElementById('upload-status').setAttribute("aria-valuenow")= Math.round(percent);
+                $(".progress-bar").css("width", percent + "%");
+                $("#upload-bar").text(`${Math.round(percent)}% uploaded`); // Update the progress bar's text
+
+                // Update the status text
                 $("#upload-status").text(`${Math.round(percent)}% uploaded`);
             }
         };
@@ -402,23 +452,22 @@ $("#file-input").on("change", async (e) => {
                 const response = JSON.parse(xhr.responseText);
                 fileData = response.fileData;
                 console.log("File uploaded successfully", fileData);
-                alerting("Upload complete.", "success");
+                ref("Upload complete.", null,null,"success");
             } else {
-                alerting("Failed to upload the file.", "danger");
+                ref("Failed to upload the file.",null ,null, "danger");
             }
         };
 
         xhr.send(formData);
         socket.on("uploadSuccess", (data) => {
-            alerting(`File ${data.dir} uploaded successfully!`);
+            ref(`File ${data.dir} uploaded successfully!`,null,null,"success");
             document.getElementById('upload-container').remove();
 
         });
     } catch (error) {
         console.error("Error processing file:", error);
-        alerting("An error occurred while processing the file.", 'danger');
+        ref("An error occurred while processing the file.", 'danger');
     } finally {
-        $("#upload-progress").hide();
         button.disabled = false;
         fileInput.disabled = false;
     }
@@ -427,6 +476,27 @@ $("#file-input").on("change", async (e) => {
 
 });
 
+function convertFileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result); // Base64 encoded data
+        reader.onerror = reject;
+        reader.readAsDataURL(file); // Reads the file as base64
+    });
+}
+
+
+// const message = document.getElementById("editable-message-text");
+// =======================================================
+// fouces inputDiv
+// const replyBox1 = document.getElementById("replyBox");
+
+
+//=================================================================
+//input image
+// document.getElementById('file-inputBtn').addEventListener("click",()=>{
+//     document.getElementById('file-input').click();
+// })
 function convertFileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -445,7 +515,7 @@ const setImage = (file) => {
             fileData = {
                 fileData: base64File,
                 fileType: file.type,
-                fileName: file.name,
+                fileName: file.name.toLowerCase(),
             };
             console.log("Image processed:", fileData);
             resolve(fileData);
@@ -473,7 +543,7 @@ const setFile = (file,dir) => {
             fileData = {
                 fileData: dir,
                 fileType: file.type,
-                fileName: file.name,
+                fileName: file.name.toLowerCase(),
             };
             console.log("File processed:", fileData);
             resolve(fileData);
@@ -486,27 +556,6 @@ const setFile = (file,dir) => {
 };
 
 
-// $("#file-input").on("change", (e) => {
-//     button.disabled = true;
-//     fileInput.disabled = true;
-//     const file = e.originalEvent.target.files[0];
-//     if (file) {
-//         if (file.type != "image/gif") {
-//             options.fileType = file.type;
-//             imageCompression(file, options)
-//                 .then((compressedFile) => {
-//                     console.log(compressedFile);
-//                     setImage(compressedFile);
-//                     message.focus();
-//                 })
-//                 .catch((error) => console.log(error));
-//         } else {
-//             setImage(file);
-//         }
-//     }
-//     button.disabled = false;
-//     fileInput.disabled = false;
-// });
 
 
 
@@ -519,18 +568,34 @@ socket.emit("userLoggedIn", { username: currentUser.username });
 
 //=================================================================
 //emit chat event (send message)
+//=================================================================
 button.addEventListener("click", async () => {
     const replyBox = document.getElementById('replyBox')
     let quote = replyBox.getAttribute('reply-id') || null;
-    let text = message.innerText; // Get the HTML content
+    let text = message.innerHTML.trimStart().trimEnd(); // Get the HTML content including tables
 
-    // Sanitize the input to remove potentially dangerous content
-    text = DOMPurify.sanitize(text);
-    
-    // Replace <br> and other elements if needed
-    text = escapeHtml(text)
-    
-    // console.log(text);
+    // Sanitize the input while allowing table elements and Excel-specific attributes
+    text = DOMPurify.sanitize(text, {
+        ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+        ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
+    });
+
+    // Only escape text nodes, preserve table structure
+    text = text.replace(/[<>]/g, match => {
+        if (!text.includes('<table')) {
+            return (match);
+        }
+        return match;
+    });
+
+    // Handle any Excel-specific formatting
+    if (text.includes('data-excel')) {
+        text = text.replace(/data-excel-formula="([^"]*)"/, (match, formula) => {
+            return `data-excel-formula="${encodeURIComponent(formula)}"`;
+        });
+    }
+    console.log(text);
+    text = text.trimStart().trimEnd();
     
     if(text == 'Message ...'&& !fileData){
         $("#alert")
@@ -541,19 +606,11 @@ button.addEventListener("click", async () => {
         )
         .hide();
     $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
+
     return;
     }
     let data = {
         username: currentUser.username,
-        handle: name.textContent.trim(),
-        roomID: roomID,
         quote:quote,
         message: text == 'message ...' ?' ': text,
         file: fileData || null,
@@ -561,8 +618,6 @@ button.addEventListener("click", async () => {
     };
     let dataEncrypt = {
         username: encryptMessage(currentUser.username),
-        handle:  encryptMessage(name.textContent.trim()),
-        roomID:  encryptMessage(roomID),
         quote: encryptMessage(quote),
         message: text == 'message ...' ?' ': encryptMessage(text),
         file: fileData || null,
@@ -570,7 +625,7 @@ button.addEventListener("click", async () => {
     };
     // console.log(quote)
 
-    
+    console.log(dataEncrypt)
     if ((!data.message && !data.file) || !data.username ) {
         $("#alert")
                 .html(
@@ -580,13 +635,7 @@ button.addEventListener("click", async () => {
                 )
                 .hide();
         $("#alert").slideDown(500);
-            window.setTimeout(function () {
-                $(".alert")
-                    .fadeTo(500, 0)
-                    .slideUp(500, function () {
-                        $(this).remove();
-                    });
-        }, 3000);
+          
         return;
     }
    // Display "sending" message in UI
@@ -618,6 +667,8 @@ button.addEventListener("click", async () => {
         let fileDetails = null;
 
         if (data.file !== null && data.file !== undefined) {
+            $("#upload-progress").hide();
+
             // Ensure data.file is an array (whether single data.file or array of data.file)
             const filesArray = Array.isArray(data.file) ? data.file : [data.file];
         
@@ -679,7 +730,7 @@ button.addEventListener("click", async () => {
 
     socket.emit("chat", dataEncrypt, (ack) => {
         // Callback is triggered when the server acknowledges receipt
-        
+        console.log(ack)
         // Remove the "sending" placeholder
         var placeholder = output.querySelector("#sending");
         // console.log(placeholder)
@@ -710,18 +761,18 @@ button.addEventListener("click", async () => {
     socket.on("chat", (response) => {
         if (response.error) {
 
-            alerting(response.error,'danger');
+            ref(response.error,null,null,'error');
             return;
         }
 
         // // Add the message to the UI
         // addMessageToChatUI(response);
     });
-    // Remove "sending" placeholder once the message is successfully added to the UI
-    if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
-        setTimeout(() => {
-            applyShowMore();
-            },100);
+    // // Remove "sending" placeholder once the message is successfully added to the UI
+    // if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
+    //     setTimeout(() => {
+    //         applyShowMore();
+    //         },100);
 })
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
@@ -764,125 +815,10 @@ message.addEventListener("keydown", (event) => {
         }
     }
 });
-
 //=================================================================
-//Handle user-connected event
-
-socket.on("connect", () => {
-    socket.emit("newconnection", name.textContent);
-});
-socket.on("newconnection", (data) => {
-    $("#alert")
-        .html(
-            `<div class='alert alert-success' role='alert'>
-                ${data.handle} joined the chat
-            </div>`,
-        )
-        .hide();
-    $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
-});
-//=================================================================
-//Handle User joined the room event
-socket.on("joined", (data) => {
-    // const data = decryptMessage(encryptedData)
-    console.log("User joined room:", data);
-
-    // Ensure required fields exist
-    // if (!data.room || !data.room.roomID || !data.room.admin) {
-    //     console.error("Invalid data received in 'joined' event:", data);
-    //     return;
-    // }
-    if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
-
-    if(document.querySelector(".close")) document.querySelector(".close").click();
-    document.querySelector("#roomInfo").innerHTML = `
-        <div style="z-index:99" class="mx-3">
-    <!-- Toggle button for mobile -->
-    <button class="btn btn-secondary d-md-none" type="button" data-toggle="collapse" data-target="#roomControls" 
-        aria-expanded="false" aria-controls="roomControls">
-        Room Info <i class="bi bi-chevron-down"></i>
-    </button>
-
-    <!-- Collapsible Room Info -->
-    <div id="roomControls" class="collapse d-md-block">
-        <button type="button" class="btn btn-secondary " data-toggle="tooltip" data-html="true" 
-            title="Copy ${data.room.roomID}" data-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
-            Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
-            Admin : <em class='text-warning'>${data.name}</em>
-        </button>
-        
-        <input type="hidden" id="roomIDVal" value="${data.room.roomID}"/>
-        
-        <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
-            class='btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
-            target="_blank" title="Share on whatsapp" data-toggle="tooltip" data-placement="bottom">
-            <i class='bi bi-whatsapp'></i>
-        </a>
-        
-        <button type='button' title="Leave the room" data-toggle="tooltip" data-placement="bottom" 
-            class='btn btn-danger ml-1' onclick='leaveRoom()'>
-            <i class='bi bi-door-closed'></i>
-        </button>
-    </div>
-</div>
-`;
-    
-    // Toggle UI elements
-    if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
-    chat_window.style.display = "block";
-    document.querySelector(".form-inline").style.display = "flex";
-    document.querySelector("footer").style.display = "none";
-    
-    // Initialize tooltips
-    $('[data-toggle="tooltip"]').tooltip();
-    
-    // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
-});
-
-//=================================================================
-//Handle invalidRoom event
-socket.on("invalidRoom", ({ message }) => {
-    document.querySelector(".close").click();
-    $("#alert")
-        .html(
-            "<div class='alert alert-warning' role='alert'>" +
-                message +
-                "</div>",
-        )
-        .hide();
-    $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
-});
-
-//=================================================================
-//Handle chat event (Recieve message from server and show it on client side)
-
-// when scroll up send other user message count 
-let unreadedScroll=0;
-function updateNotifCount(count) {
-    const notifCount = document.getElementById('notifCount');
-    if (count > 0) {
-        notifCount.textContent = count;
-        notifCount.style.display = 'inline'; // Show the badge
-    } else {
-        notifCount.style.display = 'none'; // Hide the badge if count is 0
-    }
-}
-
 socket.on("chat",async(data , ack) => {
+   
+    
     const decryptedMessage = await {
             // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
                 ...data,
@@ -911,7 +847,6 @@ socket.on("chat",async(data , ack) => {
    
     const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
-    const roomID = document.getElementById('roomIDVal').value;
 
     if(lastMessage){
 
@@ -953,9 +888,9 @@ socket.on("chat",async(data , ack) => {
     }
     // $("#down").show(); // Show scroll-up button
     messageMenu()
-    setTimeout(() => {
-        applyShowMore();
-    },100);
+    // setTimeout(() => {
+    //     applyShowMore();
+    // },100);
     if(decryptedMessage.sender != currentUser.username){
         showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
         playNotificationSound()
@@ -968,9 +903,10 @@ socket.on("chat",async(data , ack) => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
-            messageId = roomID +"-"+ messageId.split('-')[1]
+            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+            messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
-            if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight  && dataReadStatus=='unread') {
                 if (messageId && !visibleMessages.includes(messageId)) {
                     visibleMessages.push(messageId);  // Add the data-id of visible messages
                     // console.log(messageId)
@@ -980,7 +916,208 @@ socket.on("chat",async(data , ack) => {
     
         // Emit the IDs of visible messages to the server
         if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
+        }
+    }
+
+});
+//=================================================================
+//Handle user-connected event
+
+socket.on("connect", () => {
+    socket.emit("newconnection", name.textContent);
+});
+socket.on("newconnection", (data) => {
+    $("#alert")
+        .html(
+            `<div class='alert alert-success' role='alert'>
+                ${data.handle} joined the chat
+            </div>`,
+        )
+        .hide();
+    $("#alert").slideDown(500);
+  
+});
+//=================================================================
+//Handle User joined the room event
+socket.on("joined", (data) => {
+    // const data = decryptMessage(encryptedData)
+    console.log("User joined room:", data);
+
+    // Ensure required fields exist
+    // if (!data.room || !data.room.roomID || !data.room.admin) {
+    //     console.error("Invalid data received in 'joined' event:", data);
+    //     return;
+    // }
+    
+    if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
+
+    // Toggle UI elements
+    document.getElementById("chat-window").style.display = "block";
+    document.querySelector("footer").style.display = "none";
+    // Initialize tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+    if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
+    document.getElementById("chat-window").style.display = "block";
+    document.querySelector(".form-inline").style.display = "flex";
+    document.querySelector("footer").style.display = "none";
+    roomID = data.room.roomID
+    console.log(roomID)
+    // Initialize tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+    if (typeof updatePVnotif === 'function') {
+        updatePVnotif();
+    }else{
+        console.log('updatePVnotif not exist')
+    }
+    
+    // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
+
+    // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
+    sentMessagesId=[]
+    sentMessagesIdLast=[]
+    loadedForClicking=false
+    hasScrolledDown = false; // Flag to track if the scroll has already occurred
+    scrolling = true;
+    lastMessageDate = null;
+    headTagVal = null;
+    lastProcessedDate = null;
+    ProcessedDate = null;
+    messagesCreated=[]
+    messagesCreatedHandler=[]
+    messageIdSplited=[]
+    lastSender = null;
+    unreadedScroll=0;
+
+});
+
+//=================================================================
+//Handle invalidRoom event
+socket.on("invalidRoom", ({ message }) => {
+    document.querySelector(".close").click();
+    $("#alert")
+        .html(
+            "<div class='alert alert-warning' role='alert'>" +
+                message +
+                "</div>",
+        )
+        .hide();
+    $("#alert").slideDown(500);
+   
+});
+
+//=================================================================
+//Handle chat event (Recieve message from server and show it on client side)
+
+// when scroll up send other user message count 
+function updateNotifCount(count) {
+    const notifCount = document.getElementById('notifCount');
+    if (count > 0) {
+        notifCount.textContent = count;
+        notifCount.style.display = 'inline'; // Show the badge
+    } else {
+        notifCount.style.display = 'none'; // Hide the badge if count is 0
+    }
+}
+
+socket.on("chat",async(data , ack) => {
+    const decryptedMessage = await {
+            // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
+                ...data,
+                message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
+                // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
+                // handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
+                readUsers: await Promise.all(
+                    (data.readUsers || []).map((readEntry) => {
+                        return {
+                            username: readEntry.username ? (readEntry.username) : readEntry.username, // رمزگشایی username فقط اگر وجود داشته باشد
+                            name: readEntry.name ? (readEntry.name) : readEntry.name, // رمزگشایی name فقط اگر وجود داشته باشد
+                            reaction: readEntry.reaction ? (readEntry.reaction) : '', // رمزگشایی reaction فقط اگر وجود داشته باشد
+                            time: readEntry.time ? (readEntry.time) : readEntry.time, // رمزگشایی time فقط اگر وجود داشته باشد
+                        };
+                    })
+                ),
+                reply: data.reply ? {
+                    ...data.reply,
+                    message: data.reply.message ? decryptMessage(data.reply.message) : data.reply.message, // رمزگشایی message در reply فقط اگر وجود داشته باشد
+                    sender: data.reply.sender ? decryptMessage(data.reply.sender) : data.reply.sender, // رمزگشایی sender در reply فقط اگر وجود داشته باشد
+                } : null, 
+            };
+    if (ack.success) {
+   
+  
+   
+    const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
+
+
+    if(lastMessage){
+
+        if( lastMessage.getAttribute('data-id')){
+            let lastMessageId = lastMessage.getAttribute('data-id');
+            lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
+            const threshold = 100; // Proximity in pixels to the top of the viewport
+            let rect = lastMessage.getBoundingClientRect()
+
+            if (rect.bottom >= -threshold 
+                &&rect.top <= window.innerHeight+threshold) {
+                    addMessageToChatUI(decryptedMessage)
+                    // console.log(decryptedMessage.sender)
+                
+                scrollDown()
+
+                }else{
+                    unreadedScroll += 1;
+                    updateNotifCount(unreadedScroll)
+                    console.log('unreaded:',unreadedScroll)
+                    if(decryptedMessage.sender != currentUser.username){
+                        if(output.querySelectorAll('.unread').length == 0){
+                            decryptedMessage = {
+                                ...decryptedMessage,
+                                readLine:true
+                            }
+                        }else{
+                            
+                            // console.log(output.querySelectorAll('.unread'))
+                        }
+                        addMessageToChatUI(decryptedMessage)
+                        hasScrolledDown = false
+                    }
+                }
+            }
+    }
+    
+    }
+    // $("#down").show(); // Show scroll-up button
+    // setTimeout(() => {
+    //     applyShowMore();
+    // },100);
+    if(decryptedMessage.sender != currentUser.username){
+        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
+        playNotificationSound()
+    }
+    const messages = document.querySelectorAll(".messageRead"); // Class of each message div
+
+    if(!document.hidden){
+        const visibleMessages = [];
+
+        messages.forEach((message) => {
+            const rect = message.getBoundingClientRect();
+            let messageId = message.getAttribute('data-id');
+            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+            messageId = roomID+"-"+ messageId.split('-')[1]
+
+            // Check if the message is in the viewport (visible)
+            if (rect.top >= 0 && rect.bottom <= window.innerHeight && dataReadStatus=='unread') {
+                if (messageId && !visibleMessages.includes(messageId)) {
+                    visibleMessages.push(messageId);  // Add the data-id of visible messages
+                    // console.log(messageId)
+                }
+            }
+        });
+    
+        // Emit the IDs of visible messages to the server
+        if (visibleMessages.length > 0) {
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
         }
     }
 });
@@ -996,7 +1133,6 @@ socket.on("typing", (data) => {
            
             const lastMessage = output.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
-            const roomID = document.getElementById('roomIDVal').value;
 
             if(lastMessage){
 
@@ -1060,7 +1196,7 @@ socket.on("left", (user) => {
 //=================================================================
 //Handle User-Disconnected event
 socket.on("userJoined", (data) => {
-    alerting(`${data} has join the room`);
+    ref(`${data} has join the room`,null,null,'info');
 });
 socket.on("members", (data) => {
     
@@ -1074,6 +1210,7 @@ socket.on("members", (data) => {
         }
         document.documentElement.style.setProperty(`--color-peer-${member}`, color); // Set property for root CSS
     });
+    
         // members.innerHTML += `<li class="list-group-item" style="color: ${color};">${member}</li>`;
 });
 //=================================================================
@@ -1088,33 +1225,20 @@ socket.on("userDisconnected", (data) => {
         )
         .hide();
     $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
+  
+
 });
 
 //=================================================================
 //Handle error
 socket.on("error", ({ message }) => {
-    console.log(message)
-    $("#alert")
-        .html(
-            `<div class='alert alert-danger' role='alert'>
-                ${message}</div>`,
-        )
-        .hide();
-    $("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
+    // alert('error message is: ',message)
+        console.log('error message is: ',message)
+        chat_window.innerHTML= `<p dir='ltr' class="alert alert-danger" style='font-weight: normal; font-style: italic; font-size: .8em;'>
+            ${message}
+          </p>`
+          if(document.getElementById('opneChatBtn'))   document.getElementById('opneChatBtn').style.display = "none";
+          chat_window.style.display = "block";
 });
 
 //=================================================================
@@ -1138,13 +1262,12 @@ const scrollDown = () => {
     $("#down").fadeOut(); // hide scroll-up button
 
     if (loadedForClicking) {
-        const roomID = document.querySelector("#roomID").textContent.trim();
     
-        // Show the loading spinner if hidden
-        const loadingElement = document.getElementById('loading');
-        if (loadingElement.classList.contains('hide')) {
-            loadingElement.classList.remove("hide");
-            loadingElement.classList.add("show");
+        // Show the loadingChatWindow spinner if hidden
+        const loadingChatWindowElement = document.getElementById('loadingChatWindow');
+        if (loadingChatWindowElement.classList.contains('d-none')) {
+            loadingChatWindowElement.classList.remove("d-none");
+            loadingChatWindowElement.classList.add("show");
         }
     
         // Emit the event and wait for the server's acknowledgment
@@ -1242,26 +1365,26 @@ if (message) {
             let firstMessageId = firstMessage.getAttribute('data-id');
             if (messageId <= firstMessageId){
             firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-            let messageIdreplied = roomID +"-"+ messageId.split('-')[1]
+            let messageIdreplied = "-"+ messageId.split('-')[1]
             
             if (!sentMessagesId.includes(firstMessageId)) {
-            const isSmallerThanAll = sentMessagesId.every((id) => {
-                return firstMessageId < id; // Compare lexicographically (string comparison)
-            });
-            
-            // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
-            if (isSmallerThanAll) {
+                const isSmallerThanAll = sentMessagesId.every((id) => {
+                    return firstMessageId < id; // Compare lexicographically (string comparison)
+                });
                 
-                // console.log(firstMessageId)
-                if(document.getElementById('loading').classList.contains('hide')){
-                    document.getElementById('loading').classList.remove("hide");
-                    document.getElementById('loading').classList.add("show");
-                } 
-                sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
-                    // Emit the request for older messages to the server and wait for a response
-                socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
-            }
-        }              
+                // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+                if (isSmallerThanAll) {
+                    
+                    // console.log(firstMessageId)
+                    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                        document.getElementById('loadingChatWindow').classList.remove("d-none");
+                        document.getElementById('loadingChatWindow').classList.add("show");
+                    } 
+                    sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+                        // Emit the request for older messages to the server and wait for a response
+                    socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
+                }
+            }              
 
             // Wait for the server response
             socket.on("olderMessagesLoaded", (prepend) => {
@@ -1328,13 +1451,7 @@ const copyId = (id) => {
         )
         .hide();
     $("#alert").slideDown(300);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 1500);
+ 
 };
 //=================================================================
 // Function to add messages to the chat UI
@@ -1377,9 +1494,9 @@ socket.on("restoreMessages", async  (data) => {
         // console.log(decryptedMessages);
    
       
-    if(document.getElementById('loading').classList.contains('hide')){
-        document.getElementById('loading').classList.remove("hide");
-        document.getElementById('loading').classList.add("show");
+    if(document.getElementById('loadingChatWindow').classList.contains('d-none') && msg.length > 0){
+        document.getElementById('loadingChatWindow').classList.remove("d-none");
+        document.getElementById('loadingChatWindow').classList.add("show");
     } 
     if(data.reply){
         sentMessagesIdLast=[]
@@ -1389,13 +1506,13 @@ socket.on("restoreMessages", async  (data) => {
         output.innerHTML=''
     }
     if(data.Latest){
+        loadNextMessage = false;
         sentMessagesIdLast=[]
         hasScrolledDown= false
         sentMessagesId=[]
         // loadedForClicking=true
         output.innerHTML=''
     }
-    const roomID = document.querySelector("#roomID").textContent.trim()
     if (output.querySelectorAll('.MessagePack').length >= 3 && !data.unread) {
         var MessagePack = output.querySelectorAll('.MessagePack');
     
@@ -1412,7 +1529,7 @@ socket.on("restoreMessages", async  (data) => {
                     loadedForClicking=true
                 }
             }
-           
+            loadNextMessage=true;
             sentMessagesIdLast=[]
         } else {
             
@@ -1505,7 +1622,8 @@ socket.on("restoreMessages", async  (data) => {
                 let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
                 inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
                 // console.log('before border :',inLast.style.borderRad)
-                inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
+                // inLast.style.borderRadius = '2px' ;
+                inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px' ;
                 // console.log('after border :',inLast.style.borderRad)
             }
         }
@@ -1521,20 +1639,20 @@ socket.on("restoreMessages", async  (data) => {
                 let messageId = messages[0].getAttribute('data-id');
                 
                 if (messageId) {
-                    if(document.getElementById('loading').classList.contains('hide')){
-                        document.getElementById('loading').classList.remove("hide");
-                        document.getElementById('loading').classList.add("show");
+                    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                        document.getElementById('loadingChatWindow').classList.remove("d-none");
+                        document.getElementById('loadingChatWindow').classList.add("show");
                     } 
-                    messageId = roomID +"-"+ messageId.split('-')[1]
+                    messageId = "-"+ messageId.split('-')[1]
                     // Emit the request for older messages to the server
                     socket.emit("requestOlderMessages", { roomID: roomID, counter: messageId });
                 } else {
                     console.error("Message ID is null or undefined.");
                 }
             } else {
-                if(document.getElementById('loading').classList.contains('hide')){
-                    document.getElementById('loading').classList.remove("hide");
-                    document.getElementById('loading').classList.add("show");
+                if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                    document.getElementById('loadingChatWindow').classList.remove("d-none");
+                    document.getElementById('loadingChatWindow').classList.add("show");
                 } 
                 socket.emit("requestOlderMessages", { roomID: roomID, counter:`${roomID}-0` , type:'latest' });
             }
@@ -1542,30 +1660,33 @@ socket.on("restoreMessages", async  (data) => {
             console.error("Element with id 'roomIDVal' not found.");
         }
     } 
+    
+    // Get all the message elements
+    const messages = document.querySelectorAll(".messageElm");
+    const messageReads = document.querySelectorAll(".messageRead");
+    const visibleMessages = [];
+    messageReads.forEach((message) => {
+        
+    let messageId = message.getAttribute("data-id");
+    let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+    const rect = message.getBoundingClientRect();
+    messageId = roomID+"-"+ messageId.split('-')[1]
+    // Check if the message is in the viewport (visible)
+    if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+        if (messageId && !visibleMessages.includes(messageId) && dataReadStatus=='unread') {
+            visibleMessages.push(messageId);  // Add the data-id of visible messages
+            // console.log("read messageId",messageId)
+            // console.log("read user",currentUser.username)
+        }
+    }
+    })
+    
+    // Emit the IDs of visible messages to the server
+    if (visibleMessages.length > 0) {
+        socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
+    }
     // Initialize a variable to store the last seen date to compare
 
-        // Get all the message elements
-        const messages = document.querySelectorAll(".messageElm");
-        const messageReads = document.querySelectorAll(".messageRead");
-        const visibleMessages = [];
-        messageReads.forEach((message) => {
-            
-        let messageId = message.getAttribute("data-id");
-        const rect = message.getBoundingClientRect();
-        messageId = roomID +"-"+ messageId.split('-')[1]
-        // Check if the message is in the viewport (visible)
-        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-            if (messageId && !visibleMessages.includes(messageId)) {
-                visibleMessages.push(messageId);  // Add the data-id of visible messages
-                // console.log(messageId)
-            }
-        }
-        })
-        
-        // Emit the IDs of visible messages to the server
-        if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
-        }
         // Iterate through all messages
         messages.forEach((message) => {
             const messageDate = new Date(message.getAttribute("date-id")); // Convert date-id to Date object
@@ -1603,10 +1724,10 @@ socket.on("restoreMessages", async  (data) => {
             }
             
         });
-        if(document.getElementById('loading').classList.contains('show')){
-            document.getElementById('loading').classList.remove("show");
-            document.getElementById('loading').classList.add("hide");
+        if(document.getElementById('loadingChatWindow').classList.contains('show')){
+            document.getElementById('loadingChatWindow').classList.remove("show");
         }
+        document.getElementById('loadingChatWindow').classList.add("d-none");
         if(data.latest){
             const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
 
@@ -1656,56 +1777,114 @@ socket.on("restoreMessages", async  (data) => {
                 }
             }
         }
-        setTimeout(() => {
-            applyShowMore();
-        },100);
+        if(data.unread){
+            const messageReadsUnread = document.querySelectorAll(".messageRead");
+            const visibleMessagesUnread = [];
+            messageReadsUnread.forEach((message) => {
+                
+            let messageId = message.getAttribute("data-id");
+            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+
+            const rect = message.getBoundingClientRect();
+            messageId = roomID+"-"+ messageId.split('-')[1]
+            // Check if the message is in the viewport (visible)
+        
+            if (messageId && !visibleMessagesUnread.includes(messageId) && dataReadStatus=='unread') {
+                visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
+                console.log("read messageId",messageId)
+                console.log("read user",currentUser.username)
+            }
+            
+            })
+            
+            // Emit the IDs of visible messages to the server
+            if (visibleMessagesUnread.length > 0) {
+                socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, roomID: roomID });
+            }
+        }
+        // setTimeout(() => {
+        //     applyShowMore();
+        // },100);
         messageMenu()
         enableScrolling()
-
+        if (typeof updatePVnotif === 'function') {
+            updatePVnotif();
+        }else{
+            console.log('updatePVnotif not exist')
+        }
+        
     });
 
     socket.on("noMoreMessages",(data) =>{
         console.log(data.message)
-        if(document.getElementById('loading').classList.contains('show')){
-            document.getElementById('loading').classList.remove("show");
-            document.getElementById('loading').classList.add("hide");
+        if(document.getElementById('loadingChatWindow').classList.contains('show')){
+            document.getElementById('loadingChatWindow').classList.remove("show");
         }
-        
+        document.getElementById('loadingChatWindow').classList.add("d-none");
+        loadNextMessage = false;
+
         // output.querySelector('.firstMessage').innerHTML=''
     })
 // -----------------setting----------------
 document.addEventListener("DOMContentLoaded", () => {
-    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    if (Notification.permission !== "granted") {
-        Notification.requestPermission();
-    }
+  const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
 
-    if (savedSettings) {
-        const hexToRgb = (hex) => {
-            const bigint = parseInt(hex.slice(1), 16);
-            const r = (bigint >> 16) & 255;
-            const g = (bigint >> 8) & 255;
-            const b = bigint & 255;
-            return `${r}, ${g}, ${b}`;
-        };
+if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
 
-        const bgColor = savedSettings.bgColor.startsWith("#") ? hexToRgb(savedSettings.bgColor) : savedSettings.bgColor;
-        const fgColor = savedSettings.fgColor.startsWith("#") ? hexToRgb(savedSettings.fgColor) : savedSettings.fgColor;
-        const sideBgColor = savedSettings.sideBgColor.startsWith("#") ? hexToRgb(savedSettings.sideBgColor) : savedSettings.sideBgColor;
-        const sideFgColor = savedSettings.sideFgColor.startsWith("#") ? hexToRgb(savedSettings.sideFgColor) : savedSettings.sideFgColor;
-        const chatWindowBgColor = savedSettings.chatWindowBgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowBgColor) : savedSettings.chatWindowBgColor;
-        const chatWindowFgColor = savedSettings.chatWindowFgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowFgColor) : savedSettings.chatWindowFgColor;
+const hexToRgb = (hex) => {
+    const bigint = parseInt(hex.slice(1), 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `${r}, ${g}, ${b}`;
+};
 
-        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
-        document.documentElement.style.setProperty("--user-bg-color", bgColor);
-        document.documentElement.style.setProperty("--user-fg-color", fgColor);
-        document.documentElement.style.setProperty("--user-side-bg-color", sideBgColor);
-        document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);
-        document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
-        document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
-        document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
-        console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
-    }
+if (savedSettings) {
+    const bgColor = savedSettings.bgColor.startsWith("#") ? hexToRgb(savedSettings.bgColor) : savedSettings.bgColor;
+    const fgColor = savedSettings.fgColor.startsWith("#") ? hexToRgb(savedSettings.fgColor) : savedSettings.fgColor;
+    const sideBgColor = savedSettings.sideBgColor.startsWith("#") ? hexToRgb(savedSettings.sideBgColor) : savedSettings.sideBgColor;
+    const sideFgColor = savedSettings.sideFgColor.startsWith("#") ? hexToRgb(savedSettings.sideFgColor) : savedSettings.sideFgColor;
+    const chatWindowBgColor = savedSettings.chatWindowBgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowBgColor) : savedSettings.chatWindowBgColor;
+    const chatWindowFgColor = savedSettings.chatWindowFgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowFgColor) : savedSettings.chatWindowFgColor;
+
+    document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+    document.documentElement.style.setProperty("--user-bg-color", bgColor);
+    document.documentElement.style.setProperty("--user-fg-color", fgColor);
+    document.documentElement.style.setProperty("--user-side-bg-color", sideBgColor);
+    document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);
+    document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
+    document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
+    document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
+    console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
+} else {
+    // Apply default settings
+    document.documentElement.style.setProperty("--user-font-size", "16px");
+    document.documentElement.style.setProperty("--user-bg-color", "204, 238, 191");
+    document.documentElement.style.setProperty("--user-fg-color", "0, 0, 0");
+    document.documentElement.style.setProperty("--user-side-bg-color", "242, 242, 242");
+    document.documentElement.style.setProperty("--user-side-fg-color", "33, 33, 33");
+    document.documentElement.style.setProperty("--user-chat-bg-color", "245, 245, 245");
+    document.documentElement.style.setProperty("--user-chat-fg-color", "33, 33, 33");
+    document.documentElement.style.setProperty("--user-border-radius", "17px");
+    console.log("Default settings applied.");
+    const userSettings = {
+                marginLeft: "10%",
+                marginRight: "%10",
+                chatWindowBgColor: "245, 245, 245",
+                chatWindowFgColor: "33, 33, 33",
+                bgColor: "204, 238, 191", // Assuming a background color picker exists
+                fgColor: "0, 0, 0", // Assuming a background color picker exists
+                sideBgColor: "242, 242, 242", // Assuming a background color picker exists
+                sideFgColor: "33, 33, 33", // Assuming a background color picker exists
+                fontSize: "16px", // Get font size from range input
+                borderRad: "17px", // Get font size from range input
+            };
+    socket.emit("saveSettings", userSettings , currentUser.username);
+
+}
+
 });
 if(document.getElementById("settingsButton")){
     document.getElementById("settingsButton").addEventListener("click", () => {
@@ -1751,7 +1930,7 @@ if(document.getElementById("saveSettings")){
         // Optionally save settings to the server
         socket.emit("saveSettings", userSettings , currentUser.username);
 
-        alerting("Settings saved successfully!");
+        ref("Settings saved successfully!",null,null,'success');
         document.getElementById("settingsPanel").style.display = "none"; // Close panel
         window.location.reload(); // This will refresh the page and reset the UI
 
@@ -1848,16 +2027,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-let lastMessageDate = null;
-let headTagVal = null;
-let lastProcessedDate = null;
-let ProcessedDate = null;
-let messagesCreated=[]
-let messagesCreatedHandler=[]
-let messageIdSplited=[]
-let lastSender = null;
 
 function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true , MessagePack = output.querySelectorAll('.MessagePack')) {
+    
     if(messagesCreated.includes(data.id)){
         const MessageElm = output.querySelector(`#Message-${data.id.split('-')[1]}`)
         if(MessageElm)MessageElm.remove()
@@ -1939,12 +2111,14 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
         }
     }
+    // const borderRadiusFalse = () =>{ 
+    //     return '2px'}
     const style = ownMessage
         ? ` background-color:rgb(var(--user-bg-color));
             color:rgb(var(--user-fg-color));
             font-size:${fontSize};
             border-radius: ${borderRadiusFalse()};`
-        : ` background-color:rgb(var(--user-side-bg-color));
+        : ` background-color: white !important;
             color:rgb(var(--user-side-fg-color));
             font-size:${fontSize};
             border: 1px solid var(--color-peer-${data.sender}) !important;
@@ -1985,10 +2159,14 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     }   
 
     // Main message content
+    let readStatus='unread';
     const reactionMember = data.readUsers
     ? data.readUsers
         .map((r) => {
             r.username= decryptMessage(r.username)
+            if(r.username == currentUser.username){
+                readStatus = 'read'
+            }
           return r.reaction
             ? `<span class='${r.username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' ${r.username == currentUser.username ? `onClick="addStickerReaction('',${messageId})"`:''} user-id="${r.username}">${r.reaction}</span>`
             : "";
@@ -2001,12 +2179,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const readInfoHTML = data.readUsers
     ? data.readUsers
           .map((r) => {
-            if(r.name === name.textContent.trim().normalize('NFC')&& r.reaction !== ""){
+            if(r.username === currentUser.username&& r.reaction !== ""){
               return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
                        ${"you"} ${r.reaction}
                      </div>
                      <hr>`
-            }else if(r.name !== name.textContent.trim().normalize('NFC')){
+            }else if(r.username !== currentUser.username){
                 return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
                 ${r.name} at ${formatTimestamp(r.time)} ${r.reaction}
               </div>
@@ -2016,10 +2194,6 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
           .join("")
     : "";
 
-    const emojiDiv = `
-    ${emoji(messageId)}
-    
-    `
     // <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
     // <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
     // </button>
@@ -2089,120 +2263,143 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
 // ${ownMessage? `right_box1 `:`left_box2 `}
     contentToAdd += `
+    <div id="Message-${messageId}" 
+         class="messageElm m-1" 
+         date-id="${messageDate}" 
+         style="${divStyle} align-items: center;" 
+         sender="${data.sender}">
 
-    <div id="Message-${messageId}" class="messageElm" date-id="${messageDate}" style="${divStyle}  align-items: center;"  sender="${data.sender}">
-        ${ownMessage?`
-            
-            <div class="read-info mx-3"  id="read-info-${data.id}" style="font-size:${fontSize};border-radius:${borderRad};">
-              ${readInfoHTML}
-            </div>`
-            :''}
+        ${ownMessage ? `
+        <div class="read-info mx-3" 
+             id="read-info-${data.id}" 
+             style="font-size:${fontSize};border-radius:${borderRad};">
+            ${readInfoHTML}
+        </div>` : ''}
              
-        <div    style="${style};
-                margin:2px;" class=" message mess py-1 mr-1  col-md-6">
+        <div class="message mess py-1 mr-1 p-2 row"
+             style="${style}; margin:2px;">
 
             ${handler()}
-                ${data.reply && data.reply!==null ? `<div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" replyID="Message-${(data.quote).split('-')[1]}">
-                    <h7 class="message-title" dir="rtl" style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
-                        ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
-                    </h7>
-                    <span class="px-2" dir="auto">${(data.reply.message)}</span>
-                    </div>`:''}
-                
-                ${data.file && data.file!==null ? data.file.map(file => `
-                    <!-- Thumbnail Display -->
-                    ${file.fileType.startsWith("image/") ? `
-                        <!-- Thumbnail Image -->
-                        <img class="img-fluid m-1" src="${file.file}" style="border-radius:  ${borderRadiusFalse()};" loading="lazy" alt="Image" onclick="openImage('${file.file}')">
-                        
-                        <!-- Modal for Enlarged Image -->
-                        <div id="imageModal" class="imageModal">
-                            <span class="close" onclick="closeModal()">&times;</span>
-                            <img id="modalImage" class="imageModal-content" src="${file.file}" alt="Enlarged Image">
-                            <div class="imageModal-caption">
-                                <a id="downloadLink" href="${file.file}" download="${file.fileName || 'image.jpg'}" class="btn btn-primary">
-                                    <i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>
-                                    Download
-                                </a>
-                            </div>
-                        </div>
-                    ` : file.fileType === "application/pdf" ? `
-                        <!-- PDF Display -->
-                    <div class="file-actions" >
-                            <iframe class=" m-1 pdf-frame" src="${file.file}" frameborder="0" loading="lazy"></iframe>
-                            <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
-                        </div>
-                    ` : file.fileType.startsWith("video/") ? `
-                        <!-- Video Display -->
-                        <video class=" m-1 video-preview" controls>
-                            <source src="${file.file}" type="${file.fileType}">
-                            Your browser does not support the video tag.
-                        </video>
-                        <div class="file-actions">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'video.mp4'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
-                        </div>
-                    ` : `
-                        <!-- Generic File Display -->
-                        <div class="m-1 file-info">
-                            <p>File: ${file.fileName || 'Unknown File'}</p>
-                        </div>
-                        <div class="file-actions">
-                            <a id="downloadLink" href="${file.file}" download="${file.fileName || 'file'}" class="btn btn-primary"><i class="bi bi-filetype-${(file.fileName).split('.')[1]}"></i>Download</a>
-                        </div>
-                    `}
-                `).join('') : ""}
-                
-                            <div class="text-content" style="display: flex ;justify-content: space-between;}" >
 
-                    <div class="dataMessage "  message-id="Message-${messageId}" dir="auto">
+            ${data.reply && data.reply!==null ? `
+            <div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" 
+                 replyID="Message-${(data.quote).split('-')[1]}">
+                <h7 class="message-title" 
+                    dir="rtl" 
+                    style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
+                    ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
+                </h7>
+                <span class="px-2" dir="auto">${(data.reply.message)}</span>
+            </div>` : ''}
+                
+            ${data.file && data.file!==null ? data.file.map(file => `
+                ${file.fileType.startsWith("image/") ? `
+                    <img class="img-fluid m-1" 
+                         src="https://mc.farahoosh.ir:4000${file.file}" 
+                         style="border-radius: ${borderRadiusFalse()};width: auto;height: 100px;" 
+                         loadingChatWindow="lazy" 
+                         alt="Image" 
+                         onclick="openImage('https://mc.farahoosh.ir:4000${file.file}')">
                     
-                        ${(data.message)}
+                    <a id="downloadLink" 
+                       target='_blank' 
+                       href="https://mc.farahoosh.ir:4000${file.file}" 
+                       download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" 
+                       class="btn col-12 btn-primary">
+                        <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                        ${file.fileName || 'Unknown File'} Download
+                    </a>
+                    
+                ` : file.fileType === "application/pdf" ? `
+                    <div class="file-actions">
+                        <a id="downloadLink" 
+                           target='_blank' 
+                           href="https://mc.farahoosh.ir:4000${file.file}" 
+                           download="https://mc.farahoosh.ir:4000${file.fileName || 'file.pdf'}" 
+                           class="btn btn-primary">
+                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i> 
+                            ${file.fileName || 'Unknown File'} Download
+                        </a>
                     </div>
- 
-                            <span  dir="ltr" class="px-1 timeSeen" >${new Intl.DateTimeFormat("en-US", {
-                                hour: "numeric",
-                                minute: "numeric",
-                                hour12: false, // This ensures 24-hour format
-
-                            }).format(messageDate || new Date())}
-                           
-                        ${ownMessage
-                                ? `
-                                <button 
-                                    class="read-toggle" 
-                                    read-data-id="${data.id}" 
-                                    title="Seen member info" 
-                                    onclick="openReadedMessage('${data.id}')" 
-                                    style="    bottom: -3px;
-                                                position: relative;
-                                                cursor:pointer;
-                                                text-align:right;
-                                                color:var(--user-fg-color);
-                                                border:none;background:none;">
-                                    <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>` : `<i class="bi bi-check2"></i>`}</strong>
-                                </button>
-                                                `
-                        : ''}
-                         </span>
-                                                                </div>
-
-            </div>
-            </div>
-            <div class="messageRead" data-id="Message-${messageId}"  >
-                <div  style="${divStyle}"  class=" footerMessage" >
-                    <div class="${reactionMember!=''?'my-3':''}" reactionMessage = "${messageId}">
-                    ${reactionMember}
+                ` : file.fileType.startsWith("video/") ? `
+                    <video class="m-1 video-preview" controls>
+                        <source src="https://mc.farahoosh.ir:4000${file.file}" type="${file.fileType}">
+                        Your browser does not support the video tag.
+                    </video>
+                    <div class="file-actions">
+                        <a id="downloadLink" 
+                           target='_blank' 
+                           href="https://mc.farahoosh.ir:4000${file.file}" 
+                           download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" 
+                           class="btn btn-primary">
+                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                            ${file.fileName || 'Unknown File'} Download
+                        </a>
                     </div>
+                ` : `
+                    <div class="file-actions">
+                        <a id="downloadLink" 
+                           target='_blank' 
+                           href="https://mc.farahoosh.ir:4000${file.file}" 
+                           download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" 
+                           class="btn btn-primary">
+                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                            ${file.fileName || 'Unknown File'} Download
+                        </a>
+                    </div>
+                `}
+            `).join('') : ""}
+                
+            <div class="text-content" style="display: flex; justify-content: space-between;">
+                <div class="dataMessage"  message-id="Message-${messageId}" dir="auto">
+                    ${data.message.replace(/&lt;br&gt;/g, '<br>')}
                 </div>
+
+                <span dir="ltr" class="px-1 timeSeen">
+                    ${new Intl.DateTimeFormat("en-US", {
+                        hour: "numeric",
+                        minute: "numeric", 
+                        hour12: false
+                    }).format(messageDate || new Date())}
+                   
+                    ${ownMessage ? `
+                    <button class="read-toggle"
+                            read-data-id="${data.id}"
+                            title="Seen member info"
+                            onclick="openReadedMessage('${data.id}')"
+                            style="bottom: -3px; position: relative; cursor:pointer; text-align:right; color:var(--user-fg-color); border:none; background:none;">
+                        <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>` : `<i class="bi bi-check2"></i>`}</strong>
+                    </button>` : ''}
+                </span>
             </div>
-            
-    `;
+        </div>
+    </div>
+
+    <div class="messageRead"
+    data-readStatus='${readStatus}'
+    data-id="Message-${messageId}">
+        <div style="${divStyle}" class="footerMessage">
+            <div class="${reactionMember!=''?'my-4':''}" reactionMessage="${messageId}">
+                ${reactionMember}
+            </div>
+        </div>
+    </div>`;
+      // <div class="file-actions" >
+                    //         <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" loadingChatWindow="lazy"></iframe>
+                    //         <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
+                    //     </div>
     let firstMessage = `
     <div data-id="Message-${messageId}" class="firstMessage">
-            <button class="btn btn-outline-secondary my-3 " style="border-radius:50%; border: 2px solid;"  onclick="loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
+            <button class="btn btn-outline-secondary my-3 " style="border-radius:50% !important; border: 2px solid;"  onclick="loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
 
     </div>
     `;
+    // `
+    // <div data-id="Message-${messageId}" class="firstMessage">
+    //         <button class="btn btn-outline-secondary my-3 " style="border-radius:50%; border: 2px solid;"  onclick="loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
+
+    // </div>
+    // `;
     let lastMessage = `
         <div data-id="Message-${messageId}" class="lastMessage"></div>
     `;
@@ -2260,37 +2457,43 @@ if (isLastMessage) {
 
     searchMessageReply()
     // Run the function to apply the functionality
+    if (typeof updatePVnotif === 'function') {
+        updatePVnotif();
+    }else{
+        console.log('updatePVnotif not exist')
+    }
+    
 
 }
 
-// Function to check and apply "more..." for all messages
-function applyShowMore() {
-    const messages = document.querySelectorAll('.dataMessage');
+// // Function to check and apply "more..." for all messages
+// function applyShowMore() {
+//     const messages = document.querySelectorAll('.dataMessage');
 
-    messages.forEach((message) => {
-        // const showMoreButton = message.querySelector('.show-more');
-        const messageId= message.getAttribute('message-id');
-        // Calculate the height of one line of text
-        const lineHeight = parseFloat(getComputedStyle(message).lineHeight);
-        const maxVisibleHeight = lineHeight * 5; // Maximum height for 5 lines
+//     messages.forEach((message) => {
+//         // const showMoreButton = message.querySelector('.show-more');
+//         const messageId= message.getAttribute('message-id');
+//         // Calculate the height of one line of text
+//         const lineHeight = parseFloat(getComputedStyle(message).lineHeight);
+//         const maxVisibleHeight = lineHeight * 5; // Maximum height for 5 lines
 
-        // Check if the text exceeds 5 lines
-        // console.log('id :',message.getAttribute('message-id')," height :" , message.scrollHeight)
-        if (message.scrollHeight > maxVisibleHeight) {
-            message.style.maxHeight = `${maxVisibleHeight}px`; // Limit to 5 lines
-            // showMoreButton.style.display = 'inline';
-            message.insertAdjacentHTML('afterend',`<div class="backdrop-blur p-1 show-more"  style="display: inline;" onclick="showMore('${messageId}')" message-id="${messageId}">
-                <i class="bi bi-arrow-down-circle"></i>
-                </div>`)
-        }
+//         // Check if the text exceeds 5 lines
+//         // console.log('id :',message.getAttribute('message-id')," height :" , message.scrollHeight)
+//         if (message.scrollHeight > maxVisibleHeight) {
+//             message.style.maxHeight = `${maxVisibleHeight}px`; // Limit to 5 lines
+//             // showMoreButton.style.display = 'inline';
+//             message.insertAdjacentHTML('afterend',`<div class="backdrop-blur p-1 show-more"  style="display: inline;" onclick="showMore('${messageId}')" message-id="${messageId}">
+//                 <i class="bi bi-arrow-down-circle"></i>
+//                 </div>`)
+//         }
 
-        // // Add event listener for the "more..." button
-        // showMoreButton.addEventListener('click', () => {
-        //     message.style.maxHeight = 'none'; // Expand to show full text
-        //     showMoreButton.style.display = 'none';
-        // });
-    });
-}
+//         // // Add event listener for the "more..." button
+//         // showMoreButton.addEventListener('click', () => {
+//         //     message.style.maxHeight = 'none'; // Expand to show full text
+//         //     showMoreButton.style.display = 'none';
+//         // });
+//     });
+// }
 function showMore(messageId) {
     const message = document.querySelector(`.dataMessage[message-id="${messageId}"]`);
     const button = document.querySelector(`.show-more[message-id="${messageId}"]`);
@@ -2345,31 +2548,33 @@ function toggleStickerPicker( messageId , pageX =0 ,pageY=0 ) {
      
     console.log("Sticker picker toggled for message ID: ",messageId, pageX ," , ",pageY);
     // Implement logic for showing/hiding sticker picker
-    
-    var stickerPicker = chat_window.querySelector(`#emoji-${messageId}`);
+    document.body.insertAdjacentHTML(`beforeend`,emoji(messageId))
+    var stickerPicker = document.getElementById(`emoji-${messageId}`);
     stickerPicker.style.left = `${pageX}px`; // Position menu at cursor's X position
     stickerPicker.style.top = `${pageY}px`;  // Position menu at cursor's Y position
-    if (stickerPicker.classList.contains("show")) {
-        stickerPicker.classList.remove("show");
-        stickerPicker.classList.add("hide");
-    } else {
-        stickerPicker.classList.remove("hide");
-        stickerPicker.style.display = "block";
+    // if (stickerPicker.classList.contains("show")) {
+    //     stickerPicker.classList.remove("show");
+    //     stickerPicker.classList.add("hide");
+    // } else {
+    //     stickerPicker.classList.remove("hide");
+    //     stickerPicker.style.display = "block";
         
-        stickerPicker.classList.add("show");
-    }
+    //     stickerPicker.classList.add("show");
+    // }
 }
 
 // Function to add sticker reaction
 function addStickerReaction(reaction,messageId) {
-    const roomID = document.getElementById('roomID').textContent.trim()
     const message = roomID +"-"+ messageId
     
     // console.log("Sticker selected:", reaction);
     // console.log("message selected:", message);
     // Here, emit the reaction to the server or update the UI accordingly
     socket.emit("addReaction", { username: currentUser.username, messageId: message, reaction:reaction });
-    toggleStickerPicker(messageId);  // Close the sticker picker after selection
+    var stickerPicker = document.getElementById(`emoji-${messageId}`);
+
+    stickerPicker.remove();
+
 }
 
 // Filter function to search emojis
@@ -2471,7 +2676,7 @@ socket.on("readMessageUpdate", ({ id, readUsers }) => {
         toggleBtn.innerHTML=`<i class="bi bi-check2-all"></i>`
         // Update the read information for each read user
         readUsers.forEach((r) => {
-            if (r.name !== name.textContent.trim().normalize('NFC')) {
+            if (r.username !== currentUser.username) {
                 updateTimeForReadUser(r, readInfoElement);
             }
         });
@@ -2492,11 +2697,13 @@ const updateTimeForReadUser = (r, readInfoElement) => {
             clearInterval(interval); // Stop the interval if more than 1 minute has passed
         }
 
+        if(r.username!=currentUser.username){
         // Update the displayed time for the read user
         readInfoElement.innerHTML = `
             <div user-id='${r.username}' style="font-size: 0.9rem; text-align: left;">
                 ${r.name} at ${formatTimestamp(r.time)}
             </div>`;
+        }
     }, 1000); // Update every second
 };
 function openReadedMessage(dataId) {
@@ -2556,7 +2763,6 @@ document.addEventListener("click",()=> {
         }
         
     }
-    messageMenu()
 })
 // Function to open the image in a modal
 function openImage(imageSrc) {
@@ -2648,7 +2854,6 @@ function scrollLoader(){
     const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
     const Dates = document.querySelectorAll(".Date"); // Class of each date div
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
-    const roomID = document.getElementById('roomIDVal').value;
     // if(!scrolling) console.log('scrolling locked')
 
 if(scrolling){
@@ -2663,42 +2868,42 @@ if(scrolling){
    
     // Iterate through Dates to check if they are in view
     
-    if(firstMessage){
+    // if(firstMessage){
 
-        if( firstMessage.getAttribute('data-id')){
-            let firstMessageId = firstMessage.getAttribute('data-id');
-            firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-            const threshold = 50; // Proximity in pixels to the top of the viewport
+    //     if( firstMessage.getAttribute('data-id')){
+    //         let firstMessageId = firstMessage.getAttribute('data-id');
+    //         firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+    //         const threshold = 50; // Proximity in pixels to the top of the viewport
 
-            if (firstMessage.getBoundingClientRect().top >= -threshold && 
-            firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
-                // Check if the message has not been sent before and it's the first message of the day
-                if (!sentMessagesId.includes(firstMessageId)) {
-                    const isSmallerThanAll = sentMessagesId.every((id) => {
-                        return firstMessageId < id; // Compare lexicographically (string comparison)
-                    });
+    //         if (firstMessage.getBoundingClientRect().top >= -threshold && 
+    //         firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
+    //             // Check if the message has not been sent before and it's the first message of the day
+    //             if (!sentMessagesId.includes(firstMessageId)) {
+    //                 const isSmallerThanAll = sentMessagesId.every((id) => {
+    //                     return firstMessageId < id; // Compare lexicographically (string comparison)
+    //                 });
                     
-                    // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
-                    if (isSmallerThanAll) {
+    //                 // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+    //                 if (isSmallerThanAll) {
                         
-                        console.log(firstMessageId)
+    //                     console.log(firstMessageId)
     
-                        sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
-                        // Emit the request for older messages to the server
-                        if(document.getElementById('loading').classList.contains('hide')){
-                            document.getElementById('loading').classList.remove("hide");
-                            document.getElementById('loading').classList.add("show");
-                            disableScrolling()
-                        } 
-                        socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
-                    }
-                }
+    //                     sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+    //                     // Emit the request for older messages to the server
+    //                     if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+    //                         document.getElementById('loadingChatWindow').classList.remove("d-none");
+    //                         document.getElementById('loadingChatWindow').classList.add("show");
+    //                         disableScrolling()
+    //                     } 
+    //                     socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
+    //                 }
+    //             }
             
-            }
-        }  
-    }
+    //         }
+    //     }  
+    // }
 
-    if(lastMessage){
+    if(lastMessage   &&  loadNextMessage ){
         if( lastMessage.getAttribute('data-id')){
             let lastMessageId = lastMessage.getAttribute('data-id');
             lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
@@ -2721,9 +2926,9 @@ if(scrolling){
     
                         sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
                         // Emit the request for older messages to the server
-                        if(document.getElementById('loading').classList.contains('hide')){
-                            document.getElementById('loading').classList.remove("hide");
-                            document.getElementById('loading').classList.add("show");
+                        if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                            document.getElementById('loadingChatWindow').classList.remove("d-none");
+                            document.getElementById('loadingChatWindow').classList.add("show");
                             disableScrolling()
                         } 
                         socket.emit("requestOlderMessages", { roomID: roomID, counter: lastMessageId, type: 'last' });
@@ -2738,7 +2943,6 @@ if(scrolling){
 function loadfirstButton(){
     const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
 
-    const roomID = document.getElementById('roomIDVal').value;
 
     let firstMessageId = firstMessage.getAttribute('data-id');
     firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
@@ -2754,9 +2958,9 @@ function loadfirstButton(){
 
                 sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                 // Emit the request for older messages to the server
-                if(document.getElementById('loading').classList.contains('hide')){
-                    document.getElementById('loading').classList.remove("hide");
-                    document.getElementById('loading').classList.add("show");
+                if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
+                    document.getElementById('loadingChatWindow').classList.remove("d-none");
+                    document.getElementById('loadingChatWindow').classList.add("show");
                     disableScrolling()
                 } 
                 socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
@@ -2772,7 +2976,6 @@ chat_window.addEventListener("scroll", () => {
     const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
     const Dates = document.querySelectorAll(".Date"); // Class of each date div
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
-    const roomID = document.getElementById('roomIDVal').value;
     // if(!scrolling) console.log('scrolling locked')
         $("#down").fadeIn();
 
@@ -2790,10 +2993,11 @@ chat_window.addEventListener("scroll", () => {
         messages.forEach((message) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
-            messageId = roomID +"-"+ messageId.split('-')[1]
+            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+            messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-                if (messageId && !visibleMessages.includes(messageId)) {
+                if (messageId && !visibleMessages.includes(messageId)&& dataReadStatus=='unread') {
                     visibleMessages.push(messageId);  // Add the data-id of visible messages
                     // console.log(messageId)
                 }
@@ -2802,10 +3006,31 @@ chat_window.addEventListener("scroll", () => {
     
         // Emit the IDs of visible messages to the server
         if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, username: currentUser.username });
+            socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
         }
     }
 });
+
+function uploadImage() {
+    const input = document.getElementById('imageUpload');
+    const file = input.files[0];
+
+    if (file) {
+        const reader = new FileReader();
+        
+        reader.onloadend = function () {
+            const base64Image = reader.result.split(',')[1]; // Get the Base64 string
+            // Send the Base64 string to the server
+            socket.emit('sendImage', { image: base64Image });
+        };
+
+        reader.readAsDataURL(file);  // Convert the file to Base64
+    } else {
+        console.log("No file selected.");
+    }
+}
+
+
 // _______________reply____________________
 function replyMessage(messageId) {
     // Select the message element
@@ -2887,10 +3112,19 @@ function uploadImage() {
     }
 }
 
-// =========================================================================
 // message menu
 function messageMenu() {
     const elements = output.querySelectorAll(".messageElm");
+    if(document.getElementById("messageMenu")){
+        document.getElementById("messageMenu").remove()
+    }
+    document.body.insertAdjacentHTML("beforeend", `
+        <div id="messageMenu">
+            <div class="messageMenuHeader"></div>
+            <div class="messageMenubody"></div>
+        </div>`)
+        console.log(document.getElementById("messageMenu"));
+    
     const menu = document.getElementById("messageMenu");
     const header = menu.querySelector('.messageMenuHeader')
     const body = menu.querySelector('.messageMenubody')
@@ -2990,7 +3224,7 @@ function messageMenu() {
         let emojiDiv = `
         
         <button id="reactBtn-${messageId}" class="btn reactBtn visible col-md-12" onclick="toggleStickerPicker(${messageId},${event.pageX} , ${event.pageY })">
-        <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
+        <img src="https://mc.farahoosh.ir:4000/svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
         Add reaction
         </button>
         `
@@ -3012,10 +3246,10 @@ function messageMenu() {
         document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
             // Copy the innerHTML to the clipboard
             console.log(element.querySelector('.dataMessage').innerHTML)
-            copyToClipboard(element.querySelector('.dataMessage').innerText.trim());
+            copyToClipboard(element.querySelector('.dataMessage').innerText);
 
             // Optional: Provide user feedback (e.g., show a success message)
-            alerting("Message copied to clipboard!");
+            ref("Message copied to clipboard!",null,null, "success");
         })
         menu.addEventListener("click",()=>{
             menu.style.display = "none";
@@ -3119,70 +3353,70 @@ function searchMessageReply() {
 // ========================================================
 // notification content
 
-function playNotificationSound() {
-        const sound = document.getElementById("notification-sound");
-        sound.currentTime = 0; // Reset to the beginning in case it's already playing
-        sound.play().catch((error) => {
-            console.error("Failed to play notification sound:", error);
-        });
+// function playNotificationSound() {
+//         const sound = document.getElementById("notification-sound");
+//         sound.currentTime = 0; // Reset to the beginning in case it's already playing
+//         sound.play().catch((error) => {
+//             console.error("Failed to play notification sound:", error);
+//         });
    
-}
+// }
 
-// Function to show browser notification
-function showBrowserNotification(sender,messageContent,roomID) {
-    if (document.hidden || !window.location.pathname.includes(`/join/${roomID}`)) {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                const notification = new Notification(`${sender}:`, {
-                    body: messageContent,
-                    icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
-                });
+// // Function to show browser notification
+// function showBrowserNotification(sender,messageContent,roomID) {
+//     if (document.hidden || !window.location.pathname.includes(`/join/${roomID}`)) {
+//         Notification.requestPermission().then(permission => {
+//             if (permission === "granted") {
+//                 const notification = new Notification(`${sender}:`, {
+//                     body: messageContent,
+//                     icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
+//                 });
         
-                // اضافه کردن قابلیت باز کردن لینک هنگام کلیک
-                notification.onclick = () => {
-                    let chatTab = null;
+//                 // اضافه کردن قابلیت باز کردن لینک هنگام کلیک
+//                 notification.onclick = () => {
+//                     let chatTab = null;
     
-                    // بررسی همه تب‌های باز برای پیدا کردن تب چت
-                    for (let i = 0; i < window.length; i++) {
-                        if (window[i].location.href.includes(`/join/${roomID}`)) {
-                            chatTab = window[i];
-                            break;
-                        }
-                    }
+//                     // بررسی همه تب‌های باز برای پیدا کردن تب چت
+//                     for (let i = 0; i < window.length; i++) {
+//                         if (window[i].location.href.includes(`/join/${roomID}`)) {
+//                             chatTab = window[i];
+//                             break;
+//                         }
+//                     }
     
-                    // اگر تب چت پیدا شد، به آن سوییچ کن؛ در غیر این‌صورت، یک تب جدید باز کن
-                    if (chatTab) {
-                        chatTab.focus();
-                    } else {
-                        window.open(`${href}/join/${roomID}`, "_blank");
-                    }
-                };
-            }
-        });
+//                     // اگر تب چت پیدا شد، به آن سوییچ کن؛ در غیر این‌صورت، یک تب جدید باز کن
+//                     if (chatTab) {
+//                         chatTab.focus();
+//                     } else {
+//                         window.open(`${href}/join/${roomID}`, "_blank");
+//                     }
+//                 };
+//             }
+//         });
         
-        playNotificationSound()
-    }else{
-        console.log("Notification==> ",Notification.permission)
-    }
-}
-socket.on("notification",async(data , ack) => {
-    const decryptedMessage = await {
-        // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
-            ...data,
-            message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
-            // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
-            handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
-            roomID : data.roomID ? decryptMessage(data.roomID): data.roomID,
-            title : data.title ? decryptMessage(data.title): data.title
-        };
+//         playNotificationSound()
+//     }else{
+//         console.log("Notification==> ",Notification.permission)
+//     }
+// }
+// socket.on("notification",async(data , ack) => {
+//     const decryptedMessage = await {
+//         // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
+//             ...data,
+//             message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
+//             // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
+//             handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
+//             roomID : data.roomID ? decryptMessage(data.roomID): data.roomID,
+//             title : data.title ? decryptMessage(data.title): data.title
+//         };
 
-        console.log(decryptedMessage)
+//         console.log(decryptedMessage)
 
-    if(decryptedMessage.sender != currentUser.username){
-        showBrowserNotification(`In ${decryptedMessage.title} ${decryptedMessage.handle} said`,decryptedMessage.message,decryptedMessage.roomID)
-        playNotificationSound()
-    }
-})
+//     if(decryptedMessage.sender != currentUser.username){
+//         showBrowserNotification(`In ${decryptedMessage.title} ${decryptedMessage.handle} said`,decryptedMessage.message,decryptedMessage.roomID)
+//         playNotificationSound()
+//     }
+// })
 
 
 setInterval(() => {
@@ -3201,34 +3435,37 @@ socket.on("disconnect", () => {
 
 socket.on("connect", () => {
     console.log("🟢 Reconnected to server!");
-    const roomID = document.querySelector("#roomID").textContent.trim();
     
-    if(roomID){
-            // Show the loading spinner if hidden
-            const loadingElement = document.getElementById('loading');
-            if (loadingElement.classList.contains('hide')) {
-                loadingElement.classList.remove("hide");
-                loadingElement.classList.add("show");
+    // if(roomID){
+            // Show the loadingChatWindow spinner if hidden
+            const loadingChatWindowElement = document.getElementById('loadingChatWindow');
+            if (loadingChatWindowElement.classList.contains('d-none')) {
+                loadingChatWindowElement.classList.remove("d-none");
+                loadingChatWindowElement.classList.add("show");
             }
-            // Emit the event and wait for the server's acknowledgment
-            socket.emit("requestOlderMessages", { 
-                roomID: roomID, 
-                counter: `${roomID}-0`, 
-                type: 'latest' 
-            }, () => { // Callback function for when the server acknowledges
-                // Scroll after emitting the event
-                chat_window.scrollTo({
-                    top: chat_window.scrollHeight, // Scroll to the bottom
-                    behavior: "auto",
-                });
-            });
-        }
+            var encryptedRoomID =encryptMessage(roomID)
+            var encryptedData =encryptMessage(currentUser.username)
+            console.log({ roomID: encryptedRoomID,username: encryptedData})
+            socket.emit("joinRoom",{ roomID: encryptedRoomID,username: encryptedData})
+        // }
     
-});
-socket.on("ping", () => {
-    console.log("📡 Ping received from server");
 });
 
+
+// socket.on("ping", () => {
+//     console.log("📡 Ping received from server");
+// });
+// Ping the server every 15 seconds (1000 ms is too frequent)
+
+setInterval(() => {
+    socket.emit("ping");
+    console.log("📡 Ping received from server");
+}, 15000); // ⏱ Recommended: every 15 seconds
+// Server responds
 socket.on("pong", () => {
-    console.log("✅ Server is alive!");
+  console.log("✅ Server is alive!");
 });
+// socket.on("onlineUsers", (onlineUsernames) => {
+//   // Update UI with who’s online
+//   console.log("👥 Online users:", onlineUsernames);
+// });
