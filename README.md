@@ -78,4 +78,8 @@ pm2 stop app.js
     "password": "Farah00sh@.ir",
     "remotePath": "/usr/Projects/Reza/metaChat/",
     "uploadOnSave": true
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> ea4ae44b1117bd787221271c859223576553ab55

@@ -94,7 +94,11 @@ const errorMessage = getQueryParam('error');
 if (errorMessage) {
     Swal.fire({
         icon: 'error',
+<<<<<<< HEAD
         title: 'Error!',
+=======
+        title: 'Oops!',
+>>>>>>> ea4ae44b1117bd787221271c859223576553ab55
         text: errorMessage,
         confirmButtonColor: '#d33',
         customClass: {
