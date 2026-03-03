@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true }, // Unique message ID
+    encrypt: { type: String, default: false }, // Unique message ID
     roomID: { type: String, required: true }, // The room in which the message was sent
     sender: { type: String, required: true }, // Sender's username
     quote: { type: String, default: null }, // Message content
@@ -15,7 +16,10 @@ const messageSchema = new mongoose.Schema({
     message: { type: String, default:null }, // Message content
     file: [
         {
-            file: { type: String, required: true },
+            file: {
+                type: String, // or another appropriate type
+                required: true // if the file field must always be included
+            },
             fileType: { type: String , required: true},
             fileName: { type: String , default:null },
         },
