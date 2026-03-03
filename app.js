@@ -58,11 +58,7 @@ env.config();
 // Set up CORS (if needed for front-end)
 const corsOptions = {
     
-<<<<<<< HEAD
     origin:  ['https://mc.farahoosh.ir'], // replace with your front-end domain
-=======
-    origin:  ['https://portal.mellicloud.com', 'https://mc.farahoosh.ir'], // replace with your front-end domain
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
     methods: ['GET', 'POST'],
     credentials: true
 };
@@ -371,7 +367,6 @@ const storage = multer.diskStorage({
         const safeFileName = Buffer.from(file.originalname, "latin1").toString("utf8"); // Ensure UTF-8
         cb(null, Date.now() + "_" + safeFileName.replace(/\s+/g, "_")); // Avoid spaces
     },
-<<<<<<< HEAD
 });
 
 const upload = multer({
@@ -414,56 +409,7 @@ app.get('/uploads/:file', (req, res) => {
         return res.status(404).send('File not found');  
     }
   res.sendFile(filePath);
-=======
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 });
-
-const upload = multer({
-    storage: storage,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 10 MB max
-}).single("file");
-
-// Handle file upload (existing code)
-app.post("/upload", (req, res) => {
-    upload(req, res, (err) => {
-        if (err) {
-            return res.status(400).json({ error: err.message });
-        }
-
-        // File successfully uploaded
-        const filePath = `/uploads/${req.file.filename}`;
-
-        // Respond with the file data (including the file path and metadata)
-        res.json({
-            message: "File uploaded successfully",
-            fileData: {
-                file: filePath,
-                fileType: req.file.mimetype, // MIME type of the uploaded file
-                fileName:  Buffer.from(req.file.originalname, "latin1").toString("utf8"), // Original file name
-            },
-        });
-        console.log("File uploaded successfully:", req.file.originalname);
-        console.log("File path:", filePath);
-        // Broadcast upload success event (emit file data)
-        io.emit("uploadSuccess", { fileData: { filePath, fileName: req.file.originalname } });
-    });
-});
-
-// Serve the files from the 'uploads' directory
-app.get('/uploads/:file', (req, res) => {
-    const fileName = req.params.file;
-
-    const filePath = path.join(uploadDir, fileName);
-  
-    // Check if the file exists
-    res.sendFile(filePath, (err) => {
-      if (err) {
-        console.error("File not found:", err);
-        return res.status(404).send('File not found');
-      }
-    });
-  });
-
 
 // API to Save a Message
 // app.post("/messages", async (req, res) => {
@@ -557,11 +503,6 @@ app.post('/createRoom', async (req, res) => {
                 const existingRoom = await Room.findOne({ roomID: roomIDreq });
                 if (existingRoom) {
                     // Update members list
-<<<<<<< HEAD
-=======
-                    // console.log('decryptedData=>',decryptedData)
-                    console.log(existingRoom.members)
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                     if(decryptedData.append==1){
                         existingRoom.members = [...new Set([...existingRoom.members, ...phoneNumbers])]; // Avoid duplicates
                     }else if(decryptedData.append=='delete'){
@@ -571,10 +512,6 @@ app.post('/createRoom', async (req, res) => {
                     }else{
                         existingRoom.members = [...new Set([existingRoom.admin, ...phoneNumbers])];
                     }
-<<<<<<< HEAD
-=======
-                    console.log(existingRoom.members)
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                     await existingRoom.save();
                     return res.status(200).json({
                         success: true,
@@ -622,10 +559,6 @@ app.post('/remove_user_rooms_data', async (req, res) => {
         // Decrypt the token
         const secretKey = '9e107d9d372bb6826bd81d3542a419d6cc64ff4ab6356cd63a54d865b40a8c4a';
         const decryptedToken = decrypt(tokenHeader, secretKey);
-<<<<<<< HEAD
-=======
-        console.log('Decrypted Token:', decryptedToken);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
         // Decrypt the payload
         const encryptedPayload = req.body.payload;
@@ -689,18 +622,10 @@ app.post('/remove_user_rooms_data', async (req, res) => {
 
 //         // رمزگشایی توکن
 //         const decryptedToken = decrypt(token, secret);
-<<<<<<< HEAD
-=======
-//         console.log("Decrypted Token:", decryptedToken);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
 //         // رمزگشایی داده‌های رمزگذاری‌شده
 //         const encryptedData = req.body.data;
 //         const decryptedData = decrypt(encryptedData, secret);
-<<<<<<< HEAD
-=======
-//         console.log("Decrypted Data:", decryptedData);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
 //         const { phoneNumber, Domain } = decryptedData;
 
@@ -723,10 +648,6 @@ app.post('/remove_user_rooms_data', async (req, res) => {
 //         //     { lean: false } // upsert به معنای ایجاد کاربر جدید است اگر پیدا نشد
 //         // );
         
-<<<<<<< HEAD
-=======
-//         // console.log("Updated user:", updatedUser);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 //         let superSECRET =encrypt(secretKey)
 //         // تولید توکن JWT برای ورود کاربر
 //         const jwtToken = jwt.sign(
@@ -929,7 +850,6 @@ function socketDecrypt(encryptedText) {
 }
 
 
-<<<<<<< HEAD
 async function message_encryption(roomID){
         const message_encryption = await Message.find({roomID})
         message_encryption.map(msg=> message_encryption_map(msg))
@@ -944,16 +864,6 @@ async function sendBackupToPHP(Number, jsonMessage) {
 
     try {
         await axios.get(`https://mc.farahoosh.ir/missionform/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
-=======
-
-// ارسال پیام پشتیبان به PHP
-async function sendBackupToPHP(Number, jsonMessage) {
-    const encrypted = encryptAES256(JSON.stringify(jsonMessage));
-    // console.log(encrypted)
-
-    try {
-        await axios.get(`https://mc.farahoosh.ir/missionform/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}&&email=BB`);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
         // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
     } catch (err) {
         console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
@@ -971,11 +881,7 @@ io.on("connection", (socket) => {
         if (!username) {
             return console.error("Username not provided for userLoggedIn");
         }
-<<<<<<< HEAD
         
-=======
-
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
         const currentUser = await User.findOne({ username });
         if (!currentUser) {
             return console.error("User not found for socket ID:", socket.id);
@@ -1023,19 +929,11 @@ io.on("connection", (socket) => {
 
 
     socket.on("ping", () => {
-<<<<<<< HEAD
-=======
-        console.log("📡 Ping received from client");
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
         socket.emit("pong");
         socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
     });
 
-<<<<<<< HEAD
-=======
-    console.log("Socket connected:", socket.id);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
     // Listen for authentication / identification from client
     socket.on("authenticate", async (encryptedUsername, callback) => {
@@ -1170,16 +1068,10 @@ io.on("connection", (socket) => {
 
     socket.on("joinRoom", async (data) => {
         try {
-<<<<<<< HEAD
 
             roomID = socketDecrypt(data.roomID);
             let room = await Room.findOne({ roomID });
             await message_encryption(roomID)
-=======
-            console.log('socket', socket.id);
-
-            roomID = socketDecrypt(data.roomID);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             let user = await User.findOne({ socketID: socket.id });
 
             if (!user) {
@@ -1188,19 +1080,12 @@ io.on("connection", (socket) => {
                     throw new Error("User not found or not part of a room.");
                 }
             }
-<<<<<<< HEAD
             if (!room) throw new Error(`Room "${roomID}" does not exist`);
-=======
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
             const username = user.username;
 
             const lastroom = user.roomID;
             if (lastroom && lastroom !== roomID) {
-<<<<<<< HEAD
-=======
-                console.log(`User ${username} is leaving previous room: ${lastroom}`);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                 socket.leave(lastroom);
 
                 // Optional: notify others in previous room
@@ -1214,11 +1099,6 @@ io.on("connection", (socket) => {
             }
 
             // Check if target room exists
-<<<<<<< HEAD
-=======
-            let room = await Room.findOne({ roomID });
-            if (!room) throw new Error(`Room "${roomID}" does not exist`);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
             // Permission check for private rooms
             if (room.setting[0].Joinable_url === "private" && !room.members.includes(username)) {
@@ -1233,17 +1113,9 @@ io.on("connection", (socket) => {
             // Update user's roomID
             await User.findOneAndUpdate({ username }, { roomID });
 
-<<<<<<< HEAD
 
             // Send settings, messages, and members
             socket.emit("applySettings", user.settings);
-=======
-            console.log(`User ${username} joined room ${roomID}`);
-
-            // Send settings, messages, and members
-            socket.emit("applySettings", user.settings);
-
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             const unreadMessages = await getUnreadMessages(roomID, username);
             if (unreadMessages.length > 0) {
                 socket.emit("restoreMessages", { messages: unreadMessages, prepend: true, unread: true, join: true });
@@ -1506,10 +1378,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             }
 
     })  
-<<<<<<< HEAD
-=======
-    
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
     
 
     // In your socket.io 'connection' handler or dedicated event
@@ -1564,11 +1432,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     });
     socket.on("chat", async (data , callback) => {
         try {
-<<<<<<< HEAD
             let { id, username: encryptedUsername,roomID, message, file, quote } = data;
-=======
-            let { username: encryptedUsername,roomID, message, file, quote } = data;
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
             const username = socketDecrypt(encryptedUsername);
             const userRoomID = socketDecrypt(roomID);
@@ -1618,7 +1482,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             if(!username) throw new Error("User not found or not part of a room.");
             if (!message  && !file)                 throw new Error("no message.");
             // Validate the user
-<<<<<<< HEAD
 
             const clean = DOMPurify.sanitize(message);
             const newMessage = new Message({
@@ -1627,24 +1490,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 sender: username,
                 quote: quote ? `${userRoomID}-${quote}`:null,
                 message: clean ? socketEncrypt(clean) : '',
-=======
-            
-            // Get the next sequence value from the counter collection
-            const counter = await Room.findOneAndUpdate(
-                { roomID: userRoomID },  // Find the counter for this room
-                { $inc: { seq: 1 } },  // Increment the sequence number
-                { new: true, upsert: true }  // Create if it doesn't exist
-            );
-            // Create and save the message
-            const updatedCounter= 1000000+ (counter.seq||0)
-            const clean = DOMPurify.sanitize(message);
-            const newMessage = new Message({
-                id: `${userRoomID}-${updatedCounter}`,  // ID format: roomID-auto-increment number
-                roomID: userRoomID,
-                sender: username,
-                quote: quote ? `${userRoomID}-${quote}`:null,
-                message: clean ? clean : '',
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                 file: fileDetails, // Map over the uploaded file to structure them correctly
                 read: [{ username, time: timestamp }], // <- Mark as read by sender
                 members: [username],
@@ -1657,10 +1502,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 { roomID: userRoomID },
                 { $set: { lastUpdated: timestamp } }
             );
-<<<<<<< HEAD
-=======
-            console.log("updated : ",timeUp)
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             // Enrich the message with sender details
             let enrichedMessage = {
                 ...newMessage.toObject(),
@@ -1670,12 +1511,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             let encryptedMessage = await processMessage(enrichedMessage)  
             // Broadcast the message to the room
             io.in(userRoomID).emit("chat",await encryptedMessage,{ success: true });
-<<<<<<< HEAD
             callback({ success: true , messageId: id});
-=======
-            // console.log(`Message sent by ${username} in room "${userRoomID}"`);
-            callback({ success: true , messageId: `${userRoomID}-${updatedCounter}`});
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             // پیدا کردن همه اعضای اتاق
                     // دریافت اطلاعات اتاق از دیتابیس
             const room = await Room.findOne({ roomID : userRoomID});
@@ -1692,12 +1528,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             }
             const selfSender = await User.findOne({ username });
 
-<<<<<<< HEAD
             let tempMessage;
-=======
-
-            // console.log(encryptedMessage)
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach(async (user) => {
                 if (user.username != username) {
@@ -1705,22 +1536,13 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                     if (user.username) {
                         const taskMatch = room.roomName.match(/\(#(\d+)\)/);
                         const pvMatch = room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/);
-<<<<<<< HEAD
-=======
-                        let tempMessage;
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                         
                         if (pvMatch) {
                             const senderNumber = pvMatch[1];
                             const receiverNumber = pvMatch[2];
                             tempMessage = {
-<<<<<<< HEAD
                                 title: 'MetaChat',
                                 message: `New message from <i>${selfSender.first_name} ${selfSender.last_name}</i>`,
-=======
-                                title: 'New private message (MetaChat)',
-                                message: `<i>${selfSender.first_name} ${selfSender.last_name}</i> said: <br>${newMessage.message}`,
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                                 reciver:`<i>${user.first_name} ${user.last_name}`,
                                 timestamp
                             };
@@ -1728,11 +1550,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             const taskID = taskMatch[1];
                             tempMessage = {
                                 title: 'New comment (MetaChat): '+room.roomName,
-<<<<<<< HEAD
                                 message: `<br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
-=======
-                                message: `<br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message}`,
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                                 taskID:taskID,
                                 link: "/view?TaskID=" + taskID,
                                 reciver:`<i>${user.first_name} ${user.last_name}`,
@@ -1741,11 +1559,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                         } else {
                             tempMessage = {
                                 title: `New Message (MetaChat): ${room.roomName}`,
-<<<<<<< HEAD
                                 message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
-=======
-                                message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>${newMessage.message}`,
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                                 reciver:`<i>${user.first_name} ${user.last_name}`,
                                 timestamp
                             };
@@ -1759,21 +1573,11 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             io.to(user.socketID).emit("notification", tempMessage);
     
                         }
-<<<<<<< HEAD
                         sendBackupToPHP(user.username, tempMessage);
                     }
                 }
                 if(tempMessage) sendBackupToPHP('09173121943', tempMessage);
             });
-=======
-                        await Promise.all(onlineUsers.map(user => sendBackupToPHP(user.username, tempMessage)));
-                    }
-                }
-            });
-            
-            // console.log(`🔔 Notification sent to users in room "${roomID}"`);
-        // }
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
     } catch (error) {
         console.error("Error handling chat message:", error);
 
@@ -1781,7 +1585,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         callback({ success: false , messageId: `${userRoomID}-${updatedCounter}`, message : error});
     }
     });
-<<<<<<< HEAD
     socket.on("edit", async (data, callback) => {
         try {
             const {messageId, username , new_message} = data 
@@ -1874,29 +1677,15 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 { $set: { socketID: socket.id } }, // Always update socketID
                 { new: true }
             );
-=======
-    socket.on("delete", async (data, callback) => {
-        try {
-            const { messageId } = data;
-
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             if (!messageId || typeof messageId !== "string") {
                 throw new Error("Invalid or missing messageId.");
             }
 
             // Find the current user by socket ID
-<<<<<<< HEAD
-=======
-            const currentUser = await User.findOne({ socketID: socket.id });
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             if (!currentUser || !currentUser.roomID) {
                 throw new Error("User not authenticated or not in a room.");
             }
 
-<<<<<<< HEAD
-=======
-            const username = currentUser.username;
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
             // Find the message
             const message = await Message.findOne({ id: messageId });
@@ -1911,11 +1700,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             }
 
             // Authorization: Only the sender can delete their own message
-<<<<<<< HEAD
             if (message.sender !== username && username != '09173121943') {
-=======
-            if (message.sender !== username) {
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -1931,10 +1716,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                         const filePath = path.join(uploadDir,fileItem.file.split('/')[2]);
                         try {
                             await fs.unlink(filePath);
-<<<<<<< HEAD
-=======
-                            console.log(`Deleted file: ${filePath}`);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
                         } catch (err) {
                             if (err.code !== 'ENOENT') {
                                 console.error(`Failed to delete file ${filePath}:`, err);
@@ -1981,12 +1762,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             if (typeof callback === "function") {
                 callback({ success: true });
             }
-<<<<<<< HEAD
-=======
-
-            console.log(`Message ${messageId} deleted by ${username}`);
-
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
         } catch (error) {
             console.error("Error deleting message:", error);
             if (typeof callback === "function") {
@@ -2054,10 +1829,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
  
            
 
-<<<<<<< HEAD
-=======
-            // console.log(encryptedMessage)
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach(async (user) => {
                 if (user.username != username && user.username == message.sender) {
@@ -2097,10 +1868,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 }
             });
             
-<<<<<<< HEAD
-=======
-            console.log(`🔔 Notification sent to users in room "${roomID}"`);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
         } catch (error) {
             console.error("Error adding reaction:", error);
             socket.emit("error", { message: "Failed to add reaction." });
@@ -2116,10 +1883,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
 //             const username = currentUser.username;
 //             const timestamp = new Date();
-<<<<<<< HEAD
-=======
-//             // console.log(messageIds)
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 //             // let roomFromMess= roomID;
 //             // const room = await Room.findOne({ roomID: roomFromMess });
 //             // if (!room) throw new Error("Room not found!");
@@ -2138,10 +1901,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 //             const updatedMessages = await Promise.all(
 //                 messageIds.map(async (messageId) => {
 //                     const messagebyroomID = `${messageId}`;
-<<<<<<< HEAD
-=======
-//                     console.log(`${username}_____${messagebyroomID} unreaded`);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
 //                     await Message.updateMany(
 //                         {
@@ -2202,10 +1961,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     //             )
     //         );
     
-<<<<<<< HEAD
-=======
-    //         // console.log(`Messages marked as read for user "${username}":`, messageIds);
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
     
     //         // Optionally notify others in the room of read receipts
     //         socket.broadcast.emit("messagesRead", { messageIds, username, timestamp });
@@ -2369,22 +2124,10 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         const room = await Room.findOne({ roomID: roomID });
       
         const time = room.lastUpdated ?? null;  // ❗️ اینجا دیگه تاریخ ساختگی نمی‌دیم
-<<<<<<< HEAD
         callback(time);
       });
       
 
-=======
-        // console.log(`${room.roomName}  lastUpdate: ${time}`);
-        callback(time);
-      });
-      
-    // for count
-// fornt code    
-    // socket.emit("countNewMessage", "09173121943", "krrlnB6aMRm6symph2", (count) => {
-    //     console.log(`You have ${count} new messages.`);
-    // });
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 socket.on("leaveRoom", async ({ username , roomID }) => {
     try {
         if (!username || !roomID) {
@@ -2414,12 +2157,6 @@ socket.on("leaveRoom", async ({ username , roomID }) => {
             { new: true }
         );
 
-<<<<<<< HEAD
-=======
-        if (updatedUser) {
-            console.log(`${username} left ${roomID} (remains a member).`);
-        }
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
 
         // Notify this user
         socket.emit("leftRoom", { roomID });
@@ -2461,13 +2198,6 @@ socket.on("leaveRoom", async ({ username , roomID }) => {
                     { new: true }
                 );
 
-<<<<<<< HEAD
-=======
-                
-                if (updatedUser) {
-                    console.log(`Reset socketId for user ${updatedUser.username}`);
-                }
->>>>>>> ea4ae44b1117bd787221271c859223576553ab55
             }
         } catch (error) {
             console.error("Error during disconnect:", error);
