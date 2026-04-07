@@ -47,7 +47,7 @@
                 </div>
                 <div class="form-group">
                     New to <span style="font-family: 'Pacifico';">meta chat</span> ?
-                    <a class="badge badge-lg badge-success p-2" data-toggle="modal" style="cursor: pointer;" data-target="#signup">Sign Up</a>
+                    <a class="badge badge-lg badge-success p-2" data-bs-toggle="modal" style="cursor: pointer;" data-bs-target="#signup">Sign Up</a>
                 </div>
 
                 <p id="error-message" class="badge col-md-12 badge-danger py-2 my-3"></p>
@@ -61,9 +61,9 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="label">Sign up</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                        <button type="button" class="btn btn-close" data-bs-dismiss="modal" aria-label="Close">
+                        <!-- <span aria-hidden="true">&times;</span> -->
+                        </button>
                     </div>
                     <form method="POST"  id="registrationForm" action='/register'>
                         <div class="modal-body px-5">
@@ -102,7 +102,7 @@
                         </div>
                         <div class="modal-footer">
 
-                            <button type="button" onclick="$('#registrationForm').submit()" data-dismiss="modal" aria-label="Close" class=" btn btn-primary">Validaton</button>
+                            <button type="button" onclick="$('#registrationForm').submit()" data-bs-dismiss="modal" aria-label="Close" class=" btn btn-primary">Validaton</button>
                         </div>
                     </form>
                 </div>
@@ -245,11 +245,11 @@ const message2 = "Welcome to the World of Unlimited Messages! Where your texts a
         var username = document.getElementById('username').value;
         var Regex = /^[0-9]{11}$/; // Adjust regex for your specific needs
         if (!Regex.test(username.value)) {
-            errorMessage.style.display = "block";
+            errorMessage_el.style.display = "block";
             alert('You must enter a valid phone number.');
             event.preventDefault();  // Prevent form submission
         } else {
-            errorMessage.style.display = "none";
+            errorMessage_el.style.display = "none";
         }
         if (password !== passwordCheck) {
             alert('Passwords do not match.');
@@ -257,14 +257,14 @@ const message2 = "Welcome to the World of Unlimited Messages! Where your texts a
         }
     });
     const phoneInput = document.querySelector(".phone-input");
-    const errorMessage = document.querySelector(".error-message");
+    const errorMessage_el = document.querySelector(".error-message");
 
     phoneInput.addEventListener("input", () => {
         const phoneRegex = /^[0-9]{11}$/; // Adjust regex for your specific needs
         if (!phoneRegex.test(phoneInput.value)) {
-            errorMessage.style.display = "block";
+            errorMessage_el.style.display = "block";
         } else {
-            errorMessage.style.display = "none";
+            errorMessage_el.style.display = "none";
         }
     });
 

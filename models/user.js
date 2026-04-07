@@ -22,6 +22,29 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    devices:[
+        {
+            token: { type: String },
+            ip: { type: String },
+            userAgent: { type: String},
+            createdAt: { type: Date},
+            expiresAt: { type: Date},
+            lastActive: { type: Date},
+            dc_time: { type: Date},
+            socketID: {
+                type: String,
+                default: null, // Optional, will be null if not set
+            },
+            roomID: {
+                type: String,
+                default: null, // Optional, will be null if not set
+            }
+        }
+    ],
+    device_login: {
+        type: String,
+        default: null, // Optional, will be null if not set
+    },
     socketID: {
         type: String,
         default: null, // Optional, will be null if not set
@@ -30,6 +53,16 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: null, // Optional, will be null if not set
     },
+    status: {
+        type: String,
+        default: null, // Optional, will be null if not set
+    },
+    lastActive: {
+        type: Date,
+        default: null, // Optional, will be null if not set
+    },
+
+    
     settings: {
         bgColor: { type: String },
         fgColor: { type: String},

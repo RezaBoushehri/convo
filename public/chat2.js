@@ -1,29 +1,16 @@
 
-// const socket = io.connect(window.location.hostname),
-// const production = true;
+  let notifPVCount;
+  const myModalEl = document.getElementById('PVchatModal');
+  let currentRoomID = null; // Track currently joined room
 
-// تابع برای رمزگذاری
-function encryptMessage(message) {
-    const iv = CryptoJS.lib.WordArray.random(16); // تولید IV تصادفی
-    const encrypted = CryptoJS.AES.encrypt(message, secretKey, { iv: iv });
-    return iv.toString(CryptoJS.enc.Hex) + ':' + encrypted.ciphertext.toString(CryptoJS.enc.Hex); // ترکیب IV و متن رمزنگاری‌شده
-}
 
-// تابع برای رمزگشایی
-function decryptMessage(encryptedMessage) {
-    const [ivHex, encryptedHex] = encryptedMessage.split(':');
-    const iv = CryptoJS.enc.Hex.parse(ivHex);
-    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-    const decrypted = CryptoJS.AES.decrypt({ ciphertext: ciphertext }, secretKey, { iv: iv });
-    return decrypted.toString(CryptoJS.enc.Utf8);
-}
 
-let roomID = document.getElementById('roomID').value??'';
-document.getElementById('roomID').value='';
+let roomID = $('#roomID').text().trim() ?? '';
+$('#roomID').text('');
 
 
 const 
-
+    $loadingElement = $('#loading'),
     name = document.getElementById("dropdownMenuButton"),
     message = document.getElementById("editable-message-text"),
     replyBox = document.getElementById("replyBox"),
@@ -40,10 +27,12 @@ const
         maxWidthOrHeight: 1920,
         useWebWorker: true,
         fileType: "",
-    };
+    }
+
 let sentMessagesId=[],
     loadNextMessage = false;    
     sentMessagesIdLast=[],
+    member_users ={},
     loadedForClicking=false
     , hasScrolledDown = false; // Flag to track if the scroll has already occurred
 let scrolling = true;
@@ -56,20 +45,25 @@ let messagesCreatedHandler=[]
 let messageIdSplited=[]
 let lastSender = null;
 let unreadedScroll=0;
+// localStorage.removeItem('last_room_joined_MC')
+
+
+  // ❌ WebSocket در دسترس نبود، می‌ریم سراغ Socket.IO
+
 // =====================
 // for right click menu
 const windowWidth = window.innerWidth;
 const windowHeight = window.innerHeight;
 // Function to disable scrolling
 const disableScrolling = () => {
-    chat_window.removeEventListener("scroll", scrollLoader)
+    output.removeEventListener("scroll", scrollLoader)
 
     // console.log("Scrolling disabled.");
 };
 
 // Function to enable scrolling
 const enableScrolling = () => {
-    chat_window.addEventListener("scroll", scrollLoader)
+    output.addEventListener("scroll", scrollLoader)
 
     // console.log("Scrolling enabled.");
 };
@@ -81,7 +75,7 @@ function isMobileDevice() {
 if (isMobileDevice()) {
     console.log("This is not a computer (mobile or tablet).");
     // Add specific behavior for mobile/tablet
-    document.getElementById('chat-window').style.overflowY = 'auto'; // Example adjustment
+    document.querySelector('#chat-window #output').style.overflowY = 'auto'; // Example adjustment
 }
 let previousLineCount = 1; // تعداد خطوط قبلی
 
@@ -130,9 +124,9 @@ message.addEventListener('input', () => {
         // Clean up any Excel-specific formatting while preserving table structure
         const cleanedTable = pastedData
             // .replace(/^(<br>)+/g, '') // Remove leading <br> tags
-            .replace(/<table[^>]*>/g, '<table class="table bg-white text-dark table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
-            .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px;">')
-            .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px;">');
+            .replace(/<table[^>]*>/g, '<table class="table table-bordered p-2" style="border-collapse: collapse; width: 100%; ">')
+            .replace(/<td[^>]*>/g, '<td class="border border-secondary text-dark p-1">')
+            .replace(/<th[^>]*>/g, '<th class="border border-secondary text-dark p-1">');
             
         // Update message content with cleaned table
         message.innerHTML = cleanedTable;
@@ -168,9 +162,9 @@ message.addEventListener('paste', (e) => {
         if (pastedData.includes('<table')) {
             // Clean up Excel-specific formatting while preserving table structure
             const cleanedTable = pastedData
-                .replace(/<table[^>]*>/g, '<table class="table bg-white text-dark table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
-                .replace(/<td[^>]*>/g, '<td style="border: 1px solid #444444; padding: 8px; >')
-                .replace(/<th[^>]*>/g, '<th style="border: 1px solid #444444; padding: 8px; >');
+                .replace(/<table[^>]*>/g, '<table class="table rounded-0 table-bordered p-2" style="border-collapse: collapse; width: 100%; padding: ">')
+                .replace(/<td[^>]*>/g, '<td class="border border-secondary text-dark p-1" >')
+                .replace(/<th[^>]*>/g, '<th class="border border-secondary text-dark p-1">');
             
             // Update message content with cleaned table
             message.innerHTML = cleanedTable;
@@ -182,23 +176,23 @@ message.addEventListener('paste', (e) => {
         }
         
         // Sanitize the input while allowing table elements and Excel-specific attributes
-        message.innerHTML = DOMPurify.sanitize(message.innerHTML, {
-            ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
-            ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type']
-        });
+        // message.innerHTML = DOMPurify.sanitize(message.innerHTML, {
+        //     // ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br','img'],
+        //     ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type']
+        // });
     }, 0);
 });
 
 
 if (roomID != "") {
-    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-        document.getElementById('loadingChatWindow').classList.remove("d-none");
-        document.getElementById('loadingChatWindow').classList.add("show");
+    if(document.getElementById('loading').classList.contains('d-none')){
+        document.getElementById('loading').classList.remove("d-none");
+        document.getElementById('loading').classList.add("show");
     } 
     var encryptedRoomID =encryptMessage(roomID)
     var encryptedData =encryptMessage(currentUser.username)
     console.log({ roomID: encryptedRoomID,username: encryptedData})
-    socket.emit("joinRoom",{ roomID: encryptedRoomID,username: encryptedData})
+    // socket.emit("joinRoom",{ roomID: encryptedRoomID,username: encryptedData})
     
 }
 
@@ -208,7 +202,7 @@ function emoji(messageId) {
         document.querySelectorAll('.stickerPicker').forEach(el => el.remove());
     }
         const emojiDiv = `
-  <div id="emoji-${messageId}" class="stickerPicker show">
+  <div id="emoji-${messageId}" class="stickerPicker blurBackDark show">
     <div id="emojiGrid">
         <div id="emojiContainer" >
                 <!-- Emoji spans that will be rendered by Twemoji -->
@@ -216,6 +210,7 @@ function emoji(messageId) {
                 <span onclick="addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
                 <span onclick="addStickerReaction('👎', ${messageId})" class="emoji">👎</span>
                 <span onclick="addStickerReaction('❤️', ${messageId})" class="emoji">\u2764\uFE0F</span>
+                <span onclick="addStickerReaction('🐈‍⬛', ${messageId})" class="emoji">🐈‍⬛</span>
                 <span onclick="addStickerReaction('😊', ${messageId})" class="emoji">😊</span>
                 <span onclick="addStickerReaction('👌', ${messageId})" class="emoji">👌</span>
                 <span onclick="addStickerReaction('🗿', ${messageId})" class="emoji">🗿</span>
@@ -314,7 +309,7 @@ function toggleEmojiContainer(messageId) {
 
 
 // Set placeholder text
-var placeholderText = "Message ...";
+var placeholderText = "پیام دهید ...";
 
 // Add the placeholder when the content is empty
 function setPlaceholder() {
@@ -332,6 +327,7 @@ function setPlaceholder() {
 message.addEventListener("focus", function() {
     if (message.textContent === placeholderText) {
         message.textContent = "";
+        
     }
 });
 
@@ -357,121 +353,64 @@ $("#up").html('<i class= "fa fa-arrow-up" >').hide();
 //     document.getElementById('file-input').click();
 // })
 $("#file-input").on("change", async (e) => {
-    output.innerHTML+=`
-    <div id="upload-container"
-    class="row m-3 backdrop-blur-chat-fg"
-    style="
-    justify-content: flex-end;
-    display: flex;
-    ">
-    <span>Uplouding file</span>
-        <div id="upload-progress" class="progress w-100" role="progressbar" aria-label="Example with label" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-            <div id='upload-bar' class="progress-bar" style="width: 25%"></div>
-        </div>
-    </div>
-        `;
-        // </div>
-        //     <progress id="upload-progress"  value="0" max="100" style="width: 100%; height: 20px;"></progress>
-        //     <span id="upload-status">0% uploaded</span>
-        // </div>
+   
+
     
     button.disabled = true;
     fileInput.disabled = true;
 
-    const file = e.target.files[0];
+    const files = e.target.files;
     const maxSize = 50 * 1024 * 1024; // 10 MB in bytes
-
-    if (!file) {
-        ref("No file selected.",null,null,'warning');
-        button.disabled = false;
-        fileInput.disabled = false;
-        document.getElementById('upload-container').remove();
-
-        return;
-    }
-
-    if (file.size > maxSize) {
-        ref("The file is too large. Maximum size allowed is 10 MB.",null,null, 'warning');
-        button.disabled = false;
-        fileInput.disabled = false;
-        document.getElementById('upload-container').remove();
-
-        return;
-    }
-
-    const fileName = file.name.toLowerCase();
-    const harmfulExtensions = [];
-    // const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
-    const fileExtension = fileName.split('.').pop();
-
-    if (harmfulExtensions.includes(fileExtension)) {
-        ref("The selected file has a potentially harmful extension. Please upload a safe file.",null,null, 'error');
-        button.disabled = false;
-        fileInput.disabled = false;
-        document.getElementById('upload-container').remove();
-
-        return;
-    }
-
     try {
-        // let processedFile;
-        // // Convert the file to Base64
-        // processedFile = await convertFileToBase64(file);
-        // console.log("Processed file (Base64):", processedFile);
+        Array.from(files).forEach(file=>{
 
-        // Send Base64 encoded file to the server
-        const formData = new FormData();
-        formData.append("file", file);
-        // Initialize progress value
-        $(".progress-bar").css("width", "0%"); // Set initial width to 0%
-        // $("#upload-status").text("0% uploaded"); // Set initial status text
-        $(".progress-bar").innerText= `0% uploaded`; // Update the progress bar's text
-
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "https://mc.farahoosh.ir:4000/upload", true);
-    
-        // Monitor progress
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const percent = (e.loaded / e.total) * 100;
-                // Emit progress to the server
-                socket.emit("uploadProgress", { progress: percent });
-                 // Update the progress bar's width
-                // document.getElementById('upload-status').setAttribute("aria-valuenow")= Math.round(percent);
-                $(".progress-bar").css("width", percent + "%");
-                $("#upload-bar").text(`${Math.round(percent)}% uploaded`); // Update the progress bar's text
-
-                // Update the status text
-                $("#upload-status").text(`${Math.round(percent)}% uploaded`);
+            if (!file) {
+                // ref("No file selected.",null,null,'warning');
+                button.disabled = false;
+                fileInput.disabled = false;
+                document.getElementById('upload-container').remove();
+                fileInput.value = '';
+        
+                return;
             }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status === 200) {
-                 // Parse the response data and extract file metadata
-                const response = JSON.parse(xhr.responseText);
-                fileData = response.fileData;
-                console.log("File uploaded successfully", fileData);
-                ref("Upload complete.", null,null,"success");
-            } else {
-                ref("Failed to upload the file.",null ,null, "danger");
+        
+            if (file.size > maxSize) {
+                button.disabled = false;
+                fileInput.disabled = false;
+                document.getElementById('upload-container').remove();
+                fileInput.value = '';
+                showAlert("The file is too large. Maximum size allowed is 50 MB.",'warning');
+        
+                return;
             }
-        };
+        
+            const fileName = file.name.toLowerCase();
+            // const harmfulExtensions = [];
+            const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
+            const fileExtension = fileName.split('.').pop();
+        
+            if (harmfulExtensions.includes(fileExtension)) {
+                button.disabled = false;
+                fileInput.disabled = false;
+                document.getElementById('upload-container').remove();
+                fileInput.value = '';
+                showAlert("The selected file has a potentially harmful extension. Please upload a safe file.",'danger');
+        
+                return;
+            }
+        })
+        createFileUI_message(files)
 
-        xhr.send(formData);
-        socket.on("uploadSuccess", (data) => {
-            ref(`File ${data.dir} uploaded successfully!`,null,null,"success");
-            document.getElementById('upload-container').remove();
 
-        });
     } catch (error) {
         console.error("Error processing file:", error);
+        fileInput.value = '';
+
         ref("An error occurred while processing the file.", 'danger');
     } finally {
         button.disabled = false;
         fileInput.disabled = false;
     }
-    document.getElementById('file-input').value = '';
     // document.getElementById('upload-container').remove();
 
 });
@@ -506,299 +445,767 @@ function convertFileToBase64(file) {
     });
 }
 
-const setImage = (file) => {
-    const reader = new FileReader();
-    return new Promise((resolve, reject) => {
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const base64File = event.target.result; // The base64-encoded file content
-            fileData = {
-                fileData: base64File,
-                fileType: file.type,
-                fileName: file.name.toLowerCase(),
-            };
-            console.log("Image processed:", fileData);
-            resolve(fileData);
-        };
-        reader.onerror = (error) => {
-            console.error("Error reading image file:", error);
-            reject(error);
-        };
-    });
-};
-// const setImage = (file) => {
-//     const reader = new FileReader();
-//     reader.readAsDataURL(file);
-//     reader.onload = (event) => {
-//         image = event.target.result;
-//         console.log(image)
-//     };
-// };
-const setFile = (file,dir) => {
-    
-    const reader = new FileReader();
-    return new Promise((resolve, reject) => {
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            fileData = {
-                fileData: dir,
-                fileType: file.type,
-                fileName: file.name.toLowerCase(),
-            };
-            console.log("File processed:", fileData);
-            resolve(fileData);
-        };
-        reader.onerror = (error) => {
-            console.error("Error reading file:", error);
-            reject(error);
-        };
-    });
-};
 
 
-
-
-
-//=================================================================
-//Emit Create, Join and Leave room events
-
-socket.emit("userLoggedIn", { username: currentUser.username });
-
-// socket.emit("applySettings", user.settings); // Send settings to client
 
 //=================================================================
 //emit chat event (send message)
 //=================================================================
-button.addEventListener("click", async () => {
-    const replyBox = document.getElementById('replyBox')
-    let quote = replyBox.getAttribute('reply-id') || null;
-    let text = message.innerHTML.trimStart().trimEnd(); // Get the HTML content including tables
 
-    // Sanitize the input while allowing table elements and Excel-specific attributes
-    text = DOMPurify.sanitize(text, {
-        ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
-        ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
+
+// Offline Message Queue with localStorage persistence
+const MESSAGE_QUEUE_KEY = 'chat_message_queue';
+
+function getMessageQueue() {
+    const queued = localStorage.getItem(MESSAGE_QUEUE_KEY);
+    return queued ? JSON.parse(queued) : [];
+}
+
+function saveMessageQueue(queue) {
+    localStorage.setItem(MESSAGE_QUEUE_KEY, JSON.stringify(queue));
+}
+
+async function enqueueMessage(dataEncrypt, dataShow) {
+    const queue = getMessageQueue();
+    const messageId = Date.now() + Math.random(); // Unique temp ID
+
+    queue.push({
+        id: messageId,
+        encrypted: dataEncrypt,
+        display: dataShow,
+        attempts: 0,
+        timestamp: new Date().toISOString()
     });
 
-    // Only escape text nodes, preserve table structure
-    text = text.replace(/[<>]/g, match => {
-        if (!text.includes('<table')) {
-            return (match);
+    saveMessageQueue(queue);
+
+    // Add to UI with "pending" status
+    await addMessageToChatUI({ ...dataShow, isPending: true, id: messageId }, true);
+    
+    init_message_ui()
+    return messageId;
+}
+
+function dequeueMessage(id) {
+    let queue = getMessageQueue();
+    queue = queue.filter(msg => msg.id !== id);
+    saveMessageQueue(queue);
+}
+
+function clearMessageQueue() {
+    localStorage.removeItem(MESSAGE_QUEUE_KEY);
+}
+function getReplyInfo(quoteId) {
+    // quoteId is the full message ID like "room123-1000005"
+    console.log(quoteId)
+    if (!quoteId) return null;
+
+    const messageElement = document.getElementById(`Message-${quoteId}`);
+    if (!messageElement) {
+        console.warn("Quoted message not found in DOM:", quoteId);
+        return null;
+    }
+
+    const sender = messageElement?.querySelector('h6') ? messageElement?.querySelector('h6').innerText : '';
+    const handle = sender === currentUser.username ? 'من' : sender;
+
+    // Get the actual message text (cleaned)
+    const messageContent = messageElement.querySelector('.dataMessage');
+    const messageText = messageContent 
+        ? messageContent.innerHTML.replace(/<br>/g, '\n').trim()
+        : 'Original message';
+
+    // Limit preview length
+    const truncatedMessage = messageText.length > 100 
+        ? messageText.substring(0, 100) + '...' 
+        : messageText;
+
+    return {
+        sender,
+        handle,
+        quote: quoteId,
+        message: truncatedMessage
+    };
+}
+function prepareFileDetails(fileData) {
+    if (!fileData) return null;
+
+    // Normalize to array
+    const filesArray = Array.isArray(fileData) ? fileData : [fileData];
+
+    return filesArray.map(file => ({
+        file: file.file || file.fileData || file.dir || '', // server path (e.g., /uploads/xyz.jpg)
+        fileType: file.fileType || file.type || 'application/octet-stream',
+        fileName: file.fileName || file.name || 'unknown.file'
+    }));
+}
+
+
+
+    // تعریف متغیرهای سراسری
+    let stream, mediaRecorder, startTime, timerInterval;
+    let chunks = [];
+
+    // ---------- توابع کمکی ----------
+    function createBtn(id, iconClass, title) {
+        // دکمه‌ای با Bootstrap Icon می‌سازد
+        return $(`
+            <button id="${id}" type="button" class="btn btn-outline-secondary btn-color "
+                    data-bs-toggle="tooltip" title="${title}">
+                <i class="${iconClass}"></i>
+            </button>
+        `);
+    }
+
+    function updateTimer(){
+        const elapsed = Date.now()-startTime
+        const minutes = Math.floor(elapsed/60000)
+        const seconds = Math.floor((elapsed% 60000)/ 1000)
+        const centi = Math.floor((elapsed% 1000)/ 10)
+        
+        const mm = String(minutes).padStart(2,'0')
+        const ss = String(seconds).padStart(2,'0')
+        const cc = String(centi).padStart(2,'0')
+        $('#recordStatus #timer').text(`${mm}:${ss}.${cc}`)
+    }
+    // ---------- شروع ضبط ----------
+    $('#chat_windowFooter #recordBtn').on('click', async () => {
+        // مخفی کردن بخش متن و تغییر ظاهر دکمه‌ها
+        $('#chat_windowFooter #editable-message-text')
+           .fadeOut()
+
+        // گرفتن استریم میکروفن
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        chunks = [];
+
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+
+        
+
+        mediaRecorder.start();
+        if(mediaRecorder){
+            // Emit "typing" event with correct property name
+            socket.emit("typing", { 
+                name: name.textContent.trim(), // Replace with your actual username variable
+                username: typeUsername, // Replace with your actual username variable
+                status: 'voice_record',
+                isTyping: true 
+            });
         }
-        return match;
+        // ---------- UI ضبط ----------
+        // دکمه‌های Pause و Cancel را می‌سازیم
+        const $pauseBtn   = createBtn('pauseBtn',   'bi bi-pause-fill',   'مکث');
+        const $cancelBtn  = createBtn('cancelBtn',  'bi bi-x-circle',    'لغو');
+
+        $('#recordControls').empty().append($pauseBtn, $cancelBtn);
+        $('#recordStatus').removeClass('d-none').addClass('d-flex')
+        startTime = Date.now()
+        timerInterval = setInterval(updateTimer, 10);
+        // حالت اولیه دکمه‌ها
+        $('#chat_windowFooter #recordBtn')
+            .prop('disabled', true)
+            .fadeOut()
+            .addClass('animate__fadeOutLeft')
+            .removeClass('animate__fadeInLeft');
+
+        $('#chat_windowFooter #stopBtn')
+            .prop('disabled', false)
+            .removeClass('animate__fadeOutRight d-none')
+            .addClass('animate__fadeInRight')
+            .show();
+
+        $('#chat_windowFooter .message_btn')
+            .addClass('d-none');
     });
 
-    // Handle any Excel-specific formatting
-    if (text.includes('data-excel')) {
-        text = text.replace(/data-excel-formula="([^"]*)"/, (match, formula) => {
+    // ---------- توقف ضبط (دکمه Stop) ----------
+    $('#chat_windowFooter #stopBtn').on('click', () => {
+        mediaRecorder.onstop = () => {
+            const replyBox = document.getElementById('replyBox');
+            const quote = replyBox.getAttribute('reply-id') || null;
+            let text = message.innerHTML.trim();
+            text = DOMPurify.sanitize(text, {
+                ALLOWED_TAGS: ['table','thead','tbody','tr','td','th','br'],
+                ALLOWED_ATTR: ['style','data-excel-formula',
+                            'data-excel-value','data-excel-type']
+            });
+            // (در صورت نیاز به پردازش data‑excel‑formula همانند کد قبلی)
+
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            chunks = [];
+
+            const reader = new FileReader();
+            reader.onload = () => voice_upload(text, quote, blob);
+            reader.readAsArrayBuffer(blob);
+        };
+        stopRecording();
+
+    });
+
+    // ---------- Pause ----------
+    $('#recordControls').on('click', '#pauseBtn', () => {
+        if (!mediaRecorder) return;
+
+        if (mediaRecorder.state === 'recording') {
+            mediaRecorder.pause();
+            // آیکون را به Play تغییر می‌دهیم
+            $('#pauseBtn i')
+                .removeClass('bi-pause-fill')
+                .addClass('bi-play-fill')
+                .parent()
+                .attr('title', 'ادامه');
+            clearInterval(timerInterval)
+        } else if (mediaRecorder.state === 'paused') {
+            mediaRecorder.resume();
+            $('#pauseBtn i')
+                .removeClass('bi-play-fill')
+                .addClass('bi-pause-fill')
+                .parent()
+                .attr('title', 'مکث');
+            timerInterval = setInterval(updateTimer, 10);
+
+        }
+    });
+
+    // ---------- Cancel ----------
+    $('#recordControls').on('click', '#cancelBtn', () => {  
+        stopRecording()
+    });
+
+    // ---------- تابع مشترک برای توقف (Stop یا Cancel) ----------
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();   // onstop اجرا می‌شود
+            socket.emit("typing", { 
+                name: name.textContent.trim(), // Replace with your actual username variable
+                username: typeUsername, // Replace with your actual username variable
+                status: 'voice_record',
+                isTyping: false 
+            });
+        }
+        if (stream) {
+            stream.getTracks().forEach(t => t.stop());
+            stream = null;
+        }
+        // Emit "typing" event with correct property name
+        
+        timer_reset()
+        resetUI();
+    }
+    function timer_reset(){
+        $('#recordStatus #Timer').text('00:00.00')
+        $('#recordStatus').removeClass('d-flex').addClass('d-none')
+        timerInterval = null
+    }
+    // ---------- بازگرداندن UI به حالت اولیه ----------
+    function resetUI() {
+        $('#chat_windowFooter #editable-message-text')
+            .fadeIn()
+        $('#chat_windowFooter .message_btn')
+            .removeClass('d-none animate__fadeOut')
+            .addClass('animate__animated animate__fadeIn')
+            .show();
+
+        $('#chat_windowFooter #recordBtn')
+            .prop('disabled', false)
+            .removeClass('animate__fadeOutLeft')
+            .addClass('animate__fadeInLeft')
+            .fadeIn();
+
+        $('#chat_windowFooter #stopBtn')
+            .prop('disabled', true)
+            .removeClass('animate__fadeInLeft')
+            .addClass('animate__fadeOutRight')
+            .fadeOut()
+
+        $('#recordControls').empty();   // حذف دکمه‌های Pause/Cancel
+    }
+
+    function createUploadUI(username) {
+        let user =  member_users.filter(u=> u.username==username)[0]
+        let name = user?.first_name && user?.last_name ? `${user?.first_name} ${user?.last_name}` : username
+        if (!document.getElementById(`${username}_upload-container`)) {
+            $('#output').append(`
+            <div id="${username}_upload-container" class="px-5 m-3 backdrop-blur-chat-fg"
+                style="justify-content:flex-end; display:flex; flex-direction:column;"> 
+                <span id="upload-info">${name} is uploading files... </span>
+                <progress id="upload-progress" value="0" max="100"
+                    style="width:100%; height:20px;">
+                </progress>
+                <span id="upload-status">0% uploaded</span>
+            </div>
+                `);
+        }
+    } 
+    function createFileUI_message (files){
+        $('#file-input_res').removeClass('d-none').html('')
+        Array.from(files).forEach(file=>{
+
+            const fileURL = URL.createObjectURL(file);
+           $('#file-input_res').append(`
+               
+                   <div class="col-auto rounded-1 badge px-3 gap-1 d-flex bg-primary shadow">
+                       <button class="btn btn-sm btn-close col-auto m-auto" onclick="$('#file-input_res').addClass('d-none');$('#file-input').val('');fileData=null"></button>
+                       <img class="rounded-1" src="${fileURL}" width="auto" height="50" onerror="$(this).remove();$('#${file.name.split('.')[0]}_ICON').removeClass('d-none')" loading="lazy"  >
+                       <div class="m-auto col-auto row">
+                           <i id="${file.name.split('.')[0]}_ICON" class="bi fs-5 m-auto d-none col-auto fileIcon bi-filetype-${(file.name).split('.')[1]}"></i> 
+                           <span class="col-auto m-auto">${file.name || 'Unknown File'}</span>
+                           <span class="text-small m-auto col-auto">(${(file.size / 1048576).toFixed(2)} MB)</span>
+                       </div>
+                   </div>
+   
+           `)
+        })
+        
+    }
+    socket.on("uploadProgress", (data) => {
+        const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 120
+        createUploadUI(data.user);
+        if(data.progress == 100)$(`#${data.user}_upload-container`).remove()
+      $(`#${data.user}_upload-container #upload-progress`).val(data.progress);  
+        $(`#${data.user}_upload-container #upload-status`).text(`${Math.round(data.progress)}% uploaded`);
+        if(isNearBottom) scrollDown()
+    });
+button.addEventListener("click", async () => {
+    const replyBox = document.getElementById('replyBox');
+    const quote = replyBox.getAttribute('reply-id') || null;
+    
+    // Assuming 'message' is your contenteditable div or input
+    let text = message.innerHTML.trimStart().trimEnd();
+
+    const fileInput = document.getElementById('file-input');
+    const files = fileInput.files || null;   // fixed: .files, not .target.files
+
+    // ───────────────────────────────────────────────
+    // Early validation (before any network activity)
+    // ───────────────────────────────────────────────
+    if ((text === '' || text === placeholderText) && files.length == 0) {
+        showAlert("Message cannot be empty");
+        return;
+    }
+
+    // ───────────────────────────────────────────────
+    // Sanitize rich text (your original logic)
+    // ───────────────────────────────────────────────
+    // text = DOMPurify.sanitize(text, {
+    //     ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+    //     ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type']
+    // });
+
+    if (text.includes('data-excel-formula')) {
+        text = text.replace(/data-excel-formula="([^"]*)"/g, (match, formula) => {
             return `data-excel-formula="${encodeURIComponent(formula)}"`;
         });
     }
-    console.log(text);
-    text = text.trimStart().trimEnd();
-    
-    if(text == 'Message ...'&& !fileData){
-        $("#alert")
-        .html(
-            `<div class='alert alert-danger' role='alert'>
-            message cannot be empty
-            </div>`,
-        )
-        .hide();
-    $("#alert").slideDown(500);
 
-    return;
+    // text = text.trim();
+    
+    // ───────────────────────────────────────────────
+    // Prepare to send — two paths: with file vs without
+    // ───────────────────────────────────────────────
+    clearInputFields();
+    if(text !== '') $('#chat_windowFooter #editable-message-text').focus()
+
+    if (files?.length ==0 ) {
+        // No file → send directly
+        await sendMessage(text, null, quote);
+        return;
+    }else{
+
+        const maxSize = 50 * 1024 * 1024; // 10 MB in bytes
+        Array.from(files).forEach(file=>{
+            console.log(file)
+            if (file.size > maxSize) {
+                button.disabled = false;
+                fileInput.disabled = false;
+               $('#file-input_res').addClass('d-none').html('');
+                fileInput.value = '';
+                showAlert("The file is too large. Maximum size allowed is 50 MB.",'warning');
+    
+                return;
+            }
+    
+            const fileName = file.name.toLowerCase();
+            // const harmfulExtensions = [];
+            const harmfulExtensions = ['exe', 'bat', 'js', 'vbs', 'sh', 'pif', 'scr','apk','msi','cmd','com','cpl','gadget','hta','jar','jse','lnk','msc','msp','mst','paf','pif','ps1','reg','rgs','sct','shb','shs','u3p','vb','vbe','vbs','ws','wsc','wsf','wsh'];
+            const fileExtension = fileName.split('.').pop();
+    
+            if (harmfulExtensions.includes(fileExtension)) {
+                button.disabled = false;
+                fileInput.disabled = false;
+                $('#file-input_res').addClass('d-none').html('');
+                fileInput.value = '';
+                showAlert("The selected file has a potentially harmful extension. Please upload a safe file.",'danger');
+    
+                return;
+            }
+        })
     }
+
+    // ── Has file → upload first ────────────────────────────────
+
+
+
+    const formData = new FormData();
+    Promise.resolve(Array.from(files).forEach(file=>{
+        console.log(`appending:`, file)
+        formData.append("files", file);
+    })).then(()=>{
+                        fileInput.value = '';
+    })
+    const xhr = new XMLHttpRequest();
+    xhr.withCredentials= true
+    xhr.open("POST", "https://mc.farahoosh.ir:4000/upload", true);
+
+    // ── Progress events ──
+    xhr.upload.onprogress = (e) => {
+
+        let percent = (e.loaded / e.total) * 100;
+        socket.emit("uploadProgress", { progress: percent});
+        $(`#${currentUser.username}_upload-container #upload-progress`).val(percent); 
+        $(`#${currentUser.username}_upload-container #upload-status`).text(`${Math.round(percent)}% uploaded`);
+    };
+    xhr.onload = async () => {
+        
+        if (xhr.status === 200) {
+            let fileData;
+            try {
+                const response = JSON.parse(xhr.responseText);
+                fileData = response.fileData || response; // adjust depending on your server response
+                console.log("File uploaded:", fileData);
+                fileInput.value = '';
+                showAlert(response.message,'success')
+                setTimeout(async () => {
+                    await sendMessage(text, fileData, quote);
+
+                }, 500);
+            } catch (err) {
+                console.error("Bad JSON from upload server", err);
+                showAlert("File uploaded but server response invalid", "warning");
+                fileData = null;
+            }
+
+            // Now send the chat message with the file info
+            // await sendMessage(text, fileData, quote);
+
+            // Clean up file input
+            fileInput.value = '';
+
+            // Optional: remove any upload preview/UI
+            const uploadContainer = document.getElementById('upload-container');
+            if (uploadContainer) uploadContainer.remove();
+
+        } else {
+            console.error("Upload failed", xhr.status, xhr.responseText);
+            showAlert(`Failed to upload file (${xhr.status})`, "danger");
+            // You may still want to send text-only message here — or not
+            await sendMessage(text, null, quote); 
+        }
+
+    };
+
+    xhr.onerror = () => {
+        if (progressContainer) progressContainer.style.display = 'none';
+        showAlert("Network error during file upload", "danger");
+    };
+
+    xhr.send(formData);
+});
+// ────────────────────────────────────────────────────────────────
+// Main message sending logic — called in both paths
+// ────────────────────────────────────────────────────────────────
+
+
+async function voice_upload(text,quote,blob){
+    if(!blob) return null
+    clearInputFields()
+    const xhr = new XMLHttpRequest();
+            xhr.withCredentials= true
+            
+            xhr.open("POST", "https://mc.farahoosh.ir:4000/upload", true);
+
+            const formData = new FormData();
+            formData.append("files", blob,`${currentUser.room}_${currentUser.username}.webm`);
+            console.log(formData)
+            // return null
+            // ── Progress events ──
+            xhr.upload.onprogress = (e) => {
+              let percent = (e.loaded / e.total) * 100;
+              socket.emit("uploadProgress", {progress: percent});
+              $(`#${currentUser.username}_upload-container #upload-progress`).val(percent); 
+                $(`#${currentUser.username}_upload-container #upload-status`).text(`${Math.round(percent)}% uploaded`);
+            };
+            xhr.onload = () => {
+                // Hide / reset progress UI
+
+                if (xhr.status === 200) {
+                    let fileData;
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        fileData = response.fileData || response; // adjust depending on your server response
+                        console.log("File uploaded:", fileData);
+
+                        sendMessage(text,fileData,quote)
+                    } catch (err) {
+                        console.error("Bad JSON from upload server", err);
+                        showAlert("Audio uploaded but server response invalid", "warning");
+                        return null;
+                    }
+
+
+                    // Optional: remove any upload preview/UI
+                    const uploadContainer = document.getElementById('upload-container');
+                    if (uploadContainer) uploadContainer.remove();
+
+                } else {
+                    console.error("Upload failed", xhr.status, xhr.responseText);
+                    showAlert(`Failed to upload Audio (${xhr.status})`, "danger");
+                    // You may still want to send text-only message here — or not
+                    return null
+                }
+            };
+
+            xhr.onerror = () => {
+                
+                showAlert("Network error during file upload", "danger");
+                return null
+            };
+
+        await xhr.send(formData);     
+} 
+async function sendMessage(text=null, fileData, quote) {
+   
     let data = {
         username: currentUser.username,
-        quote:quote,
-        message: text == 'message ...' ?' ': text,
+        quote: quote,
+        message: text === placeholderText ? '' : text,
         file: fileData || null,
         date: new Date(),
     };
+    // Encrypted version for socket
     let dataEncrypt = {
         username: encryptMessage(currentUser.username),
-        quote: encryptMessage(quote),
-        message: text == 'message ...' ?' ': encryptMessage(text),
-        file: fileData || null,
+        roomID: encryptMessage(roomID),
+        quote: encryptMessage(quote || ''),
+        message: encryptMessage(text === placeholderText ? '' : text),
+        file: fileData || null,           // ← usually not encrypted
         date: new Date(),
     };
-    // console.log(quote)
+    
 
-    console.log(dataEncrypt)
-    if ((!data.message && !data.file) || !data.username ) {
-        $("#alert")
-                .html(
-                    `<div class='alert alert-danger' role='alert'>
-                       message cannot be empty
-                    </div>`,
-                )
-                .hide();
-        $("#alert").slideDown(500);
-          
-        return;
-    }
-   // Display "sending" message in UI
-    const sendingPlaceholder =`
-    <div id="sending" style="display: flex; justify-content: flex-end; "> 
-        <div class="spinner"></div>
-    </div>
-        `;
-        const reply = (quote) => {
-            if (quote) {
-                const replyMessageElm = document.getElementById('replyBox');
-                if (!replyMessageElm) {
-                    console.error('Reply box element not found.');
-                    return null; // Safeguard if the element doesn't exist
-                }
-                
-                const sender = replyMessageElm.querySelector('h6')?.textContent.trim() || '';
-                const message = document.getElementById('messageReplied')?.innerText || '';
-                
-                return {
-                    sender: sender,
-                    quote: quote,
-                    handle: sender,
-                    message: message,
-                };
+    // Prepare data for UI rendering
+    const replyInfo = quote ? getReplyInfo(quote) : null;
+    const fileDetails = fileData ? prepareFileDetails(fileData) : null;
+
+    let dataShow = {
+        ...data,
+        file: fileDetails || '',
+        quote: quote ? `${roomID}-${quote}` : null,
+        sender: currentUser.username || '',
+        reply: replyInfo,
+    };
+
+    const $button = $('#chat_windowFooter #button')
+    const button_html = $button.html()
+    
+    try {
+        let tempMessageId;
+
+        if (socket.connected) {
+
+            $button.prop('disabled',true).html(`
+                <div class="spinner-border col-auto text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+                </div>
+            `)
+            // Prepare plain data (for UI / optimistic update)
+            console.log(data)
+            if ((!data.message && !data.file) || !data.username) {
+                showAlert("Message cannot be empty", "warning");
+                return;
             }
-            return null; // Return null if no quote
-        };
-        let fileDetails = null;
+            let messID = null;
 
-        if (data.file !== null && data.file !== undefined) {
-            $("#upload-progress").hide();
+            // Get next message ID from server (with callback → promise)
+            messID = await new Promise((resolve) => {
+                socket.emit("roomCounterId", {roomID,username:currentUser.username}, (ack) => {
+                    if (ack?.success) {
+                        resolve(ack.messageId);
+                    } else {
+                        showAlert(ack?.message || "Failed to get message ID", "error");
+                        tempMessageId = enqueueMessage(dataEncrypt, dataShow);
 
-            // Ensure data.file is an array (whether single data.file or array of data.file)
-            const filesArray = Array.isArray(data.file) ? data.file : [data.file];
-        
-            // Conditionally map over the file if there are any
-            fileDetails = filesArray.length > 0
-                ? filesArray.map(file => ({
-                    file: file.file,  // Assuming fileData contains base64 data or a URL
-                    fileType: file.fileType,
-                    fileName: file.fileName || null,  // Default to null if fileName is not present
-                }))
-                : null;  // If no file, return null
-        
-            // console.log(fileDetails);
-        }else{
-            fileDetails=''
-            // console.error("erorr : ",file);
-        }
-        
-        
-        const dataShow = {
-            ...data,
-            file: fileDetails||'',
-            quote: `${roomID}-${quote}`,
-            sender: currentUser.username || '',
-            reply: quote ? reply(quote) : null // Ensure it's an array if quote is defined
-        };
-        
-    console.log(dataShow)
-    // Send message to server
-    addMessageToChatUI(dataShow)
+                        resolve(null);
+                    }
+                });
+            });
+
+            if (!messID) return; // stop if we couldn't get ID
     
 
-  // Clear input fields
-  message.innerHTML = "";
-  message.style.height = "36px";
-  message.style.transform = `translateY(0px)`;
-  replyBox.style.transform = `translateY(0px)`;
-  fileData = "";
-  clearReply()
+            data = {
+                ...data,
+                id: messID,
+            }
 
-    const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
-    
-    const inLast = lastMessageElm.querySelector('.message')
-    // console.log(inLast.innerHTML)
-    if(inLast){
-        const footerSending= inLast.querySelector(`.read-toggle`)
-        if(footerSending){
-            footerSending.innerHTML=`<strong>${sendingPlaceholder}</strong>`
-        }
-    }
-    // output.insertAdjacentHTML("beforeend",sendingPlaceholder);
-    
-    
-    chat_window.scrollTo({
-        top: chat_window.scrollHeight, // Scroll to the bottom
-        behavior: "auto",
-    });
-    if(document.querySelector('.unread')) document.querySelector('.unread').remove()
-
-    socket.emit("chat", dataEncrypt, (ack) => {
-        // Callback is triggered when the server acknowledges receipt
-        console.log(ack)
-        // Remove the "sending" placeholder
-        var placeholder = output.querySelector("#sending");
-        // console.log(placeholder)
-        if (ack.success) {
-            if (placeholder) {
-                
-                placeholder.insertAdjacentHTML('afterend', `<i class="bi bi-check2"></i>`);
-                placeholder.remove();
-                
+            dataEncrypt = {
+                ...dataEncrypt,
+                id: messID,
+            }
+            dataShow = {
+                ...dataShow,
+                id: messID
             }
             
 
-            // // Display the sent message in the UI
-            // output.innerHTML += `<div style="display:flex;justify-content:flex-end;color:black;">
-            //     ${data.message}
-            // </div>`;
+
+            // Show message immediately with "sending" state
+            tempMessageId = await addMessageToChatUI({ ...dataShow, isPending: true });
+            init_message_ui()
         } else {
-            // Handle failure (e.g., show an error message)
-            output.innerHTML += `<div style="display:flex;justify-content:flex-end;color:red;">
-                Failed to send message
-            </div>`;
-        }
-     
-      
-    });
-  
-    // Add listener for server acknowledgment
-    socket.on("chat", (response) => {
-        if (response.error) {
-
-            ref(response.error,null,null,'error');
-            return;
+            // Offline → queue
+            tempMessageId = enqueueMessage(dataEncrypt, dataShow);
+            showAlert("You're offline. Message queued.", "warning");
         }
 
-        // // Add the message to the UI
-        // addMessageToChatUI(response);
+        // Try to send (with your retry logic)
+        sendWithRetry(dataEncrypt, dataShow, tempMessageId);
+
+    } catch (err) {
+        console.error("roomCounterId failed", err);
+        showAlert("Failed to prepare message", "error");
+    }finally{
+
+        // Clear input fields right away (optimistic UX)
+
+        // Scroll to bottom
+        $('#chat_windowFooter #recordBtn').prop('disabled', false).removeClass('d-none')
+        $button.prop('disabled',false).html(button_html)
+        output.scrollTo({ top: output.scrollHeight, behavior: "smooth" });
+    }
+
+}
+// Helper: clear inputs
+function clearInputFields() {
+    message.innerHTML = "";
+    message.style.height = "36px";
+    message.style.transform = `translateY(0px)`;
+    replyBox.style.transform = `translateY(0px)`;
+    $('#file-input_res').addClass('d-none');
+    fileData = "";
+    clearReply();
+}
+
+function showAlert(msg, type = "error") {
+    res_alert(msg,type,3000)
+}
+
+
+function sendWithRetry(dataEncrypt, dataShow, isRetry = false) {
+    
+    socket.emit("chat", dataEncrypt, (ack) => {
+        if (ack && ack.success) {
+            // Success: remove from queue if exists, update UI
+            dequeueMessage(ack.messageId);
+            updateMessageStatus(ack.messageId, 'sent'); // e.g., add ✓✓
+        } else {
+            // Failed: queue it (unless it's already queued)
+            console.warn("Send failed, queuing message");
+            if (!isRetry) {
+                enqueueMessage(dataEncrypt, dataShow); // Re-queue with new ack.messageId if needed
+            }
+            updateMessageStatus(ack.messageId, 'failed');
+            showAlert(ack.message, 'danger');
+        }
     });
-    // // Remove "sending" placeholder once the message is successfully added to the UI
-    // if(document.getElementById("sending-placeholder"))document.getElementById("sending-placeholder").remove()
-    //     setTimeout(() => {
-    //         applyShowMore();
-    //         },100);
-})
+}
+
+
+socket.on("connect", () => {
+    console.log("Connected! Sending queued messages...");
+
+    let queue = getMessageQueue();
+    if (queue.length === 0) return;
+
+    showAlert(`Sending ${queue.length} queued message(s)...`, "info");
+
+    queue.forEach(item => {
+        item.attempts += 1;
+
+        socket.emit("chat", item.encrypted, (ack) => {
+            if (ack && ack.success) {
+                dequeueMessage(item.id);
+                updateMessageStatus(item.id, 'sent');
+            } else if (item.attempts >= 5) {
+                // Give up after 5 attempts
+                dequeueMessage(item.id);
+                updateMessageStatus(item.id, 'failed-permanent');
+                showAlert("A message could not be sent after multiple attempts.", "error");
+            }
+            // Else: leave in queue for next reconnect
+        });
+    });
+
+    saveMessageQueue(queue); // Update attempts
+});
+
+
+
+
+function updateMessageStatus(tempId, status) {
+    const el = output.querySelector(`[data-mess_org_id="${tempId}"]`);
+    if (!el) return;
+
+    const statusEl = el.querySelector('.pending, .status');
+    console.log('statusEl',statusEl)
+    if (status === 'sent') {
+        statusEl.innerHTML = '<i class="bi text-muted bi-check2"></i>';
+    } else if (status === 'failed') {
+        statusEl.innerHTML = '<i class="bi bi-exclamation-circle text-danger" title="Failed"></i>';
+    } else if (status === 'failed-permanent') {
+        statusEl.innerHTML = '<i class="bi bi-x-circle text-danger" title="Failed to send"></i>';
+    }
+}
 //=================================================================
 //Emit typing event (trigger user typing and send message on enter)
 let typeUsername = currentUser.username;
-const typingTimeout = 1000; // Timeout for detecting "stop typing"
+const typingTimeout = 2000; // Timeout for detecting "stop typing"
 let typingTimer;
+let isTyping = false;
 
 
 
 message.addEventListener("input", (event) => {
-    clearTimeout(typingTimer); // Reset timer
 
-    // Emit "typing" event with correct property name
-    socket.emit("typing", { 
-        name: name.textContent.trim(), // Replace with your actual username variable
-        username: typeUsername, // Replace with your actual username variable
-        isTyping: true 
-    });
+    const file = fileInput.files[0];
+
+    clearTimeout(typingTimer); // Reset timer
+    if(message.innerText.trim() !='' || file){
+        $('#chat_windowFooter #recordBtn').prop('disabled', true).addClass('d-none');    
+    }else{
+        $('#chat_windowFooter #recordBtn').prop('disabled', false).removeClass('d-none')
+    }
+    if(!isTyping){
+        isTyping = true
+        // Emit "typing" event with correct property name
+        socket.emit("typing", { 
+            name: name.textContent.trim(), // Replace with your actual username variable
+            username: typeUsername, // Replace with your actual username variable
+            status: 'typing',
+            isTyping: true 
+        });
+    }
 
     // Set a timeout to emit "stop typing"
     typingTimer = setTimeout(() => {
         socket.emit("typing", { 
             name: name.textContent.trim(), 
             username: typeUsername, 
+            status: 'typing',
             isTyping: false 
         });
+        isTyping = false
     }, typingTimeout);
 });
 
@@ -818,23 +1225,12 @@ message.addEventListener("keydown", (event) => {
 //=================================================================
 socket.on("chat",async(data , ack) => {
    
-    
+    console.log(data)
     const decryptedMessage = await {
             // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
                 ...data,
                 message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
-                // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
-                // handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
-                readUsers: await Promise.all(
-                    (data.readUsers || []).map((readEntry) => {
-                        return {
-                            username: readEntry.username ? (readEntry.username) : readEntry.username, // رمزگشایی username فقط اگر وجود داشته باشد
-                            name: readEntry.name ? (readEntry.name) : readEntry.name, // رمزگشایی name فقط اگر وجود داشته باشد
-                            reaction: readEntry.reaction ? (readEntry.reaction) : '', // رمزگشایی reaction فقط اگر وجود داشته باشد
-                            time: readEntry.time ? (readEntry.time) : readEntry.time, // رمزگشایی time فقط اگر وجود داشته باشد
-                        };
-                    })
-                ),
+                
                 reply: data.reply ? {
                     ...data.reply,
                     message: data.reply.message ? decryptMessage(data.reply.message) : data.reply.message, // رمزگشایی message در reply فقط اگر وجود داشته باشد
@@ -842,59 +1238,50 @@ socket.on("chat",async(data , ack) => {
                 } : null, 
             };
     if (ack.success) {
-   
-  
-   
-    const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
+        const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 120
+        const messageElement = $(`.isPending_${data.id.split('-')[1]}`);
+        if (messageElement.length>0) {   
 
+            messageElement.remove()
+            updateMessageStatus(data.id,'sent')
+            scrollDown()
+        }
 
-    if(lastMessage){
-
-        if( lastMessage.getAttribute('data-id')){
-            let lastMessageId = lastMessage.getAttribute('data-id');
-            lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
-            const threshold = 100; // Proximity in pixels to the top of the viewport
-            let rect = lastMessage.getBoundingClientRect()
-
-            if (rect.bottom >= -threshold 
-                &&rect.top <= window.innerHeight+threshold) {
-                if(decryptedMessage.sender != currentUser.username){
-                    addMessageToChatUI(decryptedMessage)
-                    // console.log(decryptedMessage.sender)
+        const lastMessage = document.querySelector(".lastMessage")
+        if(lastMessage){
+            let shouldScroll = false
+            
+            if(isNearBottom){
+                    shouldScroll = true  
                 }
-                scrollDown()
+            // همیشه پیام را اضافه کن  
+                await addMessageToChatUI(decryptedMessage)
+                    init_message_ui()
+            if(shouldScroll){    
+                    scrollDown()  
 
-                }else{
-                    unreadedScroll += 1;
-                    updateNotifCount(unreadedScroll)
-                    console.log('unreaded:',unreadedScroll)
-                    if(decryptedMessage.sender != currentUser.username){
-                        if(output.querySelectorAll('.unread').length == 0){
-                            decryptedMessage = {
-                                ...decryptedMessage,
-                                readLine:true
-                            }
-                        }else{
-                            
-                            // console.log(output.querySelectorAll('.unread'))
-                        }
-                        addMessageToChatUI(decryptedMessage)
-                        hasScrolledDown = false
-                    }
                 }
-            }
-    }
+            //     else{
+            //     if(decryptedMessage.sender != currentUser.username){
+            //         unreadedScroll += 1      
+            //                 updateNotifCount(unreadedScroll)
+            //         console.log("unreaded:", unreadedScroll)
+            //         if(output.querySelectorAll(".unread").length === 0){        
+            //             decryptedMessage.readLine = true      
+            //         }
+            //         hasScrolledDown = false    
+            //     }
+            // }
+        }
+    
     
     }
     // $("#down").show(); // Show scroll-up button
-    messageMenu()
+    // messageMenu()
     // setTimeout(() => {
     //     applyShowMore();
     // },100);
-    if(decryptedMessage.sender != currentUser.username){
-        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
-        playNotificationSound()
-    }
+
     const messages = document.querySelectorAll(".messageRead"); // Class of each message div
 
     if(!document.hidden){
@@ -904,6 +1291,7 @@ socket.on("chat",async(data , ack) => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
             let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+            message.setAttribute('data-readStatus','read')
             messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight  && dataReadStatus=='unread') {
@@ -913,6 +1301,7 @@ socket.on("chat",async(data , ack) => {
                 }
             }
         });
+        visibleMessages.push(data.id)
     
         // Emit the IDs of visible messages to the server
         if (visibleMessages.length > 0) {
@@ -924,52 +1313,341 @@ socket.on("chat",async(data , ack) => {
 //=================================================================
 //Handle user-connected event
 
-socket.on("connect", () => {
-    socket.emit("newconnection", name.textContent);
-});
 socket.on("newconnection", (data) => {
-    $("#alert")
-        .html(
-            `<div class='alert alert-success' role='alert'>
-                ${data.handle} joined the chat
-            </div>`,
-        )
-        .hide();
-    $("#alert").slideDown(500);
+
+    showAlert(`${data} Online now`,'info')
+    
   
 });
 //=================================================================
 //Handle User joined the room event
+async function member_manage(status,user){
+    try {
+        
+        if(!status || !user) throw new Error("Not enough data.");
+         
+        const response = await new Promise((resolve) =>{
+            socket.emit("member_manage",{status,user},(ack)=>{
+                const {success,message} = ack
+                const status = success ? 'success':'danger'
+                showAlert(message,status)
+                resolve(status)
+            })
+        })
+        
+        return response
+    } catch (error) {
+        console.error('error:', error.message)
+        return false
+    }
+}
+
+$('#addMember_room_modal [data-submit="true"]').on('click',function(e){
+    let res = false;
+    Promise.resolve(res = member_manage('add',$('#addMember_room_modal input.form-control').val()))
+    .then(function(){
+            console.log('good',res)
+            if(res){
+                $('#addMember_room_modal').collapse('hide')
+            }
+        })
+
+})
+socket.on('member_update',(data)=>{
+    const {member_data,members,room_admin} = data
+    member_users = members
+    console.log(members,member_data)
+    const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
+
+    const admin = member_users.filter(user=> user.username == room_admin)[0]
+
+    Promise.resolve(
+        $roomInfoForm.find('[name="admin"]').data('username',admin.username).text(`${admin.first_name} ${admin.last_name}`)
+    ).then(()=>{
+        update_member_room_info_modal(member_data,members)
+    })
+
+})
+function update_member_room_info_modal(member_data,members){
+    if(!member_data || !members) return
+    const $membersList = $('#roomInfo_modal #membersList')
+    const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
+
+    
+    $membersList.html('')
+    members.map(mem=>{
+        const mem_data = member_data?.filter(m=> m.id == mem._id)[0]
+        console.log("mem_data",mem_data)
+        const is_admin = $roomInfoForm.find('[name="admin"]').data('username') == mem.username
+        const is_User_admin = $roomInfoForm.find('[name="admin"]').data('username') == currentUser.username || mem.username== '09173121943'
+        const is_self = mem.username== currentUser.username 
+        const user_status_badge={
+        'online':` <span class="badge border border-2 border-success text-success shadow col-auto m-auto" title="Online">
+                            <span class="online-dot" title="Online"></span>
+                            <i class="">Online</i>
+                        </span>
+                        `,
+        'sleep':` <span class="badge border border-2 border-warning text-warning shadow col-auto m-auto" title="Sleeping">
+                            <i class="bi bi-moon-stars-fill text-warning"> Sleeping</i>
+                        </span>
+                        `,
+        'offline':` <span class="badge border border-2 border-secondary text-muted shadow col-auto m-auto" title="Offline">
+                            <span class="offline-dot" title="Offline"></span>
+                            <i class="text-muted">Offline</i>
+                        </span>
+                        `
+    }
+        const show_joinLeave_span=(status)=>{
+            if(status == 'join'){
+                return`
+                ${mem_data?.joined_at ?
+                `<div class="dropdown-item">
+                    <span class="col-auto text-muted">
+                        زمان ورود: ${new Date(mem_data?.joined_at).toLocaleDateString("fa-IR",{year:'2-digit',
+                        month:'2-digit',
+                        day:'2-digit',
+                        hour:'2-digit',
+                        minute:'2-digit'
+                        })}
+                    </span>
+                </div>
+                `:``}
+                
+                `
+            }else{
+                return`
+                ${mem_data?.leaved_at ?
+                `<div class="dropdown-item">
+                    <span class="col-auto text-muted">
+                        زمان خروج: ${new Date(mem_data?.leaved_at).toLocaleDateString("fa-IR",{year:'2-digit',
+                        month:'2-digit',
+                        day:'2-digit',
+                        hour:'2-digit',
+                        minute:'2-digit'
+                        })}
+                    </span>
+                </div>`:``}
+                `
+            }
+        }
+        const show_date= ()=>{
+            const is_join_new = new Date(mem_data?.joined_at).getTime >= new Date(mem_data?.leaved_at).getTime
+            if(is_join_new){
+                return`
+                ${show_joinLeave_span('join')}
+                ${show_joinLeave_span('leave')}
+                `
+            }else{
+                return`
+                ${show_joinLeave_span('leave')}
+                ${show_joinLeave_span('join')}
+                `
+            }
+        }
+        const admin_access= () =>{
+            const managing = () =>{
+                if(is_User_admin){
+                    return`
+                    <span class="dropdown-item my-1 d-flex gap-2 rounded-3" onclick="member_manage('admin','${mem.username}')"><i class="bi bi-star text-warning"></i> ترفیع به مدیر</span>
+                    <span class="dropdown-item my-1 d-flex gap-2 rounded-3 text-danger" onclick="member_manage('kick','${mem.username}')"><i class="bi bi-x"></i> اخراج</span>
+                    `
+                }else if(is_self){
+                    return`
+                     <span class="dropdown-item my-1 d-flex gap-2 rounded-3 text-danger" onclick="member_manage('kick','${mem.username}')"><i class="bi bi-x"></i>ترک اتاق</span>
+                    `
+                }
+            }
+            
+            return`
+                <div class="dropdown d-inline" id="room_mem_${mem.username}"
+                    >
+                    <span class="shadow rounded" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi fw-semibold bi-three-dots-vertical m-auto"></i>
+                    </span>
+                    <div dir="auto" class="dropdown-menu z-1 actions p-1 gap-2">
+                        ${show_date()}
+                        ${mem?.lastActive ?
+                        `
+                        <div class="dropdown-item">
+                            <span class="col-auto text-muted">
+                                آخرین فعالیت: ${new Date(mem?.lastActive).toLocaleDateString("fa-IR",{year:'2-digit',
+                                month:'2-digit',
+                                day:'2-digit',
+                                hour:'2-digit',
+                                minute:'2-digit'
+                                })}
+                            </span>
+                        </div>
+                        `:``}
+                        ${is_admin? managing()?? ``:''}
+                    </div>
+                </div>
+            `
+        }
+        $membersList.append(`<li class="list-group-item bg-dark text-white d-flex justify-content-between align-items-center">
+                                <div class="d-flex text-white col  text-nowarp overflow-hidden gap-2">
+                                    <span>
+                                        ${mem.first_name} ${mem.last_name}      
+                                    </span>
+                                    <span class="jdate" onclick="copyToClipboard('${mem.username}')">
+                                        <i class="bi bi-copy"></i> ${mem.username}              
+                                    </span>
+                                    
+                                </div>
+                                <div class="col-auto d-flex gap-1">
+                                    
+                                    ${is_admin ?`
+                                    <span class="badge border border-2 border-warning text-warning shadow col-auto m-auto rounded-pill">
+                                        <i class="bi bi-star-fill"> Admin</i>
+                                    </span>
+                                    `:''}
+                                    ${mem?.status ?user_status_badge[mem?.status]:''}
+                                    ${admin_access()}             
+                                </div>
+                            </li>   `)
+    })
+   
+}
+function room_settings_initialize(setting){
+    // const $membersList = $('#roomInfo_modal #membersList')
+    // const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
+    const $room_settings = $('#roomInfo_modal #room_settings')
+    $room_settings.html('')
+    if(!setting) return
+    setting?.forEach((obj,idx)=>{
+        Object.entries(obj)?.forEach(([key,value])=>{
+            const label ={
+                'Joinable_url':'Room Type'
+            }
+            const is_selection = (['Joinable_url']).includes(key)
+            const options={
+                'Joinable_url':['public','private']
+            }
+            $room_settings.append(`
+                    <label class="form-label">
+                        ${label[key]}
+                    </label>
+                    ${is_selection?`
+                        <select dir="auto" class="form-select" name="${key}" readonly>
+                            ${options[key].map(op=>{
+                                return `
+                                <option value="${op}" ${op == value ?'selected':''}>
+                                    ${capitalizeWord(op)}
+                                    
+                                </option>
+                                `
+                            })}    
+                        </select>     
+                        
+                    `:`
+                        <input type="text" dir="auto" class="form-control" name="${key}" value="${value}" readonly>          
+                    `}            
+                                    
+                `)
+        })
+    })
+}
 socket.on("joined", (data) => {
+    const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
+    const $modal_body = $('#roomInfo_modal .modal-body')
+
+    member_users = data.member_users
+    // console.log(member_users)
+    currentUser.room = data.room.roomID
+
+    const roomList_ul = $('#roomList_ul');
+    const{room} = data
+    roomList_ul.empty().addClass('d-none');
     // const data = decryptMessage(encryptedData)
     console.log("User joined room:", data);
+    localStorage.setItem('last_room_joined_MC',data.room.roomID)
+    $('.modal.show').each(function () {
+        const modalEl = this;
+        const instance = bootstrap.Modal.getInstance(modalEl);
 
+        if (!instance) return;
+        instance.hide();
+    
+    });
+    $('.modal-backdrop').remove();
     // Ensure required fields exist
     // if (!data.room || !data.room.roomID || !data.room.admin) {
     //     console.error("Invalid data received in 'joined' event:", data);
     //     return;
     // }
-    
-    if(document.getElementById('backgroundImg')) document.getElementById('backgroundImg').style.display='none'
+    const admin = member_users.filter(user=> user.username == data.room.admin)[0]
+    room_settings_initialize(data?.room?.setting)
+    Promise.resolve(
+        $roomInfoForm.find('[name="admin"]').data('username',admin.username).text(`${admin.first_name} ${admin.last_name}`)
+    ).then(()=>{
+        update_member_room_info_modal(room.member_data ,member_users)
+    })
+    if(document.querySelector(".close")) document.querySelector(".close").click();
+        document.querySelector("#roomInfo").innerHTML = `
+            <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-1 mt-1">
+            
+                <button type='button' title="رفتن به فهرست اصلی" data-bs-toggle="tooltip" data-bs-placement="bottom" 
+                    class='col-auto  btn backdrop-blur rounded-circle btn-secondary' onclick='leaveRoom()'>
+                    <i class='bi fs-bold bi-arrow-left'></i>
+                </button>    
+            <!-- Toggle button for mobile -->
+                <button class="btn btn-secondary col-auto text-warning  " type="button"  data-bs-toggle="modal" data-bs-target="#roomInfo_modal" 
+                    aria-expanded="false" aria-controls="roomControls">
+                    <i class="bi bi-info-circle"></i> ${data.room.roomName}
+                </button>
 
+               
+            </div>
+    `;
+    // <div class="row col-12 gap-2 ">
+    //                     <button type="button" class="col-auto btn btn-secondary " data-bs-toggle="tooltip" data-bs-html="true" 
+    //                         title="Copy ${data.room.roomID}" data-bs-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
+    //                         Room : <em class='text-warning'>${data.room.roomName}</em>&nbsp <strong>|</strong>&nbsp
+    //                         Admin : <em class='text-warning'>${admin?.first_name} ${admin?.last_name}</em>
+    //                     </button>
+                        
+    //                     <input type="hidden" class="d-none" id="roomIDVal" value="${data.room.roomID}"/>
+                        
+    //                     <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
+    //                         class='col-auto btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
+    //                         target="_blank" title="Share on whatsapp" data-bs-toggle="tooltip" data-bs-placement="bottom">
+    //                         <i class='bi bi-whatsapp'></i>
+    //                     </a>
+                        
+                        
+    //                 </div>
+    // <div class="col-12 d-flex mb-1 gap-4 pb-2 overflow-x-auto">
+    //                 ${data.room.members.map(member=>{
+    //                     const user = data.member_users.filter(user=> user.username === member)[0]
+    //                     const name = `${user?.first_name?? 'N/A'} ${user?.last_name?? 'N/A'}`
+    //                     return `<span class="rounded col-auto row fs-6 mx-1  bg-primary-subtle border border-primary  shadow" dir="auto">
+    //                                 <span class="col-auto m-auto">${name}</span><span class="small col-auto m-auto">(${member})</span>
+    //                             </span>`
+    //                 }).join('')}
+    //                 </div>
+
+    if($modal_body.find('.kick_myself').length == 0){
+        $modal_body.append(`
+            
+            <span class="kick_myself my-1 gap-2 col-auto rounded-3 cursor-pointer btn btn-outline-danger" onclick="member_manage('kick','${currentUser.username}')"><i class="bi bi-person-fill-x"></i> ترک اتاق</span>
+                        `)
+    }
     // Toggle UI elements
-    document.getElementById("chat-window").style.display = "block";
+    $("#chat-window").removeClass('d-none');
     document.querySelector("footer").style.display = "none";
-    // Initialize tooltips
-    $('[data-toggle="tooltip"]').tooltip();
+    if(fileInput?.files.length != 0){
+            createFileUI_message(fileInput.files)
+    }else{
+        $('#file-input_res').addClass('d-none').html('')
+    }
     if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
-    document.getElementById("chat-window").style.display = "block";
     document.querySelector(".form-inline").style.display = "flex";
     document.querySelector("footer").style.display = "none";
     roomID = data.room.roomID
     console.log(roomID)
     // Initialize tooltips
-    $('[data-toggle="tooltip"]').tooltip();
-    if (typeof updatePVnotif === 'function') {
-        updatePVnotif();
-    }else{
-        console.log('updatePVnotif not exist')
-    }
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    $('#feedback').html('').addClass('d-none')
     
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 
@@ -995,14 +1673,7 @@ socket.on("joined", (data) => {
 //Handle invalidRoom event
 socket.on("invalidRoom", ({ message }) => {
     document.querySelector(".close").click();
-    $("#alert")
-        .html(
-            "<div class='alert alert-warning' role='alert'>" +
-                message +
-                "</div>",
-        )
-        .hide();
-    $("#alert").slideDown(500);
+    showAlert(`${message}`,'warning')
    
 });
 
@@ -1011,170 +1682,57 @@ socket.on("invalidRoom", ({ message }) => {
 
 // when scroll up send other user message count 
 function updateNotifCount(count) {
-    const notifCount = document.getElementById('notifCount');
     if (count > 0) {
-        notifCount.textContent = count;
-        notifCount.style.display = 'inline'; // Show the badge
+       $('#notifCount').text(count).removeClass('d-none')
     } else {
-        notifCount.style.display = 'none'; // Hide the badge if count is 0
+        $('#notifCount').text('0').addClass('d-none')
     }
 }
-
-socket.on("chat",async(data , ack) => {
-    const decryptedMessage = await {
-            // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
-                ...data,
-                message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
-                // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
-                // handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
-                readUsers: await Promise.all(
-                    (data.readUsers || []).map((readEntry) => {
-                        return {
-                            username: readEntry.username ? (readEntry.username) : readEntry.username, // رمزگشایی username فقط اگر وجود داشته باشد
-                            name: readEntry.name ? (readEntry.name) : readEntry.name, // رمزگشایی name فقط اگر وجود داشته باشد
-                            reaction: readEntry.reaction ? (readEntry.reaction) : '', // رمزگشایی reaction فقط اگر وجود داشته باشد
-                            time: readEntry.time ? (readEntry.time) : readEntry.time, // رمزگشایی time فقط اگر وجود داشته باشد
-                        };
-                    })
-                ),
-                reply: data.reply ? {
-                    ...data.reply,
-                    message: data.reply.message ? decryptMessage(data.reply.message) : data.reply.message, // رمزگشایی message در reply فقط اگر وجود داشته باشد
-                    sender: data.reply.sender ? decryptMessage(data.reply.sender) : data.reply.sender, // رمزگشایی sender در reply فقط اگر وجود داشته باشد
-                } : null, 
-            };
-    if (ack.success) {
-   
-  
-   
-    const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
-
-
-    if(lastMessage){
-
-        if( lastMessage.getAttribute('data-id')){
-            let lastMessageId = lastMessage.getAttribute('data-id');
-            lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
-            const threshold = 100; // Proximity in pixels to the top of the viewport
-            let rect = lastMessage.getBoundingClientRect()
-
-            if (rect.bottom >= -threshold 
-                &&rect.top <= window.innerHeight+threshold) {
-                    addMessageToChatUI(decryptedMessage)
-                    // console.log(decryptedMessage.sender)
-                
-                scrollDown()
-
-                }else{
-                    unreadedScroll += 1;
-                    updateNotifCount(unreadedScroll)
-                    console.log('unreaded:',unreadedScroll)
-                    if(decryptedMessage.sender != currentUser.username){
-                        if(output.querySelectorAll('.unread').length == 0){
-                            decryptedMessage = {
-                                ...decryptedMessage,
-                                readLine:true
-                            }
-                        }else{
-                            
-                            // console.log(output.querySelectorAll('.unread'))
-                        }
-                        addMessageToChatUI(decryptedMessage)
-                        hasScrolledDown = false
-                    }
-                }
-            }
-    }
-    
-    }
-    // $("#down").show(); // Show scroll-up button
-    // setTimeout(() => {
-    //     applyShowMore();
-    // },100);
-    if(decryptedMessage.sender != currentUser.username){
-        showBrowserNotification(decryptedMessage.handle,decryptedMessage.message,roomID)
-        playNotificationSound()
-    }
-    const messages = document.querySelectorAll(".messageRead"); // Class of each message div
-
-    if(!document.hidden){
-        const visibleMessages = [];
-
-        messages.forEach((message) => {
-            const rect = message.getBoundingClientRect();
-            let messageId = message.getAttribute('data-id');
-            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
-            messageId = roomID+"-"+ messageId.split('-')[1]
-
-            // Check if the message is in the viewport (visible)
-            if (rect.top >= 0 && rect.bottom <= window.innerHeight && dataReadStatus=='unread') {
-                if (messageId && !visibleMessages.includes(messageId)) {
-                    visibleMessages.push(messageId);  // Add the data-id of visible messages
-                    // console.log(messageId)
-                }
-            }
-        });
-    
-        // Emit the IDs of visible messages to the server
-        if (visibleMessages.length > 0) {
-            socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
-        }
-    }
-});
 
 //=================================================================
 //Handle typing event
 socket.on("typing", (data) => {
-    const { name,username, isTyping } = data;
+    const { username, isTyping } = data;
 
     if (isTyping) {
         // Add a typing indicator if one doesn't already exist
         if (!$(`#typing-${username}`).length && !$(`#typing-${username}Btn`).length) {
-           
-            const lastMessage = output.querySelectorAll(".lastMessage")[0]; // Class of each message div
+            const { name, status } = data;
 
-
-            if(lastMessage){
-
-                if( lastMessage.getAttribute('data-id')){
-                    let lastMessageId = lastMessage.getAttribute('data-id');
-                    lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
-                    const threshold = 100; // Proximity in pixels to the top of the viewport
-                    let rect = lastMessage.getBoundingClientRect()
-
-                    if (rect.bottom >= -threshold 
-                        &&rect.top <= window.innerHeight+threshold) {
-                       
-                            $("#feedback").append(
-                                `<div id="typing-${username}" style="border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);" class="badge p-2 ml-2 type">
-                                    <em style="
-                                        display: flex;
-                                        align-content: center;
-                                        align-items: center;
-                                    ">${name} is typing <div class="typingLoader"></div></em>
-                                </div>`
-                            );
-                        }else{
-                            // $("#down").fadeIn()
-
-                            // $("#chat_windowFooter").append( `<div id="typing-${username}Btn" class="badge p-2 ml-2 type typeScrollDownBtn">
-                            //     <em style="
-                            //             display: flex;
-                            //             align-content: center;
-                            //             align-items: center;
-                            //         ">${name} is typing <div class="typingLoader"></div></em>
-                                
-                            //     </div>`
-                            // );
-                        }
-                    }
+            const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 240
+            const status_class={
+                'voice_record': '<span class=" p-1 placeholder-wave bg-secondary shadow rounded-pill ms-1"><i class="bi bi-mic fs-5 m-auto "></i></span>',
+                'typing': 'در حال نوشتن <div class="typingLoader"></div>',
             }
+            if (isNearBottom) {
+                
+                    $("#output").removeClass('d-none').append(
+                        `
+                        <div id="typing-${username}" class="col-12 mb-3">
+                            <div dir="auto" style="border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);
+                                        border: 2px solid var(--color-peer-${username}) !important;
+                                        
+                                        " class="badge shadow p-2 ml-2 type backdrop-blur-chat-fg">
+                                <em class="" style="
+                                    display: flex;
+                                    align-content: center;
+                                    align-items: center;
+                                ">${name} ${status_class[status]??status}</em>
+                            </div>
+                        </div>`
+                    );
+                    scrollDown()
+                
+            }
+                
+            
             
         }
     } else {
         // Remove the typing indicator for this user
         $(`#typing-${username}`).remove();
         $(`#typing-${username}Btn`).remove();
+        $('#feedback').removeClass('d-none')
     }
     // scrollDown()
 });
@@ -1196,13 +1754,22 @@ socket.on("left", (user) => {
 //=================================================================
 //Handle User-Disconnected event
 socket.on("userJoined", (data) => {
-    ref(`${data} has join the room`,null,null,'info');
+    showAlert(`${data.name} has join the room`,null,null,'info');
+    member_users = data.member_users
+    update_member_room_info_modal(data.member_data,member_users)
 });
 socket.on("members", (data) => {
-    
     // console.log(data);
     const colors = ["#d95574","#5CAFFA", "#D45246", "#F68136", "#a7eb6e", "#ff86a6"]; // Array of colors
+    const Heimdall = 'Heimdall';
+    let Heimdall_color = localStorage.getItem(`--color-peer-${Heimdall}`);
+    if (!Heimdall_color) {
+        Heimdall_color = "#5CAFFA"; // Cycle through colors if not in local storage
+        localStorage.setItem(`--color-peer-${Heimdall}`, Heimdall_color); // Store color in local storage
+    }
+    document.documentElement.style.setProperty(`--color-peer-${Heimdall}`, Heimdall_color); // Set property for root CSS
     data.forEach((member, index) => {
+        
         let color = localStorage.getItem(`--color-peer-${member}`);
         if (!color) {
             color = colors[index % colors.length]; // Cycle through colors if not in local storage
@@ -1216,16 +1783,7 @@ socket.on("members", (data) => {
 //=================================================================
 //Handle User-Disconnected event
 socket.on("userDisconnected", (data) => {
-    $("#alert")
-        .html(
-            "<div class='alert alert-danger' role='alert'>" +
-                data +
-                " has left the chat" +
-                "</div>",
-        )
-        .hide();
-    $("#alert").slideDown(500);
-  
+        showAlert(`${data}  Disconnected `,'info')
 
 });
 
@@ -1233,18 +1791,19 @@ socket.on("userDisconnected", (data) => {
 //Handle error
 socket.on("error", ({ message }) => {
     // alert('error message is: ',message)
-        console.log('error message is: ',message)
-        chat_window.innerHTML= `<p dir='ltr' class="alert alert-danger" style='font-weight: normal; font-style: italic; font-size: .8em;'>
-            ${message}
-          </p>`
-          if(document.getElementById('opneChatBtn'))   document.getElementById('opneChatBtn').style.display = "none";
-          chat_window.style.display = "block";
+        // console.log('error message is: ',message)
+        // chat_window.innerHTML= `<p dir='ltr' class="alert alert-danger" style='font-weight: normal; font-style: italic; font-size: .8em;'>
+        //     ${message}
+        //   </p>`
+        //   if(document.getElementById('opneChatBtn'))   document.getElementById('opneChatBtn').style.display = "none";
+        //   chat_window.style.display = "block";
+        showAlert(message,'danger')
 });
 
 //=================================================================
 // Show the "scroll up" button when the chat window is scrollable
 const showUp = () => {
-    if (chat_window.scrollHeight > chat_window.clientHeight) {
+    if (output.scrollHeight > output.clientHeight) {
         $("#up").show(); // Show scroll-up button
     }else{
     
@@ -1260,15 +1819,11 @@ const scrollDown = () => {
      
     // $("#down").show(); // Optionally show the scroll-down button
     $("#down").fadeOut(); // hide scroll-up button
-
     if (loadedForClicking) {
     
         // Show the loadingChatWindow spinner if hidden
-        const loadingChatWindowElement = document.getElementById('loadingChatWindow');
-        if (loadingChatWindowElement.classList.contains('d-none')) {
-            loadingChatWindowElement.classList.remove("d-none");
-            loadingChatWindowElement.classList.add("show");
-        }
+        $loadingElement.removeClass("d-none");
+        
     
         // Emit the event and wait for the server's acknowledgment
         socket.emit("requestOlderMessages", { 
@@ -1277,16 +1832,15 @@ const scrollDown = () => {
             type: 'latest' 
         }, () => { // Callback function for when the server acknowledges
             // Scroll after emitting the event
-            chat_window.scrollTo({
-                top: chat_window.scrollHeight, // Scroll to the bottom
+            output.scrollTo({
+                top: output.scrollHeight, // Scroll to the bottom
                 behavior: "smooth",
             });
         });
-    
         loadedForClicking = false;
     }else{
-        chat_window.scrollTo({
-            top: chat_window.scrollHeight, // Scroll to the bottom
+        output.scrollTo({
+            top: output.scrollHeight, // Scroll to the bottom
             behavior: "smooth",
         });
         var unreadMarker = document.querySelector(".unread");
@@ -1300,6 +1854,7 @@ const scrollDown = () => {
             hasScrolledDown = true
         }
     } 
+
     setTimeout(() => {
         scrolling = true; // Re-enable user-driven scroll handling after scrolling completes
     }, 2000); // Adjust delay based on scroll duration
@@ -1308,7 +1863,7 @@ const scrollDown = () => {
 
 // Scroll to the top of the chat window
 const scrollUp = () => {
-    chat_window.scrollTo({
+    output.scrollTo({
         top: 0,                        // Scroll to the top
         behavior: "smooth",            // Smooth scrolling
     });
@@ -1319,8 +1874,8 @@ const scrollUp = () => {
 // Scroll to the bottom on new messages
 const scroll = () => {
         setTimeout(() => { // Use setTimeout for a one-time scroll
-            chat_window.scrollTo({
-                top: chat_window.scrollHeight, // Scroll to the bottom
+            output.scrollTo({
+                top: output.scrollHeight, // Scroll to the bottom
                 behavior: "smooth",            // Smooth scrolling
             });
         }, 300); // Delay to make sure content has loaded
@@ -1376,10 +1931,7 @@ if (message) {
                 if (isSmallerThanAll) {
                     
                     // console.log(firstMessageId)
-                    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-                        document.getElementById('loadingChatWindow').classList.remove("d-none");
-                        document.getElementById('loadingChatWindow').classList.add("show");
-                    } 
+                    $loadingElement.removeClass('d-none')
                     sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                         // Emit the request for older messages to the server and wait for a response
                     socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
@@ -1421,8 +1973,8 @@ const scrollToUnread = () => {
             block: "center",
         });
     }else{
-        chat_window.scrollTo({
-            top: chat_window.scrollHeight, // Scroll to the bottom
+        output.scrollTo({
+            top: output.scrollHeight, // Scroll to the bottom
             behavior: "auto",            // Smooth scrolling
         });
     }
@@ -1444,13 +1996,7 @@ const copyId = (id) => {
     document.execCommand("copy");
     $temp.remove();
     // console.log("Copied the text: " + id);
-    $("#alert")
-        .html(
-            `<div class='alert alert-info' role='alert'>
-	            Room-id: <em>${id}</em> copied to clipboard !</div>`,
-        )
-        .hide();
-    $("#alert").slideDown(300);
+   showAlert(`<em>${id}</em> copied to clipboard !`,'info')
  
 };
 //=================================================================
@@ -1458,370 +2004,356 @@ const copyId = (id) => {
 
 socket.on("restoreMessages", async  (data) => {
     // بررسی اگر data.messages یک آرایه است
-   
+    $loadingElement.removeClass('d-none')
 
-        const decryptedMessages = await Promise.all(
-            data.messages.map(async (msg) => {
-                // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
-                const decryptedMsg = {
-                    ...msg,
-                    message: msg.message ? decryptMessage(msg.message) : msg.message, // رمزگشایی message فقط اگر وجود داشته باشد
-                    // sender: msg.sender ? decryptMessage(msg.sender) : msg.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
-                    // handle: msg.handle ? decryptMessage(msg.handle) : msg.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
-                    readUsers: await Promise.all(
-                        (msg.readUsers || []).map((readEntry) => {
-                            return {
-                                username: readEntry.username ? (readEntry.username) : readEntry.username, // رمزگشایی username فقط اگر وجود داشته باشد
-                                name: readEntry.name ? (readEntry.name) : readEntry.name, // رمزگشایی name فقط اگر وجود داشته باشد
-                                reaction: readEntry.reaction ? (readEntry.reaction) : '', // رمزگشایی reaction فقط اگر وجود داشته باشد
-                                time: readEntry.time ? (readEntry.time) : readEntry.time, // رمزگشایی time فقط اگر وجود داشته باشد
-                            };
-                        })
-                    ),
-                    reply: msg.reply ? {
-                        ...msg.reply,
-                        message: msg.reply.message ? decryptMessage(msg.reply.message) : msg.reply.message, // رمزگشایی message در reply فقط اگر وجود داشته باشد
-                        sender: msg.reply.sender ? decryptMessage(msg.reply.sender) : msg.reply.sender, // رمزگشایی sender در reply فقط اگر وجود داشته باشد
-                    } : null,
-                };
-        
-                return decryptedMsg;
-            })
-        );
+    try{
         
 
-        // در اینجا می‌توانید از decryptedMessages استفاده کنید
-        // console.log(decryptedMessages);
-   
-      
-    if(document.getElementById('loadingChatWindow').classList.contains('d-none') && msg.length > 0){
-        document.getElementById('loadingChatWindow').classList.remove("d-none");
-        document.getElementById('loadingChatWindow').classList.add("show");
-    } 
-    if(data.reply){
-        sentMessagesIdLast=[]
-        hasScrolledDown= false
-        sentMessagesId=[]
-        loadedForClicking=true
-        output.innerHTML=''
-    }
-    if(data.Latest){
-        loadNextMessage = false;
-        sentMessagesIdLast=[]
-        hasScrolledDown= false
-        sentMessagesId=[]
-        // loadedForClicking=true
-        output.innerHTML=''
-    }
-    if (output.querySelectorAll('.MessagePack').length >= 3 && !data.unread) {
-        var MessagePack = output.querySelectorAll('.MessagePack');
+            const decryptedMessages = await Promise.all(
+                data.messages.map(async (msg) => {
+                    // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
+                    const decryptedMsg = {
+                        ...msg,
+                        message: msg.message ? decryptMessage(msg.message) : msg.message, // رمزگشایی message فقط اگر وجود داشته باشد
+                        reply: msg.reply ? {
+                            ...msg.reply,
+                            message: msg.reply.message ? decryptMessage(msg.reply.message) : msg.reply.message, // رمزگشایی message در reply فقط اگر وجود داشته باشد
+                            sender: msg.reply.sender ? decryptMessage(msg.reply.sender) : msg.reply.sender, // رمزگشایی sender در reply فقط اگر وجود داشته باشد
+                        } : null,
+                    };
+            
+                    return decryptedMsg;
+                })
+            );
+            
+
+            // در اینجا می‌توانید از decryptedMessages استفاده کنید
+            // console.log(decryptedMessages);
     
-        if (data.prepend) {
-            // chat_window.scrollTo({
-            //     top: 1, // Scroll to the bottom
-            //     behavior: "auto",            // Smooth scrolling
-            // });
-            // Remove the last 50 `.messageElm`
-            for (let i = MessagePack.length - 1; i > MessagePack.length - 2; i--) {
-                if (MessagePack[i]) {
-                    MessagePack[i].remove();
-                    
-                    loadedForClicking=true
-                }
-            }
-            loadNextMessage=true;
+        if(data.reply){
             sentMessagesIdLast=[]
-        } else {
-            
+            hasScrolledDown= false
             sentMessagesId=[]
-            // Remove the first 50 `.messageElm`
-            for (let i = 0; i < 2; i++) {
-                if (MessagePack[i]) {
-                    MessagePack[i].remove();
+            loadedForClicking=true
+            output.innerHTML=''
+        }
+        if(data.Latest){
+            loadNextMessage = false;
+            sentMessagesIdLast=[]
+            hasScrolledDown= false
+            sentMessagesId=[]
+            // loadedForClicking=true
+            output.innerHTML=''
+        }
+        if(data.join) output.innerHTML=''
+
+        if (output.querySelectorAll('.MessagePack').length >= 3 && !data.unread) {
+            var MessagePack = output.querySelectorAll('.MessagePack');
+        
+            if (data.prepend) {
+                // chat_window.scrollTo({
+                //     top: 1, // Scroll to the bottom
+                //     behavior: "auto",            // Smooth scrolling
+                // });
+                // Remove the last 50 `.messageElm`
+                for (let i = MessagePack.length - 1; i > MessagePack.length - 2; i--) {
+                    if (MessagePack[i]) {
+                        MessagePack[i].remove();
+                        
+                        loadedForClicking=true
+                    }
+                }
+                loadNextMessage=true;
+                sentMessagesIdLast=[]
+            } else {
+                
+                sentMessagesId=[]
+                // Remove the first 50 `.messageElm`
+                for (let i = 0; i < 2; i++) {
+                    if (MessagePack[i]) {
+                        MessagePack[i].remove();
+                        
+                    }
+                }
+            
+            }
+        }
+
+        // console.log("last",sentMessagesIdLast)
+        // console.log("first",sentMessagesId)
+        // output.innerHTML=''
+    
+        let lastSeenDate = [];
+
+
+        const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+        const bgColor = savedSettings?.bgColor || "#252525";
+        const fontSize = savedSettings?.fontSize || "16px";
+        const borderRad = savedSettings?.borderRad || "5px";
+        const fgColor = savedSettings?.fgColor || "#4444";
+        const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
+        const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+        // if (!Array.isArray(messages,prepend)) {
+        //     console.error("Invalid messages received:", messages);
+        //     return;
+        // }
+
+        // Reverse messages to display last to first
+        //const reversedMessages = messages.slice().reverse();
+        let FirstMessage;
+        let LastMessage;
+        if(data.prepend){
+            FirstMessage = decryptedMessages[decryptedMessages.length - 1].id;
+            LastMessage = decryptedMessages[0].id;
+        }else{
+            LastMessage = decryptedMessages[decryptedMessages.length - 1].id;
+            FirstMessage = decryptedMessages[0].id ;
+
+            
+        }
+
+        var MessagePack = `<div class="MessagePack" firstMessage="${FirstMessage}" lastMessage="${LastMessage}"></div>`
+
+        if(data.prepend){
+        output.insertAdjacentHTML('afterbegin',MessagePack)
+        }else{
+        output.insertAdjacentHTML('beforeend',MessagePack)
+        }
+        const visibleMessages = [];
+        let roomID;
+        Promise.resolve(decryptedMessages.forEach((message, index) => {
+            try {
+                if (!message || !message.timestamp || !message.sender ) {
+                    throw new Error(`Missing required fields in message at index ${index}`);
+                }
+                // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
+                // console.log("data latest prepend: " , data.latest ?  data.prepend:'')
+                let isFirstMessage ;
+                let isLastMessage ;
+                if(data.prepend){
+                    isFirstMessage = index === decryptedMessages.length - 1;
+                    isLastMessage = index === 0;
+                }else{
+                    isLastMessage = index === decryptedMessages.length - 1;
+                    isFirstMessage = index === 0;
                     
                 }
-            }
-           
-        }
-    }
+                // Prepend reversed messages to the chat UI
+                visibleMessages.push(message.id)
+                roomID = message.roomID
+                addMessageToChatUI(message, data.prepend , isFirstMessage, isLastMessage);
+                    // "Unread Messages" tag
 
-    // console.log("last",sentMessagesIdLast)
-    // console.log("first",sentMessagesId)
-    // output.innerHTML=''
-   
-    let lastSeenDate = [];
-
-
-    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "#ffff";
-    const fontSize = savedSettings?.fontSize || "16px";
-    const borderRad = savedSettings?.borderRad || "5px";
-    const fgColor = savedSettings?.fgColor || "#4444";
-    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
-    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
-    // if (!Array.isArray(messages,prepend)) {
-    //     console.error("Invalid messages received:", messages);
-    //     return;
-    // }
-
-    // Reverse messages to display last to first
-    //const reversedMessages = messages.slice().reverse();
-    let FirstMessage;
-    let LastMessage;
-    if(data.prepend){
-        FirstMessage = decryptedMessages[decryptedMessages.length - 1].id;
-        LastMessage = decryptedMessages[0].id;
-    }else{
-        LastMessage = decryptedMessages[decryptedMessages.length - 1].id;
-        FirstMessage = decryptedMessages[0].id ;
-
-        
-    }
-
-    var MessagePack = `<div class="MessagePack" firstMessage="${FirstMessage}" lastMessage="${LastMessage}"></div>`
-
-    if(data.prepend){
-    output.insertAdjacentHTML('afterbegin',MessagePack)
-    }else{
-    output.insertAdjacentHTML('beforeend',MessagePack)
-    }
-    decryptedMessages.forEach((message, index) => {
-        try {
-            if (!message || !message.timestamp || !message.sender ) {
-                throw new Error(`Missing required fields in message at index ${index}`);
-            }
-            // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
-            // console.log("data latest prepend: " , data.latest ?  data.prepend:'')
-            let isFirstMessage ;
-            let isLastMessage ;
-            if(data.prepend){
-                 isFirstMessage = index === decryptedMessages.length - 1;
-                 isLastMessage = index === 0;
-            }else{
-                isLastMessage = index === decryptedMessages.length - 1;
-                isFirstMessage = index === 0;
+            } catch (error) {
+                console.error("Error adding message to chat UI:", { error, message, index });
                 
             }
-            // Prepend reversed messages to the chat UI
-            addMessageToChatUI(message, data.prepend , isFirstMessage, isLastMessage);
-                // "Unread Messages" tag
-            
 
-        } catch (error) {
-            console.error("Error adding message to chat UI:", { error, message, index });
+        })).then(async ()=>{
+            init_message_ui()
+            if (visibleMessages.length > 0 && data.unread) {
+                await socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
+                if (typeof updatePVnotif === 'function') {
+                    updatePVnotif();
+                }else{
+                    console.log('updatePVnotif not exist')
+                }
+            }
+        })
+        // Get all the message elements
+        const messages = document.querySelectorAll(".messageElm");
+        // const messageReads = document.querySelectorAll(".messageRead");
+        // messageReads.forEach((message) => {
             
-        }
+        //     let messageId = message.getAttribute("data-id");
+        //     let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+        //     const rect = message.getBoundingClientRect();
+        //     messageId = roomID+"-"+ messageId.split('-')[1]
+        //     // Check if the message is in the viewport (visible)
+        //     // if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+        //         if (messageId && !visibleMessages.includes(messageId) && dataReadStatus=='unread') {
+        //             visibleMessages.push(messageId);  // Add the data-id of visible messages
+        //             // console.log("read messageId",messageId)
+        //             // console.log("read user",currentUser.username)
+        //         }
+        //     // }
+        // })
 
-    });
-    const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
-    if(lastMessageElm){
-        const inLast = lastMessageElm.querySelector('.message')
-        if(inLast){
-            if(!inLast.querySelector('h6')){
-                // console.log("last : ",inLast)
-                let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
-                inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
-                // console.log('before border :',inLast.style.borderRad)
-                // inLast.style.borderRadius = '2px' ;
-                inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px' ;
-                // console.log('after border :',inLast.style.borderRad)
+        // Emit the IDs of visible messages to the server
+
+        const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
+        if(lastMessageElm){
+            const inLast = lastMessageElm.querySelector('.message')
+            if(inLast){
+                if(!inLast.querySelector('h6')){
+                    // console.log("last : ",inLast)
+                    let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
+                    inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ?'من':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
+                    // console.log('before border :',inLast.style.borderRad)
+                    // inLast.style.borderRadius = '2px' ;
+                    inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px' ;
+                    // console.log('after border :',inLast.style.borderRad)
+                }
             }
         }
-    }
-    if (output.innerHTML=="") {
-        
-        if (roomID) {
-    
-            // Ensure there are messages in the DOM before trying to access them
-            const messages = document.querySelectorAll(".messageRead"); // Class of each message div
+        if (output.innerHTML=="") {
             
-            if (messages.length > 0) {
-                let messageId = messages[0].getAttribute('data-id');
+            if (roomID) {
+        
+                // Ensure there are messages in the DOM before trying to access them
+                const messages = document.querySelectorAll(".messageRead"); // Class of each message div
                 
-                if (messageId) {
-                    if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-                        document.getElementById('loadingChatWindow').classList.remove("d-none");
-                        document.getElementById('loadingChatWindow').classList.add("show");
-                    } 
-                    messageId = "-"+ messageId.split('-')[1]
-                    // Emit the request for older messages to the server
-                    socket.emit("requestOlderMessages", { roomID: roomID, counter: messageId });
+                if (messages.length > 0) {
+                    let message_date = messages[0].getAttribute('data-date');
+                    
+                    if (message_date) {
+                        $loadingElement.removeClass('d-none')
+
+                        // Emit the request for older messages to the server
+                        socket.emit("requestOlderMessages", { roomID: roomID, counter: message_date });
+                    } else {
+                        console.error("Message ID is null or undefined.");
+                    }
                 } else {
-                    console.error("Message ID is null or undefined.");
+                    $loadingElement.removeClass('d-none')
+
+                    socket.emit("requestOlderMessages", { roomID: roomID, counter:`${roomID}-0` , type:'latest' });
                 }
             } else {
-                if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-                    document.getElementById('loadingChatWindow').classList.remove("d-none");
-                    document.getElementById('loadingChatWindow').classList.add("show");
-                } 
-                socket.emit("requestOlderMessages", { roomID: roomID, counter:`${roomID}-0` , type:'latest' });
+                console.error("Element with id 'roomIDVal' not found.");
             }
-        } else {
-            console.error("Element with id 'roomIDVal' not found.");
-        }
-    } 
-    
-    // Get all the message elements
-    const messages = document.querySelectorAll(".messageElm");
-    const messageReads = document.querySelectorAll(".messageRead");
-    const visibleMessages = [];
-    messageReads.forEach((message) => {
+        } 
         
-    let messageId = message.getAttribute("data-id");
-    let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
-    const rect = message.getBoundingClientRect();
-    messageId = roomID+"-"+ messageId.split('-')[1]
-    // Check if the message is in the viewport (visible)
-    if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-        if (messageId && !visibleMessages.includes(messageId) && dataReadStatus=='unread') {
-            visibleMessages.push(messageId);  // Add the data-id of visible messages
-            // console.log("read messageId",messageId)
-            // console.log("read user",currentUser.username)
-        }
-    }
-    })
-    
-    // Emit the IDs of visible messages to the server
-    if (visibleMessages.length > 0) {
-        socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
-    }
-    // Initialize a variable to store the last seen date to compare
 
-        // Iterate through all messages
-        messages.forEach((message) => {
-            const messageDate = new Date(message.getAttribute("date-id")); // Convert date-id to Date object
-            // console.log('date-id',messageDate)
-            // Format the message's date to a Persian locale string
-            const messageDateString = messageDate.toLocaleDateString("fa-IR", {
-                year: "numeric",
-                month: "short", // For abbreviated month names (e.g., "Nov" instead of "November")
-                day: "numeric", // For the numeric day of the month
+        // Initialize a variable to store the last seen date to compare
+
+            // Iterate through all messages
+            messages.forEach((message) => {
+                const messageDate = new Date(message.getAttribute("date-id")); // Convert date-id to Date object
+                // console.log('date-id',messageDate)
+                // Format the message's date to a Persian locale string
+                const messageDateString = messageDate.toLocaleDateString("fa-IR", {
+                    year: "numeric",
+                    month: "short", // For abbreviated month names (e.g., "Nov" instead of "November")
+                    day: "numeric", // For the numeric day of the month
+                });
+                
+                // If the message date is different from the last seen date, add a date header
+                if ( messageDateString && !lastSeenDate.includes(messageDateString)) {
+                    
+                    // Create a new date header
+                    
+                    const dateToAdd = `
+                    <div dir="auto" data-date="${messageDateString}" class="p-2 Date" style="justify-content:center; display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
+                    <div  class="backdrop-blur-chat-fg px-3 col-auto m-auto">
+                    ${messageDateString}
+                    </div
+                    </div>`;
+                    
+                    
+                    const duplicateDate = document.querySelector(`.Date[data-date="${messageDateString}"]`);
+                    // console.log(duplicateDate)
+                    if (duplicateDate) duplicateDate.remove();
+                    
+                    
+                    // Insert the date header before the current message
+                    message.insertAdjacentHTML('beforebegin', dateToAdd);
+
+                    // Update the last seen date to the current message's date
+                    lastSeenDate.push(messageDateString);
+                }
+                
             });
-            
-            // If the message date is different from the last seen date, add a date header
-            if ( messageDateString && !lastSeenDate.includes(messageDateString)) {
-                
-                // Create a new date header
-                
-                const dateToAdd = `
-                <div dir="auto" data-date="${messageDateString}" class="p-2 Date" style="justify-content:center; display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
-                <div  class="backdrop-blur-chat-fg px-3">
-                ${messageDateString}
-                </div
-                </div>`;
-                
-                
-                const duplicateDate = document.querySelector(`.Date[data-date="${messageDateString}"]`);
-                // console.log(duplicateDate)
-                if (duplicateDate) duplicateDate.remove();
-                
-                
-                // Insert the date header before the current message
-                message.insertAdjacentHTML('beforebegin', dateToAdd);
 
-                // Update the last seen date to the current message's date
-                lastSeenDate.push(messageDateString);
-            }
-            
-        });
-        if(document.getElementById('loadingChatWindow').classList.contains('show')){
-            document.getElementById('loadingChatWindow').classList.remove("show");
-        }
-        document.getElementById('loadingChatWindow').classList.add("d-none");
-        if(data.latest){
-            const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
+            if(data.latest){
+                const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
 
-            if( firstMessage.getAttribute('data-id')){
-    
-            let firstMessageId = firstMessage.getAttribute('data-id');
-    
-            firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-    
-                            sentMessagesIdLast.push(firstMessageId);  // Store the sent date to prevent duplicates
-            }
-            const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
+                if( firstMessage.getAttribute('data-id')){
+        
+                let firstMessageId = firstMessage.getAttribute('data-id');
+        
+                firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+        
+                                sentMessagesIdLast.push(firstMessageId);  // Store the sent date to prevent duplicates
+                }
+                const lastMessage = document.querySelectorAll(".lastMessage")[0]; // Class of each message div
 
-            if( lastMessage.getAttribute('data-id')){
-    
-            let lastMessageId = lastMessage.getAttribute('data-id');
-    
-            lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
-    
-                            sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
-            }
-        }
-        if(data.reply){
-            // sentMessagesIdLast=[]
-
-            // sentMessagesId=[]
-            loadedForClicking=true
-
-            // console.log("reply loaded:",(data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
-            setTimeout(() => {
-                scrollToMessage((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2]); // Retry scrolling to the message
-            },1500); // Adjust delay time if necessary
-        }
-        if(data.join){
-            setTimeout(() => {
-                scrollToUnread(); // Scroll to the first unread message
-            },500); // Adjust delay time if necessary
-        }
-        else{
-            if (data.prepend ) {
-                const messagePackDiv = document.querySelectorAll('.MessagePack');
-                
-                if (messagePackDiv.length > 0) {
-                    chat_window.scrollTop = messagePackDiv[0].scrollHeight;
-                } else {
-                    console.error('No elements found with class "MessagePack".');
+                if( lastMessage.getAttribute('data-id')){
+        
+                let lastMessageId = lastMessage.getAttribute('data-id');
+        
+                lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
+        
+                                sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
                 }
             }
-        }
-        if(data.unread){
-            const messageReadsUnread = document.querySelectorAll(".messageRead");
-            const visibleMessagesUnread = [];
-            messageReadsUnread.forEach((message) => {
-                
-            let messageId = message.getAttribute("data-id");
-            let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+            if(data.reply){
+                // sentMessagesIdLast=[]
 
-            const rect = message.getBoundingClientRect();
-            messageId = roomID+"-"+ messageId.split('-')[1]
-            // Check if the message is in the viewport (visible)
-        
-            if (messageId && !visibleMessagesUnread.includes(messageId) && dataReadStatus=='unread') {
-                visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
-                console.log("read messageId",messageId)
-                console.log("read user",currentUser.username)
+                // sentMessagesId=[]
+                loadedForClicking=true
+
+                // console.log("reply loaded:",(data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
+                setTimeout(() => {
+                    scrollToMessage((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2]); // Retry scrolling to the message
+                },1500); // Adjust delay time if necessary
             }
-            
-            })
-            
-            // Emit the IDs of visible messages to the server
-            if (visibleMessagesUnread.length > 0) {
-                socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, roomID: roomID });
+            if(data.join){
+                setTimeout(() => {
+                    scrollToUnread(); // Scroll to the first unread message
+                },500); // Adjust delay time if necessary
             }
+            else{
+                if (data.prepend ) {
+                    const messagePackDiv = document.querySelectorAll('.MessagePack');
+                    
+                    if (messagePackDiv.length > 0) {
+                        output.scrollTop = messagePackDiv[0].scrollHeight;
+                    } else {
+                        console.error('No elements found with class "MessagePack".');
+                    }
+                }
+            }
+            if(data.unread){
+                const messageReadsUnread = document.querySelectorAll(".messageRead");
+                const visibleMessagesUnread = [];
+                messageReadsUnread.forEach((message) => {
+                    
+                let messageId = message.getAttribute("data-id");
+                let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+                message.setAttribute('data-readStatus','read')
+                const rect = message.getBoundingClientRect();
+                messageId = roomID+"-"+ messageId.split('-')[1]
+                // Check if the message is in the viewport (visible)
+            
+                if (messageId && !visibleMessagesUnread.includes(messageId) && dataReadStatus=='unread') {
+                    visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
+                
+                }
+                
+                })
+                
+                // Emit the IDs of visible messages to the server
+                if (visibleMessagesUnread.length > 0) {
+                    socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, roomID: roomID });
+                }
+            }
+            // setTimeout(() => {
+            //     applyShowMore();
+            // },100);
+            // messageMenu()
+            enableScrolling()
+        }finally{
+            $loadingElement.addClass('d-none')
         }
-        // setTimeout(() => {
-        //     applyShowMore();
-        // },100);
-        messageMenu()
-        enableScrolling()
-        if (typeof updatePVnotif === 'function') {
-            updatePVnotif();
-        }else{
-            console.log('updatePVnotif not exist')
-        }
-        
+
     });
 
     socket.on("noMoreMessages",(data) =>{
-        console.log(data.message)
-        if(document.getElementById('loadingChatWindow').classList.contains('show')){
-            document.getElementById('loadingChatWindow').classList.remove("show");
-        }
-        document.getElementById('loadingChatWindow').classList.add("d-none");
+        // console.log(data.message)
+        $loadingElement.addClass('d-none')
         loadNextMessage = false;
+        showAlert(data.message,'info')
 
         // output.querySelector('.firstMessage').innerHTML=''
     })
@@ -1850,14 +2382,14 @@ if (savedSettings) {
     const chatWindowFgColor = savedSettings.chatWindowFgColor.startsWith("#") ? hexToRgb(savedSettings.chatWindowFgColor) : savedSettings.chatWindowFgColor;
 
     document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
-    document.documentElement.style.setProperty("--user-bg-color", bgColor);
+    document.documentElement.style.setProperty("--user-bg-color", '207, 226, 255');
     document.documentElement.style.setProperty("--user-fg-color", fgColor);
     document.documentElement.style.setProperty("--user-side-bg-color", sideBgColor);
     document.documentElement.style.setProperty("--user-side-fg-color", sideFgColor);
     document.documentElement.style.setProperty("--user-chat-bg-color", chatWindowBgColor);
     document.documentElement.style.setProperty("--user-chat-fg-color", chatWindowFgColor);
     document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
-    console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
+    // console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
 } else {
     // Apply default settings
     document.documentElement.style.setProperty("--user-font-size", "16px");
@@ -1868,13 +2400,13 @@ if (savedSettings) {
     document.documentElement.style.setProperty("--user-chat-bg-color", "245, 245, 245");
     document.documentElement.style.setProperty("--user-chat-fg-color", "33, 33, 33");
     document.documentElement.style.setProperty("--user-border-radius", "17px");
-    console.log("Default settings applied.");
+    // console.log("Default settings applied.");
     const userSettings = {
                 marginLeft: "10%",
                 marginRight: "%10",
                 chatWindowBgColor: "245, 245, 245",
                 chatWindowFgColor: "33, 33, 33",
-                bgColor: "204, 238, 191", // Assuming a background color picker exists
+                bgColor: "207, 226, 255", // Assuming a background color picker exists
                 fgColor: "0, 0, 0", // Assuming a background color picker exists
                 sideBgColor: "242, 242, 242", // Assuming a background color picker exists
                 sideFgColor: "33, 33, 33", // Assuming a background color picker exists
@@ -1886,56 +2418,54 @@ if (savedSettings) {
 }
 
 });
-if(document.getElementById("settingsButton")){
-    document.getElementById("settingsButton").addEventListener("click", () => {
-        const panel = document.getElementById("settingsPanel");
-        const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-        const bgColor = savedSettings?.bgColor || "#ffff";
-        const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
-        const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
-        const fgColor = savedSettings?.fgColor || "#cccc";
-        const fontSize = savedSettings?.fontSize || "16px";
-        panel.style.display = panel.style.display === "block" ? "none" : "block";
-        document.getElementById("bgColorPicker").value = bgColor
-        document.getElementById("fgColorPicker").value = fgColor
-        document.getElementById("chatWindowBg-color").value = chatWindowBgColor
-        document.getElementById("chatWindowFg-color").value = chatWindowFgColor
-        fontSizeValue.textContent = fontSize;
-        // Initialize with default preview
-        updatePreview();
+$("#settingsButton").on("click", () => {
+    const panel = document.getElementById("settingsPanel");
+    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+    const bgColor = savedSettings?.bgColor || "#ffff";
+    const chatWindowBgColor = savedSettings?.chatWindowBgColor || "#434343";
+    const chatWindowFgColor = savedSettings?.chatWindowFgColor || "#434343";
+    const fgColor = savedSettings?.fgColor || "#cccc";
+    const fontSize = savedSettings?.fontSize || "16px";
+    panel.style.display = panel.style.display === "block" ? "none" : "block";
+    document.getElementById("bgColorPicker").value = bgColor
+    document.getElementById("fgColorPicker").value = fgColor
+    document.getElementById("chatWindowBg-color").value = chatWindowBgColor
+    document.getElementById("chatWindowFg-color").value = chatWindowFgColor
+    fontSizeValue.textContent = fontSize;
+    // Initialize with default preview
+    updatePreview();
 
-    });
-}
-if(document.getElementById("saveSettings")){
-    document.getElementById("saveSettings").addEventListener("click", () => {
-        const panel = document.getElementById("settingsPanel");
+});
 
-        panel.style.display = panel.style.display === "block" ? "none" : "block";
+$("#saveSettings").on("click", () => {
+    const panel = document.getElementById("settingsPanel");
 
-        // Save settings locally
-        const userSettings = {
-            marginLeft: document.getElementById('margin-left').value,
-            marginRight: document.getElementById('margin-right').value,
-            chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
-            chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
-            bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
-            fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
-            sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
-            sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
-            fontSize: `${fontSizeRange.value}px`, // Get font size from range input
-            borderRad: `${borderRadRange.value}px`, // Get font size from range input
-        };
-        localStorage.setItem("userSettings", JSON.stringify(userSettings));
+    panel.style.display = panel.style.display === "block" ? "none" : "block";
 
-        // Optionally save settings to the server
-        socket.emit("saveSettings", userSettings , currentUser.username);
+    // Save settings locally
+    const userSettings = {
+        marginLeft: document.getElementById('margin-left').value,
+        marginRight: document.getElementById('margin-right').value,
+        chatWindowBgColor: document.getElementById('chatWindowBg-color').value,
+        chatWindowFgColor: document.getElementById('chatWindowFg-color').value,
+        bgColor: document.getElementById("bgColorPicker").value, // Assuming a background color picker exists
+        fgColor: document.getElementById("fgColorPicker").value, // Assuming a background color picker exists
+        sideBgColor: document.getElementById("sideBgColorPicker").value, // Assuming a background color picker exists
+        sideFgColor: document.getElementById("sideFgColorPicker").value, // Assuming a background color picker exists
+        fontSize: `${fontSizeRange.value}px`, // Get font size from range input
+        borderRad: `${borderRadRange.value}px`, // Get font size from range input
+    };
+    localStorage.setItem("userSettings", JSON.stringify(userSettings));
 
-        ref("Settings saved successfully!",null,null,'success');
-        document.getElementById("settingsPanel").style.display = "none"; // Close panel
-        window.location.reload(); // This will refresh the page and reset the UI
+    // Optionally save settings to the server
+    socket.emit("saveSettings", userSettings , currentUser.username);
 
-    });
-}
+    ref("Settings saved successfully!",null,null,'success');
+    document.getElementById("settingsPanel").style.display = "none"; // Close panel
+    window.location.reload(); // This will refresh the page and reset the UI
+
+});
+
 socket.on("applySettings", (settings) => {
 
     localStorage.setItem("userSettings", JSON.stringify(settings));
@@ -2026,8 +2556,96 @@ document.addEventListener("DOMContentLoaded", () => {
     
     }
 });
+// function addMessageToChatUI(data, prepend=false){
+//     if(!data.id) return
+//     if(messagesCreated.includes(data.id)) return
+//     messagesCreated.push(data.id)
+//     const messageId = data.id.split("-")[1]
+//     const ownMessage = data.sender === currentUser.username
+//     const html = createMessageHTML(data, messageId, ownMessage)
+//     if(prepend){    
+//         output.insertAdjacentHTML("afterbegin", html)
+//     }else{   
+//         output.insertAdjacentHTML("beforeend", html)
+//     }
+//     messageMenu()
+//     setTimeout(() => {
+//         initTelegramAudioPlayers()
+//         $('.messageElm.animate__fadeInUp').removeClass(`animate__fadeInUp`)
+//     }, 1000);
+// }
+        
+  
+// function createMessageHTML(data, id, own){
+//     const user = member_users.find(u=>u.username===data.sender)
+//     const user_name = user ? `${user.first_name} ${user.last_name}` : data.sender
+//     const messageText = formatMessage(data.message)
+//     const filesHTML = renderFiles(data.file)
+//     const replyHTML = renderReply(data.reply)
+//     const style = own? `background:#cfe2ff;border-radius:15px 5px 15px 15px;`: `background:white;border:1px solid var(--color-peer-${data.sender});border-radius:5px 15px 15px 15px;`
+//     const align = own ? "flex-end" : "flex-start"
+//     return `<div id="Message-${id}"     class="messageElm mb-1"     sender="${data.sender}"     style="display:flex;justify-content:${align}">
+//                 <div class="message mess col-md-10 py-1 row"         style="${style};margin:2px">
+//                     ${!own ? `<h6 class="message-title"        style="color:var(--color-peer-${data.sender})">        ${user_name}        </h6>` : ""}
+//                     ${replyHTML}
+//                 <div class="text-content col-12">            
+//                     ${messageText}        
+//                 </div>
+//                 ${filesHTML}
+//                 <div class="col-12 small text-muted">            
+//                     ${formatTimestamp(data.timestamp)}            ${renderStatus(data)}        
+//                 </div>
+//         </div>
+//     </div>`
+// }
 
+// function formatMessage(text){
+//     if(!text) return ""
+//     return text.replace(/\n/g,"").replace(/((https?:\/\/|www\.)[^\s<]+)/g,(url)=>{  const href = url.startsWith("http") ? url : `https://${url}`  
+//     return `<a href="${href}" target="_blank">${url}</a>`})
+// }
 
+//  ${data.reply && data.reply!==null ? `
+//             <div class="replyMessage EmbeddedMessage col m-2 peer-color-${ownMessage?`0`:`1`}" 
+//                  replyID="Message-${(data.quote).split('-')[1]}">
+//                 <span class="message-title" 
+//                     dir="rtl" 
+//                     style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
+//                     ${data.reply.sender == currentUser.username ? `من` : data.reply.handle ?? ''}
+//                 </span>
+//                 <span class="px-2 py-1" dir="auto">${(data.reply.message !==''? data.reply.message : `${data?.reply?.file ?capitalizeWord(data.reply.file.split('/')[0]?? ''):''} File` )}</span>
+//             </div>` : ''}
+function renderReply(reply){
+    if(!reply) return ""
+    const sender = reply.sender === currentUser.username? "من": reply.sender || ""
+    return `<div class="replyMessage EmbeddedMessage peer-color-${ownMessage?`0`:`1`}"
+            data-reply-id="Message-${(data.quote).split('-')[1]}">  
+            <div class="replySender message-title">${sender}</div>  
+            <div class="replyText" dir="auto">${reply.message || ""}
+            </div>
+        </div>`
+}
+// function renderFiles(files){
+//     if(!files) return ""
+//     return files.map(file=>{
+//         const url = `https://mc.farahoosh.ir:4000${file.file}`
+//         if(file.fileType.startsWith("image/")){return `<img src="${url}" class="chatImage">`}
+//         if(file.fileType.startsWith("video/")){return `<video controls src="${url}" class="chatVideo"></video>`}
+//         if(file.fileType.startsWith("audio/")){return telegramAudio(url)}
+//         return `<a class="fileDownload"onclick="triggerDownload('${url}','${file.fileName}')">${file.fileName}</a>`
+//     }).join("")
+// }
+// function renderStatus(data){
+//     if(data.isPending){return `<span class="msgStatus loading"></span>`}
+//     if(data.readUsers && data.readUsers.length){return `<i class="bi bi-check2-all text-primary"></i>`}
+//     return `<i class="bi bi-check2 text-muted"></i>`
+// }
+// function getSenderName(username){
+//     if(username === currentUser.username) return "من"
+//     const user = member_users.find(u => u.username === username)
+//     if(!user) return username
+//     return `${user.first_name} ${user.last_name}`
+// }
 function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true , MessagePack = output.querySelectorAll('.MessagePack')) {
     
     if(messagesCreated.includes(data.id)){
@@ -2049,11 +2667,14 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         }
         // console.log("Next message ID:", data.id);
     }
+    let isPending = data?.isPending ? data.isPending : false;
+    const user = member_users.filter(user=> user.username === data.sender)[0]
+    const user_name = user? `${user?.first_name} ${user?.last_name}`:data.sender
     let contentToAdd = "";
     let dateToAdd = "";
     let unreadToAdd = "";
     messagesCreated.push(data.id)
-    messagesCreatedHandler.push(data.handle)
+    messagesCreatedHandler.push(user_name)
     let messageId = data.id
     messageId = (data.id).split("-")[1];
     messageIdSplited.push(messageId)
@@ -2063,7 +2684,8 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     lastSender = data.sender;
     
     const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-    const bgColor = savedSettings?.bgColor || "#ffff";
+    // const bgColor = savedSettings?.bgColor || "#ffff";
+    const bgColor = "207, 226, 255";
     const fontSize = savedSettings?.fontSize || "13px";
     const borderRad = savedSettings?.borderRad || "15px";
     const fgColor = savedSettings?.fgColor || "#4444";
@@ -2073,12 +2695,14 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const styleClass = ownMessage ? "var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)" : "5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) ";
     data.message = data.message
     .replace(/\n/g, '<br>') // Replace newlines with <br>
+
     .replace(
         /((https?:\/\/|www\.)[^\s<]+)/g, // Match URLs (starting with http, https, or www)
         (url) => {
             const href = url.startsWith('http') ? url : `https://${url}`; // Ensure href starts with http(s)
-            return `<a href="https://href.li/?${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
         }
+        // https://href.li/?
     );
     const borderRadiusFalse = ()=>{
 
@@ -2092,8 +2716,8 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 if(prepend)return ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px`
                 else  return ownMessage ? `var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)`: `var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px`          
             } else if(!prepend) {
-                console.log("last: ",lastValue)
-                console.log("second last: ",secondLastValue)
+                // console.log("last: ",lastValue)
+                // console.log("second last: ",secondLastValue)
                 const message = lastMessageElm[lastMessageElm.length - 1].querySelector('.message')
                 if(message.style.borderRadius!= "var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px"
                      || message.style.borderRadius!= "var(--user-border-radius) var(--user-border-radius)  5px var(--user-border-radius)" ){
@@ -2111,23 +2735,36 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
         }
     }
-    // const borderRadiusFalse = () =>{ 
-    //     return '2px'}
-    const style = ownMessage
-        ? ` background-color:rgb(var(--user-bg-color));
-            color:rgb(var(--user-fg-color));
+    let messageStyle = ownMessage
+        ? ` background-color: #cfe2ff;
+            color:rgb(var(--user-fg-color)) !important;
             font-size:${fontSize};
             border-radius: ${borderRadiusFalse()};`
-        : ` background-color: white !important;
-            color:rgb(var(--user-side-fg-color));
+        : `
             font-size:${fontSize};
             border: 1px solid var(--color-peer-${data.sender}) !important;
             border-radius:  ${borderRadiusFalse()};
-            
             `;
+    // let style = ownMessage
+    //     ? ` background-color:#cfe2ff;
+    //         color:rgb(var(--user-fg-color));
+    //         font-size:${fontSize};
+    //         border-radius: ${borderRadiusFalse()};`
+    //     : ` background-color: white !important;
+    //         color:rgb(var(--user-side-fg-color));
+    //         font-size:${fontSize};
+    //         border: 1px solid var(--color-peer-${data.sender}) !important;
+    //         border-radius:  ${borderRadiusFalse()};
+    //         `;
+    if(data.sender == 'Heimdall'){
+        messageStyle=`
+            border: 1px solid var(--color-peer-${data.sender}) !important;
+            
+        `
+    }
     const divStyle = ownMessage
-        ? `display:flex; justify-content:flex-end;`
-        : `display:flex; justify-content:flex-start;`;
+        ? ` justify-content:flex-end;`
+        : ` justify-content:flex-start;`;
 
     // Get the date of the current message
     const messageDate = new Date(data.timestamp || new Date());
@@ -2140,20 +2777,16 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     // Date tag
     if (data.dateLine) {
         dateToAdd = `
-            <div dir="auto" data-date="${messageDateString}" class="Date" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-bg-color));">
-                <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-bg-color)); margin: 0 10px;"></span>
-                <div class="backdrop-blur-chat-fg">
+            <div dir="auto" class="col-12 m-auto row" data-date="${messageDateString}" class="Date" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-bg-color));">
+                <div class="backdrop-blur-chat-fg "col-auto m-auto ">
                     ${messageDateString}
                 </div
-                <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-bg-color)); margin: 0 10px;"></span>
             </div>`; 
                }
     if (data.readLine) {
     unreadToAdd = `
-        <div class="unread" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
-            <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-chat-bg-color)); margin: 0 10px;"></span>
-                New Messages
-            <span style="flex: 1; height: 1px; background-color:  rgb(var(--user-chat-bg-color)); margin: 0 10px;"></span>
+        <div class="unread col-12 m-auto row" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
+                <span class="col-auto m-auto backdrop-blur-chat-fg">New Messages</span>
         </div>`;
         // console.log(unreadToAdd)
     }   
@@ -2163,12 +2796,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const reactionMember = data.readUsers
     ? data.readUsers
         .map((r) => {
-            r.username= decryptMessage(r.username)
             if(r.username == currentUser.username){
                 readStatus = 'read'
             }
           return r.reaction
-            ? `<span class='${r.username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' ${r.username == currentUser.username ? `onClick="addStickerReaction('',${messageId})"`:''} user-id="${r.username}">${r.reaction}</span>`
+            ? `<span class='animate__animated animate__zoomIn   ${r.username == currentUser.username ? `ownReaction `:``} reactionMemEmoji ' ${r.username == currentUser.username ? `onClick="addStickerReaction('',${messageId})"`:''} user-id="${r.username}">${r.reaction}</span>`
             : "";
         })
         .join("")
@@ -2181,19 +2813,24 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
           .map((r) => {
             if(r.username === currentUser.username&& r.reaction !== ""){
               return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
-                       ${"you"} ${r.reaction}
+                       ${"من"} ${r.reaction}
                      </div>
                      <hr>`
             }else if(r.username !== currentUser.username){
+                // console.log(member_users)
+                // return
+                const user = member_users.filter(user=> user.username === r.username)[0]
+                const user_name = user ? `${user?.first_name} ${user?.last_name}`:r.username
                 return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
-                ${r.name} at ${formatTimestamp(r.time)} ${r.reaction}
+                ${user?.first_name} ${user?.last_name} at ${formatTimestamp(r.time)} ${r.reaction}${r.voice_heared ? `<span class="jdate  animate__animated animate__fadeIn" title="Heared the voice"><i class="bi bi-ear"></i></span>`:''}
               </div>
-              <hr>`
+              `
             }
           })
-          .join("")
+          .join("<hr>")
     : "";
-
+    const voice_heared_users = data?.readUsers?.filter(r => r.voice_heared && r.username != data.sender ) 
+    const Is_voice_heared = voice_heared_users?.length > 0 ? true : false
     // <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
     // <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
     // </button>
@@ -2216,7 +2853,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     if(!inLast.querySelector('h6')){
                         // console.log("last : ",inLast)
                         let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
-                        inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'You':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
+                        inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title text-primary" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? '' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ?'من':messagesCreatedHandler[messagesCreatedHandler.length-2]}</h6>`)
                         // console.log('before border :',inLast.style.borderRad)
                         inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 2] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px ' ;
                         // console.log('after border :',inLast.style.borderRad)
@@ -2226,31 +2863,31 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
                 return `` ;
             }else {
-                return `<h6 class="message-title" style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : `var(--color-peer-${data.sender}) `}!important; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
+                return `<h6 class="message-title ${ownMessage ? 'text-primary':''}" style="color:${ownMessage ? '' : `var(--color-peer-${data.sender}) `}!important; font-style:italic;text-align:start;">${ownMessage ? `من`: user_name}</h6>
                 ` ;  
                     }
             }
             } else {
-                return `<h6 class="message-title" style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : `var(--color-peer-${data.sender}) `}!important; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
+                return `<h6 class="message-title ${ownMessage ? 'text-primary':''}" style="color:${ownMessage ? '' : `var(--color-peer-${data.sender}) `}!important; font-style:italic;text-align:start;">${ownMessage ? `من`: user_name}</h6>
                 ` ;  
                     }
       }else{
         const lastMessageElm = output.querySelectorAll(`.messageElm`)
 
-        if (lastMessageElm.length >= 2) {
+        if (lastMessageElm.length >= 2) {   
             const lastValue = data.sender.trim();
             const secondLastValue = lastMessageElm[lastMessageElm.length - 1].getAttribute('sender');
-            console.log("last: ",lastValue)
-            console.log("second last: ",secondLastValue)
+            // console.log("last: ",lastValue)
+            // console.log("second last: ",secondLastValue)
             if (lastValue !== secondLastValue) {
                 let userColor = `var(--color-peer-${data.sender})`
 
-                return `<h6 class="message-title" style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>`           
+                return `<h6 class="message-title ${ownMessage ? 'text-primary':''}" style="color:${ownMessage ? '' : userColor}; ;text-align:start;">${ownMessage ? `من`: user_name}</h6>`           
             } else {
                 return ``;
              }
         } else {
-            return `<h6 class="message-title" style="color:${ownMessage ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${ownMessage ? `You`: data.handle}</h6>
+            return `<h6 class="message-title ${ownMessage ? 'text-primary':''}" style="color:${ownMessage ? '' : userColor}; ;text-align:start;">${ownMessage ? `من`: user_name}</h6>
             ` ;
         }
     }
@@ -2258,138 +2895,209 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     }
 
     
-// console.log("replyJson: ", data.reply!==null ?  data.reply:'')
-// onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)"
+    // console.log("replyJson: ", data.reply!==null ?  data.reply:'')
+    // onmouseover="toggleReactBtnVisibility(${messageId}, true)" onmouseout="toggleReactBtnVisibility(${messageId}, false)"
+    const status_check =()=>{
+        if(isPending){
+            
+            return `
+            <div class="d-flex loader align-items-center">
+                <div class="spinner-border small text-metachat ms-auto" aria-hidden="true"></div>
+            </div>`;
+        }else{
+            if(readInfoHTML){
+                return `<i class="bi text-primary animate__animated animate__zoomIn bi-check2-all"></i>`
+            }else{
+                return `<i class="bi text-muted bi-check2"></i>`
+            }
+        }
+    }
 
-// ${ownMessage? `right_box1 `:`left_box2 `}
+   const telegramAudio = (src,id) => {
+        return `
+        <div class="tg-player border-0 col-12 px-1" style="background-color:transparent;" data-ready="false" data-src="${src}" data-id="${id}" data-sender="${data.sender}">
+            <div class="d-flex col-12 m-auto p-0 ">
+                
+                <button class="btn btn-primary col-auto m-auto rounded-circle tg-play  mt-3" type="button" data-ctime='0'>
+                    <i class="bi bi-play-fill"></i>
+                </button>
+                <div class="col px-2 row m-auto">
+                    <div class="flex-grow-1 col-12 overflow-hidden m-auto">
+                        <canvas class="tg-canvas brder-bottom rounded col-12"></canvas>
+                    </div>
+                    <span class="col-auto position-relative d-flex">    
+                        <small class="text-muted tg-time col-auto d-flex m-auto">0:00</small>
+                        ${Is_voice_heared? `` :`
+                            <span class="col-auto fs-1">
+                                <i class="text-primary bi bi-dot "></i>
+                            </span>
+                        `}
+                    </span>
+                </div>
+
+                <audio preload="metadata" src="${src}" crossorigin="anonymous" class="voice-message"></audio>
+            </div>
+        </div>
+                `;
+                // <audio class="d-none" crossorigin="anonymous" src="${src}"></audio>
+    }
+
+    // ${ownMessage? `right_box1 `:`left_box2 `}
+    // دریافت صداهای دیگر کاربران 
+    
     contentToAdd += `
-    <div id="Message-${messageId}" 
-         class="messageElm m-1" 
+    <div id="Message-${messageId}" data-mess_org_id="${data.id}"
+         class=" text-black messageElm mb-1 animate__animated animate__fadeIn d-flex col-12${isPending? `pending_${messageId}`:''}" 
          date-id="${messageDate}" 
          style="${divStyle} align-items: center;" 
          sender="${data.sender}">
 
-        ${ownMessage ? `
-        <div class="read-info mx-3" 
-             id="read-info-${data.id}" 
-             style="font-size:${fontSize};border-radius:${borderRad};">
-            ${readInfoHTML}
-        </div>` : ''}
-             
-        <div class="message mess py-1 mr-1 p-2 row"
-             style="${style}; margin:2px;">
+       
+        <div class="message p-1 backdrop-blur-chat-fg ${data.sender== 'Heimdall'?"rounded m-auto":""}"
+             style="${messageStyle}; margin:2px;">
 
             ${handler()}
 
             ${data.reply && data.reply!==null ? `
-            <div class="replyMessage EmbeddedMessage my-1 p-2 peer-color-${ownMessage?`0`:`1`}" 
-                 replyID="Message-${(data.quote).split('-')[1]}">
-                <h7 class="message-title" 
-                    dir="rtl" 
-                    style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
-                    ${data.reply.sender == currentUser.username ? `You` : data.reply.handle}
-                </h7>
-                <span class="px-2" dir="auto">${(data.reply.message)}</span>
-            </div>` : ''}
-                
-            ${data.file && data.file!==null ? data.file.map(file => `
-                ${file.fileType.startsWith("image/") ? `
-                    <img class="img-fluid m-1" 
-                         src="https://mc.farahoosh.ir:4000${file.file}" 
-                         style="border-radius: ${borderRadiusFalse()};width: auto;height: 100px;" 
-                         loadingChatWindow="lazy" 
-                         alt="Image" 
-                         onclick="openImage('https://mc.farahoosh.ir:4000${file.file}')">
-                    
-                    <a id="downloadLink" 
-                       target='_blank' 
-                       href="https://mc.farahoosh.ir:4000${file.file}" 
-                       download="https://mc.farahoosh.ir:4000${file.fileName || 'image.jpg'}" 
-                       class="btn col-12 btn-primary">
-                        <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
-                        ${file.fileName || 'Unknown File'} Download
-                    </a>
-                    
-                ` : file.fileType === "application/pdf" ? `
-                    <div class="file-actions">
-                        <a id="downloadLink" 
-                           target='_blank' 
-                           href="https://mc.farahoosh.ir:4000${file.file}" 
-                           download="https://mc.farahoosh.ir:4000${file.fileName || 'file.pdf'}" 
-                           class="btn btn-primary">
-                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i> 
-                            ${file.fileName || 'Unknown File'} Download
-                        </a>
+            <div class="col-12 ">
+                <div class="d-flex replyMessage gap-2 p-2 EmbeddedMessage cursor-pointer h-10rem position-relative m-2 peer-color-${ownMessage?`0`:`1`}" 
+                    data-reply-id="Message-${(data.quote).split('-')[1]}"
+                    style="
+                    display: flex;flex-direction: row; justify-content: space-between;
+                    ">
+                    <span class="col-auto message-title" 
+                        dir="rtl" 
+                        style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
+                        ${data.reply.sender == currentUser.username ? `من` : 
+                            ``
+                        }
+                    </span>
+                    <div  style="display: flex;flex-direction: row;  justify-content: space-between;" dir="auto">${(data.reply.message !==''? data.reply.message.replace(/<br>/g,'') : `${data?.reply?.file ?capitalizeWord(data.reply.file.split('/')[0]?? ''):''} File` )}
                     </div>
-                ` : file.fileType.startsWith("video/") ? `
-                    <video class="m-1 video-preview" controls>
-                        <source src="https://mc.farahoosh.ir:4000${file.file}" type="${file.fileType}">
-                        Your browser does not support the video tag.
-                    </video>
-                    <div class="file-actions">
-                        <a id="downloadLink" 
-                           target='_blank' 
-                           href="https://mc.farahoosh.ir:4000${file.file}" 
-                           download="https://mc.farahoosh.ir:4000${file.fileName || 'video.mp4'}" 
-                           class="btn btn-primary">
-                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
-                            ${file.fileName || 'Unknown File'} Download
-                        </a>
-                    </div>
-                ` : `
-                    <div class="file-actions">
-                        <a id="downloadLink" 
-                           target='_blank' 
-                           href="https://mc.farahoosh.ir:4000${file.file}" 
-                           download="https://mc.farahoosh.ir:4000${file.fileName || 'file'}" 
-                           class="btn btn-primary">
-                            <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
-                            ${file.fileName || 'Unknown File'} Download
-                        </a>
-                    </div>
-                `}
-            `).join('') : ""}
-                
-            <div class="text-content" style="display: flex; justify-content: space-between;">
-                <div class="dataMessage"  message-id="Message-${messageId}" dir="auto">
-                    ${data.message.replace(/&lt;br&gt;/g, '<br>')}
                 </div>
+            </div>` : ''}
+            <div class="m-0 row gap-2 row-cols-${ data?.file?.length >=2 ? '2' :'1'} col-12 ">
+                ${data.file && data.file!==null ? data.file.map(file => `
+                    <div id="file_${file._id}" class="position-relative p-0">
+                        ${file.fileType.startsWith("image/") ? `
+                            <div  class="col position-relative" >
+                                <a href="https://mc.farahoosh.ir:4000${file.file}" target="_blank">
+                                <img class="img-fluid col-auto rounded" 
+                                    src="https://mc.farahoosh.ir:4000${file.file}" 
+                                    style="border-radius: ${borderRadiusFalse()};" 
+                                    loading="lazy" 
+                                    alt="Image" 
+                                    href="https://mc.farahoosh.ir:4000${file.file}" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')">
+                                </a>
+                                
+                            </div>
+                            
+                        ` : file.fileType === "application/pdf" ? `
+                            <div  class="col  position-relative" >
+                                <iframe class=" col-auto rounded pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')" loading="lazy"></iframe>
+                            </div>
 
-                <span dir="ltr" class="px-1 timeSeen">
-                    ${new Intl.DateTimeFormat("en-US", {
-                        hour: "numeric",
-                        minute: "numeric", 
-                        hour12: false
-                    }).format(messageDate || new Date())}
-                   
-                    ${ownMessage ? `
-                    <button class="read-toggle"
+                        ` : file.fileType.startsWith("video/") ? `
+                            <div  class="col-12 position-relative" >
+
+                                <video class=" video-preview col-12 P-0 rounded" controls>
+                                    <source src="https://mc.farahoosh.ir:4000${file.file}" type="${file.fileType}" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')">
+                                    Your browser does not support the video tag.
+                                </video>
+                                
+                            </div>
+
+                        ` : file.fileType.startsWith("audio/") ? `
+                            ${file.fileType.split('/')[1] == 'webm'? telegramAudio(`https://mc.farahoosh.ir:4000${file.file}`,`${file._id}`):`
+                            <div  class="col position-relative" >
+
+                                <audio class="control blurBackDark rounded-5 shadow" controls crossorigin="anonymous" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')" src="https://mc.farahoosh.ir:4000${file.file}"></audio>
+                               
+                            </div>
+
+                            `}
+                            `
+                            : `
+                            <div class="file-actions col-12">
+                                <a 
+                                    onclick="triggerDownload('https://mc.farahoosh.ir:4000${file.file}','${file.fileName}')"
+                                    class="btn  col-auto m-auto btn-outline-primary">
+                                    <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                                    ${file.fileName || 'Unknown File'} <i class="bi bi-download"></i>
+                                </a>
+                            </div>
+                            `}
+                            <div class="file-actions col-12 d-none">
+                                <a 
+                                    onclick="triggerDownload('https://mc.farahoosh.ir:4000${file.file}','${file.fileName}')"
+                                    class="btn  col-auto m-auto btn-outline-primary">
+                                    <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
+                                    ${file.fileName || 'Unknown File'} <i class="bi bi-download"></i>
+                                </a>
+                            </div>
+                        <div class="dropdown d-inline  position-absolute top-0 end-0 m-1 me-2" id="file_menu_${file._id}"
+                                data-fileName="${file.fileName}"
+                                data-file="${file.file}">
+                            <button class="btn btn-sm  mt-1 p-0 rounded-3 shadow btn-outline-white backdrop-blur-chat-fg" data-bs-toggle="dropdown" aria-expanded="false" onclick="menu_file('${file._id}',${ownMessage || currentUser.username == '09173121943'})">
+                                <i class="bi fs-5 fw-semibold bi-three-dots-vertical"></i>
+                            </button>
+                            
+                            
+                            
+                            <div dir="auto" class="dropdown-menu actions p-1 gap-2">
+                            </div>
+                        </div>
+                    </div>
+                `).join('') : ""}
+            </div>
+            <div class="position-relative text-content m-auto gap-1 justify-content-between row p-0 col-12" >
+                <div class="dataMessage rounded  p-0  ${!data?.message ? 'col':'col-auto'}"  message-id="Message-${messageId}" dir="auto">
+                    ${data.message}
+                </div>
+                <div class="col-auto p-0 d-flex">
+                    <span dir="rtl" class="  timeSeen small text-muted pe-2">
+                        <span class="fst-italic edited_tag">${data?.edited ? `Edited`:''}</span>
+                        ${ownMessage ? `
+                        <button class="read-toggle"
                             read-data-id="${data.id}"
                             title="Seen member info"
                             onclick="openReadedMessage('${data.id}')"
                             style="bottom: -3px; position: relative; cursor:pointer; text-align:right; color:var(--user-fg-color); border:none; background:none;">
-                        <strong>${readInfoHTML ? `<i class="bi bi-check2-all"></i>` : `<i class="bi bi-check2"></i>`}</strong>
-                    </button>` : ''}
-                </span>
+                        <strong class="status">${status_check()}</strong>
+
+                        </button>` : ''}
+                        ${new Intl.DateTimeFormat("fa-IR", {
+                            hour: "2-digit",
+                            minute: "2-digit", 
+                            hour12: false
+                        }).format(messageDate || new Date())}
+                    
+                    </span>
+                </div>
+                ${ownMessage ? `
+               <div class="read-info position-absolute start-0 bottom-0  animate__animated animate__zoomIn mx-3" 
+                    id="read-info-${data.id}" 
+                    style="font-size:${fontSize};border-radius:${borderRad};">
+                   ${readInfoHTML}
+               </div>` : ''}
             </div>
         </div>
+             
     </div>
 
     <div class="messageRead"
     data-readStatus='${readStatus}'
     data-id="Message-${messageId}">
         <div style="${divStyle}" class="footerMessage">
-            <div class="${reactionMember!=''?'my-4':''}" reactionMessage="${messageId}">
+            <div class="gap-1 ${reactionMember!=''?'my-4':''}" reactionMessage="${messageId}">
                 ${reactionMember}
             </div>
         </div>
     </div>`;
-      // <div class="file-actions" >
-                    //         <iframe class=" m-1 pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" loadingChatWindow="lazy"></iframe>
-                    //         <div class="overlay" onClick="triggerDownload('${file.file}','${file.fileName}')"></div>
-                    //     </div>
+    //data.message.replace(/&lt;br&gt;/g, '<br>')
+
     let firstMessage = `
-    <div data-id="Message-${messageId}" class="firstMessage">
+    <div data-id="Message-${messageId}" data-date="${messageDate}" class="firstMessage">
             <button class="btn btn-outline-secondary my-3 " style="border-radius:50% !important; border: 2px solid;"  onclick="loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
 
     </div>
@@ -2401,7 +3109,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     // </div>
     // `;
     let lastMessage = `
-        <div data-id="Message-${messageId}" class="lastMessage"></div>
+        <div data-id="Message-${messageId}" data-date="${messageDate}" class="lastMessage"></div>
     `;
 
 
@@ -2422,9 +3130,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             const lastMessageElm = MessagePack[0].querySelector(`#Message-${messagesCreated[messagesCreated.length -1].split("-")[1]}`);
             // const lastMessageElm2 = MessagePack[0].querySelector(`#Message-${messagesCreated[messagesCreated.length -2].split("-")[1]}`);
             if (lastMessageElm) {
-                const div = lastMessageElm.querySelector(`.mess`);
-                // lastMessageElm2.style.borderRadius= ownMessage ? `var(--user-border-radius) 5px 5px var(--user-border-radius)`: `5px var(--user-border-radius) var(--user-border-radius) 5px`;
-                div.style.borderRadius = (styleClass); // Ensure only last message retains the box class
+                $(`#Message-${messagesCreated[messagesCreated.length -1].split("-")[1]} .message`).css('border-radius',styleClass); // Ensure only last message retains the box class
             }
         }
     } else {
@@ -2435,37 +3141,337 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
           
     }
-// Check and update or insert firstMessage
-if (isFirstMessage) {
-    let existingFirstMessage = output.querySelector('.firstMessage');
-    if (existingFirstMessage) {
-        existingFirstMessage.remove()
-    } 
-        output.insertAdjacentHTML("afterbegin", firstMessage);
-    
-}
+    // Check and update or insert firstMessage
+    if (isFirstMessage) {
+        let existingFirstMessage = output.querySelector('.firstMessage');
+        if (existingFirstMessage) {
+            existingFirstMessage.remove()
+        } 
+            output.insertAdjacentHTML("afterbegin", firstMessage);
+        
+    }
 
-// Check and update or insert lastMessage
-if (isLastMessage) {
-    let existingLastMessage = output.querySelector('.lastMessage');
-    if (existingLastMessage) {
-        existingLastMessage.remove()
-    } 
-        output.insertAdjacentHTML("beforeend", lastMessage);
-    
-}
+    // Check and update or insert lastMessage
+    if (isLastMessage) {
+        let existingLastMessage = output.querySelector('.lastMessage');
+        if (existingLastMessage) {
+            existingLastMessage.remove()
+        } 
+            output.insertAdjacentHTML("beforeend", lastMessage);
+        
+    }
 
+        return data.id;
+}
+function init_message_ui(){
+                   
     searchMessageReply()
     // Run the function to apply the functionality
-    if (typeof updatePVnotif === 'function') {
-        updatePVnotif();
-    }else{
-        console.log('updatePVnotif not exist')
-    }
-    
+    messageMenu()
+    initTelegramAudioPlayers()
+    setTimeout(() => {
+        $('.messageElm.animate__fadeIn').removeClass(`animate__fadeIn`)
+    }, 1000);
+}
+// const observer = new MutationObserver(mutations => {
+//     mutations.forEach(mutation => {
+//         initTelegramAudioPlayers()
+//     });
+// });
 
+// observer.observe(document.body, {
+//     childList: true,
+//     subtree: true
+// });
+    
+function initTelegramAudioPlayers(){
+    $('.tg-player').not('[data-ready="true"]').each(function(){
+
+
+        const player = $(this)
+        const file_id = player.data('id')
+        const sender = player.data('sender')
+
+
+        $(`#file_menu_${file_id}`).remove()
+
+
+        player.attr("data-ready","true")
+
+
+        let audio = player.find('audio.voice-message')[0]
+        const btn = player.find(".tg-play")  
+        const icon = btn.find("i")  
+        const time = player.find(".tg-time")  
+        const canvas = player.find(".tg-canvas")[0]
+
+
+        const ctx = canvas.getContext("2d")
+
+
+        // تنظیم سایز فقط یکبار
+        canvas.width = canvas.offsetWidth  
+        canvas.height = 40
+
+
+        let bars = []  
+        const maxBars = 120
+        let isDragging = false
+
+
+        // duration
+        audio.addEventListener("loadedmetadata",async function(){
+            let dm = Math.floor(audio.duration/60)    
+            let ds = Math.floor(audio.duration%60)
+            if(ds < 10) ds = "0" + ds
+            time.text(`${dm}:${ds}`) 
+            const {buffer, audioCtx} = await loadAudioBuffer();
+
+            // محاسبهٔ ارتفاع نوارها (یک‌بار)
+            bars = computeBars(buffer);
+            draw()
+        })
+
+
+        // resume state
+        if(btn.attr('data-ctime') != 0 ){
+            initialAudio()
+            audio.currentTime = btn.attr('data-ctime') ?? 0
+            audio.play()
+        }
+
+
+        // play / pause
+        btn.off("click").on("click", function () {
+
+
+            initialAudio()
+
+
+            audio.currentTime = btn.attr('data-ctime') ?? 0
+
+
+            // stop others
+            $("audio.voice-message").not(audio).each(function () {
+                this.pause()
+                $(this).closest(".tg-player")
+                    .find(".tg-play i")
+                    .attr("class", "bi bi-play-fill")
+
+
+                $(this).closest(".tg-player")
+                    .find(".tg-play")
+                    .attr("data-ctime", "0")
+            })
+
+
+            if (audio.paused) {
+                const dot = player.find("i.bi.bi-dot")  
+                if(dot.length>0 && sender != currentUser.username){
+                    socket.emit('voice_heared',{file_id})
+                }
+
+                audio._audioCtx.resume()
+                audio.play()
+                icon.attr("class", "bi bi-pause-fill")
+
+
+            } else {
+
+
+                audio.pause()
+                icon.attr("class", "bi bi-play-fill")
+            }
+        })
+
+
+        // time update
+        audio.addEventListener("timeupdate",function(){
+
+
+            let cm = Math.floor(audio.currentTime/60)    
+            let cs = Math.floor(audio.currentTime%60)
+            let dm = Math.floor(audio.duration/60)    
+            let ds = Math.floor(audio.duration%60)
+
+
+            if(cs < 10) cs = "0" + cs    
+            if(ds < 10) ds = "0" + ds
+
+
+            time.text(`${cm}:${cs} / ${dm}:${ds}`)
+            btn.attr('data-ctime',audio.currentTime)
+
+
+            if(audio.currentTime >= audio.duration && !isDragging){
+                time.text(`${dm}:${ds}`)
+                btn.attr('data-ctime','0')
+                audio.pause()
+                icon.attr("class", "bi bi-play-fill")
+            }
+        })
+
+
+        // seek helpers
+        function getClientX(e){
+            if(e.touches) return e.touches[0].clientX    
+            return e.clientX
+        }
+
+
+        function seek(e){
+            const rect = canvas.getBoundingClientRect()
+            const x = getClientX(e) - rect.left    
+            const percent = Math.max(0,Math.min(1,x / canvas.width))
+            const timeSeek = percent * audio.duration
+            audio.currentTime = timeSeek
+        }
+
+
+        $(canvas).on("mousedown touchstart",function(e){
+            isDragging = true    
+            seek(e)
+        })
+
+
+        $(canvas).on("mousemove touchmove",function(e){
+            if(isDragging) seek(e)
+        })
+
+
+        // مهم: جلوگیری از چندبار bind شدن
+        $(window)
+            .off("mouseup.tg touchend.tg")
+            .on("mouseup.tg touchend.tg",function(){
+                isDragging = false
+            })
+
+
+
+/* ---------- 1️⃣ بارگذاری و تبدیل به AudioBuffer ---------- */
+async function loadAudioBuffer() {
+    const response = await fetch(audio.currentSrc);
+    const arrayBuf = await response.arrayBuffer();
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const buffer = await audioCtx.decodeAudioData(arrayBuf);
+    return {buffer, audioCtx};
 }
 
+        /* ---------- 2️⃣ محاسبهٔ ارتفاع نوارها (یک‌بار) ---------- */
+        function computeBars(buffer) {
+            const rawData = buffer.getChannelData(0); // فقط کانال اول (مونو)
+            const blockSize = Math.floor(rawData.length / maxBars);
+            const newBars = [];
+
+            for (let i = 0; i < maxBars; i++) {
+                // محاسبهٔ مقدار RMS برای هر بلوک
+                let sum = 10;
+                for (let j = 0; j < blockSize; j++) {
+                    const sample = rawData[(i * blockSize) + j];
+                    sum += sample * sample ;
+                }
+                const rms = Math.sqrt(sum / blockSize); // مقدار RMS در بازه 0‑1
+                const height = rms * canvas.height; // تبدیل به ارتفاع پیکسل
+                newBars.push(height);
+            }
+            return newBars;
+        }
+
+        /* ---------- 3️⃣ تابع رسم ---------- */
+        function draw() {
+            requestAnimationFrame(draw);
+
+            // درصد پیشرفت پخش (0‑1)
+            const progress = audio.currentTime / audio.duration;
+            // تعداد نوارهایی که تا این لحظه «پخش شده» هستند
+            const playedBars = Math.floor(progress * bars.length);
+
+            const barWidth = canvas.width / maxBars;
+
+            // پاک‌سازی بوم
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // رسم همه نوارها به رنگ خاکستری
+            ctx.fillStyle = '#cfd8dc';
+            for (let i = 0; i < bars.length; i++) {
+                ctx.fillRect(
+                    i * barWidth,
+                    canvas.height - bars[i],
+                    barWidth - 1,
+                    bars[i]
+                );
+            }
+
+            // رسم نوارهای «پخش شده» به رنگ آبی
+            ctx.fillStyle = '#0d6efd';
+            for (let i = 0; i < playedBars; i++) {
+                ctx.fillRect(
+                    i * barWidth,
+                    canvas.height - bars[i],
+                    barWidth - 1,
+                    bars[i]
+                );
+            }
+        }
+
+
+
+        async function initialAudio(){
+           
+            if (!audio._initialized) {
+
+
+                audio._initialized = true
+
+
+                audio._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+                audio._source = audio._audioCtx.createMediaElementSource(audio)
+                audio._analyser = audio._audioCtx.createAnalyser()
+
+
+                audio._analyser.fftSize = 128
+
+
+                audio._source.connect(audio._analyser)
+                audio._analyser.connect(audio._audioCtx.destination)
+
+
+                audio._bufferLength = audio._analyser.frequencyBinCount
+                audio._dataArray = new Uint8Array(audio._bufferLength)
+
+                draw()
+            }
+        }
+    })
+}
+socket.on('update_voice_heared',async(data)=>{
+    const {messageId,username,file_id} = data
+    $(`#read-info-${messageId} div[user-id="${username}"]`).append('<span class="jdate animate__animated animate__heartBeat" title="Heared the voice"><i class="bi bi-ear"></i></span>')
+    $(`.tg-player[data-id="${file_id}"`).find("i.bi.bi-dot").remove()
+})
+function menu_file(id,isOwner){
+    
+    const $menu = $(`#file_menu_${id}`).find('.dropdown-menu')
+    const fileName = $(`#file_menu_${id}`).data('filename')??''
+    const file = $(`#file_menu_${id}`).data('file')??''
+    console.log(fileName,file)
+    $menu.html(`
+                
+                ${isOwner == true  ? `
+                <button class="dropdown-item my-1 d-flex justify-content-between rounded-3 text-start col-12 btn text-danger"
+                    onclick="Delete_file_id('${id}')">
+                    <i class="col-auto bi text-danger bi-trash me-2 my-auto"></i> <span class="col m-auto">Delete</span>
+                </button>
+                ` : ''}
+                <a 
+                    onclick="triggerDownload('https://mc.farahoosh.ir:4000${file}','${fileName}')"
+                    class="dropdown-item my-1 d-flex justify-content-between rounded-3 text-start col-12 btn text-primary">
+                    <i class="bi fileIcon bi-filetype-${(fileName).split('.')[1]}"></i>
+                    <span class="m-auto">Download</span> <i class="bi m-auto bi-download"></i>
+                </a>
+            `);
+}
 // // Function to check and apply "more..." for all messages
 // function applyShowMore() {
 //     const messages = document.querySelectorAll('.dataMessage');
@@ -2514,7 +3520,7 @@ function showMore(messageId) {
 }
 
 function triggerDownload(src,fileName) {
-    // Extract the filename from the URL (you can adjust this if the file name is provided directly)
+    // Extract the filename from the URL (Me can adjust this if the file name is provided directly)
 
     // Create a temporary <a> tag for the download
     const tempLink = document.createElement('a');
@@ -2530,7 +3536,36 @@ function triggerDownload(src,fileName) {
     // Remove the temporary <a> tag after the download is triggered
     document.body.removeChild(tempLink);
 }
-
+function Delete_file_id(id){
+    const fileEl = $(`#file_${id}`)
+    fileEl.css('opacity', '0.5');
+    socket.emit('delete_file', { id }, async (response) => {
+        if (response && response.success) {
+            // Successfully deleted on server
+            if (fileEl) {
+                showAlert('Message deleted','info')
+            }
+        } else {
+            // Server rejected deletion
+            showAlert(response?.error || 'Failed to delete message. You may not have permission.','info');
+            if (fileEl) {
+                fileEl.css('opacity', '1');
+            }
+        }
+    });
+}
+socket.on("delete_file",async(id)=>{
+     if (id) {
+        const fileEl = $(`#file_${id}`)
+        if (fileEl) {
+            fileEl.removeClass(`animate__fadeInUp`).addClass('animate__animated animate__bounceOut')
+            setTimeout(() => {
+                fileEl.remove();
+            }, 1000); // Remove from DOM
+        }
+        // Remove message with data.messageId from UI
+    }
+})
 // JavaScript function to toggle the visibility of the react button
 // function toggleReactBtnVisibility(messageId, show) {
 //     const reactBtn = document.getElementById(`reactBtn-${messageId}`);
@@ -2608,14 +3643,14 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
             seenUser.innerHTML= `${updateUserReact} at ${updateTimeReact} ${reaction}`
             }else{
                 // let updateTimeReact = seenUser.innerHTML.split(' ')[2]
-                seenUser.innerHTML = `You ${reaction}`
+                seenUser.innerHTML = `من ${reaction}`
 
             }
         }
         else{
             // let updateTimeReact = seenUser.innerHTML.split(' ')[2]
             readInfoElement.innerHTML += `<div user-id="${username}" style="font-size:0.9rem;text-align:left;">
-            You ${reaction}
+            من ${reaction}
             </div>
             <hr>`
 
@@ -2643,7 +3678,7 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
             // userRect.innerHTML = `<span class='${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' user-id="${username}">${reaction}</span>`;
 
             // Create a new reaction element
-          memberReaction.innerHTML += `<span class='${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji m-1' ${username == currentUser.username ? `onClick="addStickerReaction('',${spiltedId})"`:''} user-id="${username}">${reaction}</span>`
+          memberReaction.innerHTML += `<span class='animate__animated animate__zoomIn   ${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji ' ${username == currentUser.username ? `onClick="addStickerReaction('',${spiltedId})"`:''} user-id="${username}">${reaction}</span>`
     
             // Debug: Log the newly created element
             // console.log(`New reaction created for username: ${username}`);
@@ -2673,11 +3708,14 @@ socket.on("readMessageUpdate", ({ id, readUsers }) => {
     const readInfoElement = document.querySelector(`#read-info-${id}`);
     var toggleBtn = document.querySelector(`[read-data-id="${id}"]`);
     if (readInfoElement) {
-        toggleBtn.innerHTML=`<i class="bi bi-check2-all"></i>`
+        toggleBtn.innerHTML=`<i class="bi text-primary bi-check2-all"></i>`
         // Update the read information for each read user
         readUsers.forEach((r) => {
             if (r.username !== currentUser.username) {
                 updateTimeForReadUser(r, readInfoElement);
+            }else{
+                $(`.messageRead[data-id="${id.split('-')[1]}"]`).data('readStatus','read')
+
             }
         });
     }
@@ -2765,32 +3803,7 @@ document.addEventListener("click",()=> {
     }
 })
 // Function to open the image in a modal
-function openImage(imageSrc) {
-    const modal = document.getElementById("imageModal");
-    const modalImg = document.getElementById("modalImage");
-    const downloadLink = document.getElementById("downloadLink");
-  
-    // Set the source of the modal image and the download link
-    modalImg.src = imageSrc;
-    downloadLink.href = imageSrc; // This will allow the image to be downloaded
-  
-    // Display the modal
-    modal.style.display = "block";
-  }
-  
-  // Function to close the modal
-  function closeModal() {
-    const modal = document.getElementById("imageModal");
-    modal.style.display = "none";
-  }
-  
-  // Close the modal when clicking outside the image
-  window.onclick = function(event) {
-    const modal = document.getElementById("imageModal");
-    if (event.target === modal) {
-      modal.style.display = "none";
-    }
-  }
+
   
 
 // ========================================================================================
@@ -2812,7 +3825,7 @@ $(document).ready(function () {
     let scrollTimeout; // Timer to ensure scrolling is complete
 
     // Attach scroll event listener to the chat window
-    $(chat_window).on("scroll", function () {
+    $('#chat-window #output').on("scroll", function () {
         const currentScrollTop = $(this).scrollTop();
 
         // Show the "down" button with a fade-in effect
@@ -2840,11 +3853,6 @@ $(document).ready(function () {
     //   if(document.querySelector('.unread')) document.querySelector('.unread').fadeOut()
     });
 
-    // Function to smoothly scroll to the bottom
-    function scrollToBottom() {
-        var chatHeight = $(chat_window)[0].scrollHeight;
-        $(chat_window).animate({ scrollTop: chatHeight }, "slow");
-    }
 });
 
 function scrollLoader(){
@@ -2856,95 +3864,92 @@ function scrollLoader(){
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
     // if(!scrolling) console.log('scrolling locked')
 
-if(scrolling){
-    // console.log('scrolling unlocked')
-    // if (chat_window.scrollHeight > chat_window.clientHeight) {
-    //     $("#down").fadeIn(); // Show scroll-up button
-    // }else{
-        
-    //     $("#down").fadeOut(); // Show scroll-up button
-    //     // $("#down").show(); // Optionally show the scroll-down button
-    // };
+    const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 240
+    if (isNearBottom) {
+        $("#down").hide(); // Show scroll-up button
+    }else{
+        $("#down").show(); // Show scroll-up button
+
+        // $("#down").show(); // Optionally show the scroll-down button
+    };
    
+    if(scrolling){
     // Iterate through Dates to check if they are in view
     
-    // if(firstMessage){
+        if(firstMessage){
 
-    //     if( firstMessage.getAttribute('data-id')){
-    //         let firstMessageId = firstMessage.getAttribute('data-id');
-    //         firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-    //         const threshold = 50; // Proximity in pixels to the top of the viewport
+            if( firstMessage.getAttribute('data-id')&& firstMessage.getAttribute('data-date')){
+                let firstMessageId = firstMessage.getAttribute('data-id');
+                let firstMessageId_date = firstMessage.getAttribute('data-date');
+                firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
+                const threshold = 50; // Proximity in pixels to the top of the viewport
 
-    //         if (firstMessage.getBoundingClientRect().top >= -threshold && 
-    //         firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
-    //             // Check if the message has not been sent before and it's the first message of the day
-    //             if (!sentMessagesId.includes(firstMessageId)) {
-    //                 const isSmallerThanAll = sentMessagesId.every((id) => {
-    //                     return firstMessageId < id; // Compare lexicographically (string comparison)
-    //                 });
-                    
-    //                 // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
-    //                 if (isSmallerThanAll) {
+                if (firstMessage.getBoundingClientRect().top >= -threshold && 
+                firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
+                    // Check if the message has not been sent before and it's the first message of the day
+                    if (!sentMessagesId.includes(firstMessageId)) {
+                        const isSmallerThanAll = sentMessagesId.every((id) => {
+                            return firstMessageId < id; // Compare lexicographically (string comparison)
+                        });
                         
-    //                     console.log(firstMessageId)
-    
-    //                     sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
-    //                     // Emit the request for older messages to the server
-    //                     if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-    //                         document.getElementById('loadingChatWindow').classList.remove("d-none");
-    //                         document.getElementById('loadingChatWindow').classList.add("show");
-    //                         disableScrolling()
-    //                     } 
-    //                     socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
-    //                 }
-    //             }
-            
-    //         }
-    //     }  
-    // }
-
-    if(lastMessage   &&  loadNextMessage ){
-        if( lastMessage.getAttribute('data-id')){
-            let lastMessageId = lastMessage.getAttribute('data-id');
-            lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
-            // console.log("before scroll:", lastMessageId)
-            const threshold = 50; // Proximity in pixels to the top of the viewport
-            let rect = lastMessage.getBoundingClientRect()  
-            if (rect.bottom >= -threshold 
-            &&rect.top <= window.innerHeight+threshold) {
-                // console.log("after scroll:", lastMessageId)
-                        // Check if the message has not been sent before and it's the first message of the day
-                if (!sentMessagesIdLast.includes(lastMessageId)) {
-                    const isSmallerThanAll = sentMessagesIdLast.every((id) => {
-                        return lastMessageId > id; // Compare lexicographically (string comparison)
-                    });
-                    
-                    // If the lastMessageId is smaller than all the sent messages' IDs, request older messages
-                    if (isSmallerThanAll) {
-                        
-                        console.log(lastMessageId)
-    
-                        sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
-                        // Emit the request for older messages to the server
-                        if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-                            document.getElementById('loadingChatWindow').classList.remove("d-none");
-                            document.getElementById('loadingChatWindow').classList.add("show");
+                        // If the firstMessageId is smaller than all the sent messages' IDs, request older messages
+                        if (isSmallerThanAll) {
+                            
+                            console.log(firstMessageId)
+        
+                            sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
+                            // Emit the request for older messages to the server
+                            $loadingElement.removeClass('d-none')
                             disableScrolling()
-                        } 
-                        socket.emit("requestOlderMessages", { roomID: roomID, counter: lastMessageId, type: 'last' });
+                            socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId_date });
+                        }
                     }
+                
                 }
-            
+            }  
+        }
+
+        if(lastMessage   &&  loadNextMessage ){
+            if( lastMessage.getAttribute('data-id') && lastMessage.getAttribute('data-date')){
+                let lastMessageId = lastMessage.getAttribute('data-id');
+                let lastMessage_date = lastMessage.getAttribute('data-date');
+                lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
+                // console.log("before scroll:", lastMessageId)
+                const threshold = 50; // Proximity in pixels to the top of the viewport
+                let rect = lastMessage.getBoundingClientRect()  
+                if (rect.bottom >= -threshold 
+                &&rect.top <= window.innerHeight+threshold) {
+                    // console.log("after scroll:", lastMessageId)
+                            // Check if the message has not been sent before and it's the first message of the day
+                    if (!sentMessagesIdLast.includes(lastMessageId)) {
+                        const isSmallerThanAll = sentMessagesIdLast.every((id) => {
+                            return lastMessageId > id; // Compare lexicographically (string comparison)
+                        });
+                        
+                        // If the lastMessageId is smaller than all the sent messages' IDs, request older messages
+                        if (isSmallerThanAll) {
+                            
+                            console.log(lastMessageId)
+        
+                            sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
+                            // Emit the request for older messages to the server
+                            $loadingElement.removeClass('d-none')
+                            disableScrolling()
+                            socket.emit("requestOlderMessages", { roomID: roomID, counter: lastMessage_date, type: 'last' });
+                        }
+                    }
+                
+                }
             }
         }
     }
-}
 }
 function loadfirstButton(){
     const firstMessage = document.querySelectorAll(".firstMessage")[0]; // Class of each message div
 
 
     let firstMessageId = firstMessage.getAttribute('data-id');
+    let firstMessage_date = firstMessage.getAttribute('data-date');
     firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
     if (!sentMessagesId.includes(firstMessageId)) {
             const isSmallerThanAll = sentMessagesId.every((id) => {
@@ -2958,17 +3963,14 @@ function loadfirstButton(){
 
                 sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                 // Emit the request for older messages to the server
-                if(document.getElementById('loadingChatWindow').classList.contains('d-none')){
-                    document.getElementById('loadingChatWindow').classList.remove("d-none");
-                    document.getElementById('loadingChatWindow').classList.add("show");
-                    disableScrolling()
-                } 
-                socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId });
+                $loadingElement.removeClass('d-none')
+                disableScrolling()
+                socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessage_date });
             }
         }
 }
 
-chat_window.addEventListener("scroll", () => {
+output.addEventListener("scroll", () => {
     
     const visibleMessages = [];
     const messages = document.querySelectorAll(".messageRead"); // Class of each message div
@@ -2977,7 +3979,6 @@ chat_window.addEventListener("scroll", () => {
     const Dates = document.querySelectorAll(".Date"); // Class of each date div
     const rectheadTag = headTag.getBoundingClientRect(); // Get the head tag's position
     // if(!scrolling) console.log('scrolling locked')
-        $("#down").fadeIn();
 
         Dates.forEach((dateElem) => {
             const rectDate = dateElem.getBoundingClientRect();
@@ -2994,6 +3995,8 @@ chat_window.addEventListener("scroll", () => {
             const rect = message.getBoundingClientRect();
             let messageId = message.getAttribute('data-id');
             let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+            message.setAttribute('data-readStatus','read')
+
             messageId = roomID+"-"+ messageId.split('-')[1]
             // Check if the message is in the viewport (visible)
             if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
@@ -3038,20 +4041,23 @@ function replyMessage(messageId) {
     
     // Extract sender and message content
     const sender = messageElement.getAttribute(`sender`);
-    const messageContent = escapeHtml(messageElement.querySelector('.dataMessage').innerText.trim());
-
+    let messageContent = escapeHtml(messageElement.querySelector('.dataMessage').innerText.trim());
+    if(messageContent == ''){
+        messageContent = 'File'
+    }
     // Construct the reply box content
     const replyBox = document.getElementById('replyBox');
     replyBox.innerHTML = `
-        <h5 style="font-style: italic; font-size: 0.6rem;"><i class="bi bi-reply"></i></h5>
+    <div class="card-body row gap-2 col-12">
+        <span class="col-auto m-auto"><i class="bi fs-3 text-secondary bi-reply"></i></span>
 
-        <div class="mx-2 replyMessage p-2 peer-color-0"style='display: flex;flex-direction: row; margin-right: 3em !important ;   justify-content: space-between;' replyid="Message-${messageId}">
-            <p dir="auto" id="messageReplied" style="flex: 1;text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+        <div class="col replyMessage blurBackDark px-2 peer-color-0"style='display: flex;flex-direction: row; justify-content: space-between;' replyid="Message-${messageId}">
+            <span dir="auto" data-reply-id=""Message-${messageId}"" id="messageReplied" >
                 ${(messageContent)}
-            </p>
-            </div>
-            <button onclick="clearReply()" class="btn replyClose btn-sm btn-danger"><i class="bi bi-x-square"></i></button>
-        <hr>
+            </span>
+        </div>
+    </div>
+        <button onclick="clearReply()" class="btn replyClose btn-sm btn-danger btn-close"></button>
 
     `;
     replyBox.setAttribute('reply-id', messageId);
@@ -3082,14 +4088,14 @@ function clearReply() {
     delete replyBox.dataset.replyId; // Remove the reply id
 }
 function toggleReplyBox(isVisible) {
-    const replyBox = document.getElementById('replyBox');
+    const $replyBox = $('#replyBox');
     
     if (isVisible) {
-        replyBox.classList.remove('hide');
-        replyBox.classList.add('show');
+        $replyBox.removeClass('hide');
+        $replyBox.addClass('show');
     } else {
-        replyBox.classList.remove('show');
-        replyBox.classList.add('hide');
+        $replyBox.removeClass('show');
+        $replyBox.addClass('hide');
     }
 }
 
@@ -3111,98 +4117,246 @@ function uploadImage() {
         console.log("No file selected.");
     }
 }
+async function deleteMessage(messageId) {
+    // Prevent action if no messageId
+    if (!messageId || typeof messageId !== 'string') {
+        alert('Invalid message ID.');
+        return;
+    }
 
+    // Optional: Confirm deletion from user
+    const confirmDelete = confirm('Are you sure you want to delete this message? This action cannot be undone.');
+    if (!confirmDelete) {
+        return;
+    }
+
+    try {
+        // Show loading state (optional - you can add a spinner on the message)
+        const messageElement = document.querySelector(`[data-mess_org_id="${messageId}"]`);
+        if (messageElement) {
+            messageElement.style.opacity = '0.6';
+            messageElement.innerHTML += ' <small><i>(deleting...)</i></small>';
+        }
+
+        // Emit delete event to server
+        socket.emit('delete', { username :currentUser.username , messageId }, async (response) => {
+            if (response && response.success) {
+                // Successfully deleted on server
+                if (messageElement) {
+                    showAlert('Message deleted','info')
+                }
+            } else {
+                // Server rejected deletion
+                showAlert(response?.error || 'Failed to delete message. You may not have permission.','info');
+                if (messageElement) {
+                    messageElement.style.opacity = '1';
+                    messageElement.querySelector('small i')?.remove();
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        showAlert('An error occurred while deleting the message.','error');
+        
+        // Restore message appearance on error
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            messageElement.style.opacity = '1';
+            messageElement.querySelector('small i')?.remove();
+        }
+    }
+}
+async function editMessage(messageId) {
+    // Prevent action if no messageId
+    if (!messageId || typeof messageId !== 'string') {
+        alert('Invalid message ID.');
+        return;
+    }
+
+
+    try {
+        // Show loading state (optional - you can add a spinner on the message)
+        const $messageElement = $(`[data-mess_org_id="${messageId}"]`);
+        const messageElement = document.querySelector(`[data-mess_org_id="${messageId}"]`);
+        if (!messageElement) return
+        const $el_edit = $messageElement.find('.dataMessage')
+        if($el_edit.find('.edit_content').length>0) return
+        const text_old = $el_edit.html()
+        $messageElement.data('old-content',text_old)
+        $el_edit.html(`
+            <div contenteditable="true" id="message_edit_form_${messageId}" onpaste="handlePaste(event)" class="edit_content form-control">
+                ${text_old}
+            </div>
+            <button class="btn btn-sm btn-success mt-1 save-edit-btn">
+                save
+            </button>
+            <button class="btn btn-sm btn-secondary mt-1 cancel-edit-btn">
+                cancel
+            </button>
+        `)
+    
+        $el_edit.find('.cancel-edit-btn').on('click', function () {
+            const old = $messageElement.data('old-content');
+            $el_edit.html(old);
+        });
+        $el_edit.find('.save-edit-btn').on('click', function () {
+            const new_message = encryptMessage($(`#chat-window #message_edit_form_${messageId}`).html())
+            // Emit delete event to server
+            socket.emit("edit", {  username :currentUser.username , messageId , new_message}, async (response) => {
+
+                if (response && response.success) {
+                    // Successfully deleted on server
+                    // $el_edit.html(decryptMessage(new_message)).append('<span class="jdate">Edited</span>');
+                    showAlert(response.message , 'info');
+                    
+                } else {
+                    // Server rejected deletion
+                    showAlert(response?.error || 'Failed to edit message. You may not have permission.','info');
+                    if (messageElement) {
+                        messageElement.style.opacity = '1';
+                        messageElement.querySelector('small i')?.remove();
+                    }
+                }
+            });
+        });
+        
+
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        showAlert('An error occurred while editing the message.','error');
+        
+        // Restore message appearance on error
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            messageElement.style.opacity = '1';
+            messageElement.querySelector('small i')?.remove();
+        }
+    }
+}
+socket.on("delete", (messageId) => {
+    if (messageId) {
+        const $messageElement = $(`[data-mess_org_id="${messageId}"]`);
+
+        if ($messageElement) {
+            $messageElement.removeClass(`animate__fadeInUp`).addClass('animate__bounceOut')
+            setTimeout(() => {
+                $messageElement.remove();
+            }, 1000); // Remove from DOM
+        }
+        // Remove message with data.messageId from UI
+    }
+});
+socket.on("edit", (data) => {
+    const {messageId , new_message} = data
+    if (messageId) {
+        const $messageElement = $(`[data-mess_org_id="${messageId}"]`);
+        const messageElement = document.querySelector(`[data-mess_org_id="${messageId}"]`);
+        if (!messageElement) return
+        const $el_edit = $messageElement.find('.dataMessage')
+         // Successfully deleted on server
+        $messageElement.find('.message').removeClass(`animate__fadeInUp`).addClass('animate__animated animate__jello')
+        console.log('edited')
+        $el_edit.html(decryptMessage(new_message))
+        $messageElement.find('.timeSeen .edited_tag').html('Edited');
+
+    }
+});
 // message menu
 function messageMenu() {
-    const elements = output.querySelectorAll(".messageElm");
+    const elements = output.querySelectorAll("#chat-window .messageElm");
     if(document.getElementById("messageMenu")){
         document.getElementById("messageMenu").remove()
     }
     document.body.insertAdjacentHTML("beforeend", `
         <div id="messageMenu">
-            <div class="messageMenuHeader"></div>
+            <div class="messageMenuHeader h-20rem overflow-y-auto hide-scrollbar"></div>
             <div class="messageMenubody"></div>
-        </div>`)
-        console.log(document.getElementById("messageMenu"));
-    
+        </div>`)    
     const menu = document.getElementById("messageMenu");
     const header = menu.querySelector('.messageMenuHeader')
     const body = menu.querySelector('.messageMenubody')
-    let longPressTimeout;
-    let startX = 0;
-    let currentX = 0;
-    let isDragging = false;
+    function isFromAudioPlayer(target){
+        return target.closest('.tg-player') !== null
+    }
 
-    
     elements.forEach(element => {
-        // Add click and right-click event listeners
-        element.addEventListener("click", (event) => {
-            openMenu(event, menu, element); // Pass the clicked element's ID
-        });
-    
-        element.addEventListener('touchstart', (e) => {
-            // Start long-press detection
-            isDragging = true;
-
+        let startX = 0
+        let startY = 0
+        let currentX = 0
+        let currentY = 0
+        let isDragging = false
+        let longPressTimeout
+        element.addEventListener("click", (event) => {  
+            openMenu(event, menu, element)
+        })
+        element.addEventListener("touchstart", (e) => {
+            if(isFromAudioPlayer(e.target)) return
+            const touch = e.touches[0]
+            startX = touch.clientX  
+            startY = touch.clientY  
+                currentX = startX  
+                currentY = startY  
+                isDragging = true
             longPressTimeout = setTimeout(() => {
-                const touch = e.touches[0];
-                element.classList.add('long-press-effect'); // Add animation class
-                                isDragging = true;
+                element.classList.add("long-press-effect")
+                openMenu(touch, menu, element)
+            }, 500)
+        })
 
-                openMenu(touch, menu, element); // Open menu
-            }, 500); // Long press duration (500ms)
-        });
-    
-        element.addEventListener('touchend', (event) => {
-            clearTimeout(longPressTimeout); // Cancel long-press timer
-            element.classList.remove('long-press-effect'); // Remove animation class
-    
-            // Hide menu if touch ends outside it
-            // if (!menu.contains(event.target)) {
-            //     menu.style.display = "none";
-            // }
+        element.addEventListener("touchmove", (event) => {
+          if (!isDragging) return
+          clearTimeout(longPressTimeout)  
+            element.classList.remove("long-press-effect")
+          currentX = event.touches[0].clientX  
+          currentY = event.touches[0].clientY  
+            const deltaX = currentX - startX
+            const deltaY = currentY - startY
+          if (!menu.contains(event.target)) {    
+                menu.style.display = "none"  
+            }
+          if ((-deltaX > 0 ) && (deltaY <= 50)) {
+            if(!element.querySelector("#replyIcon")){      
+                element.insertAdjacentHTML(        "beforeend",
+                    `<div id="replyIcon" class="fs-5  backdrop-blur-chat-fg shadow rounded-circle"><i class="bi bi-reply"></i></div>`     
+                )
+            }else{
+                element.querySelector("#replyIcon i").style.opacity = Math.abs(deltaX)/100
+            }
+            let nim = 0.5
+            let X_el = -deltaX<=120 ? deltaX : -Math.pow(Math.abs(deltaX),nim)-120
+            element.style.transform = `translateX(${X_el}px)` 
+        }else{
+            if((deltaY >= 50)){
+                element.style.transform = `` 
+                if(element.querySelector("#replyIcon")){    element.querySelector("#replyIcon").remove()  }
+                element.classList.remove("long-press-effect")
+                isDragging = false
+            }
 
-            isDragging = false;
-            const deltaX = currentX - startX;
-            // console.log(deltaX,", slm ; ",element.id.split('-')[1])
-            if (-deltaX >= 30) { // Trigger reply if swipe is far enough
-                replyMessage(element.id.split('-')[1])
-                
-            }
-            if(element.querySelector('#replyIcon')){
-                element.querySelector('#replyIcon').remove()
-            }
-            element.style.transform = '';
-        });
-    
-        element.addEventListener('touchmove', (event) => {
-            clearTimeout(longPressTimeout); // Cancel long-press timer
-            element.classList.remove('long-press-effect'); // Remove animation class
-    
-            // Hide menu if user swipes away from the target
-            if (!menu.contains(event.target)) {
-                menu.style.display = "none";
-            }
-            if (!isDragging) return;
-            currentX = event.touches[0].clientX;
-            const deltaX = currentX - startX;
-            
-            if (-deltaX > 0 && -deltaX <= 70) { // Only handle right swipe
-                if(!element.querySelector('#replyIcon')){
-                element.insertAdjacentHTML("beforeend",`<div id="replyIcon"><i style="font-size: xx-large;" class="bi bi-reply"></i></div>`)
-                }
+        }
+        })
 
-                element.style.transform = `translateX(${deltaX}px)`;
-            }
-        });
-    
+        element.addEventListener("touchend", () => {
+            clearTimeout(longPressTimeout)  
+            element.classList.remove("long-press-effect")
+            isDragging = false
+            const deltaX = currentX - startX
+            const deltaY = currentY - startY
+            if (-deltaX >= 100 && -deltaY<=50) {    replyMessage(element.id.split("-")[1])  }
+            if(element.querySelector("#replyIcon")){    element.querySelector("#replyIcon").remove()  }
+            element.style.transform = ""
+        })
+
         element.addEventListener("contextmenu", (event) => {
-            event.preventDefault(); // Prevent default right-click context menu
-            openMenu(event, menu, element); // Open custom menu
-        });
-    });
+          event.preventDefault()
+          openMenu(event, menu, element)
+        })
+    })
     
-
+    setTimeout(() => {
+        $(elements).removeClass('animate__zoomInUp')
+    }, 2000);
     // Function to open the menu at the cursor position
     function openMenu(event, menu, element) {
         let messageId = (element.id).split('-')[1]
@@ -3220,36 +4374,58 @@ function messageMenu() {
         `
         header.innerHTML = readInfo.innerHTML || null
         header.insertAdjacentHTML("afterbegin",emojiLess)
-        menu.insertAdjacentHTML("afterend",emoji(messageId))
+        // menu.insertAdjacentHTML("afterend",emoji(messageId))
         let emojiDiv = `
         
-        <button id="reactBtn-${messageId}" class="btn reactBtn visible col-md-12" onclick="toggleStickerPicker(${messageId},${event.pageX} , ${event.pageY })">
-        <img src="https://mc.farahoosh.ir:4000/svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
-        Add reaction
+        <button id="reactBtn-${messageId}" class="btn reactBtn visible col-12" onclick="toggleStickerPicker(${messageId},${event.pageX} , ${event.pageY })">
+        <img class="col-auto" src="https://mc.farahoosh.ir:4000/svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
+        شکلک
         </button>
         `
         body.innerHTML=`
-         <button dir="auto" id="reply-${messageId}" class="btn visible col-md-12" >
+         <button dir="auto" id="reply-${messageId}" class="backdrop-blur-chat-bg btn visible col-12" >
             <i class="bi bi-reply"></i>
             Reply message
         </button>
-         <button dir="auto" id="copyMessage-${messageId}" class="btn visible col-md-12" >
+        <button dir="auto" id="copyMessage-${messageId}" class="backdrop-blur-chat-bg btn visible col-12" >
             <i class="bi bi-copy"></i>
-            Copy message
+            رونوشت
+        </button>
+        <button dir="auto" id="editMessage-${messageId}" class="backdrop-blur-chat-bg btn visible col-12" >
+            <i class="bi bi-pencil "></i>
+            ویرایش
+        </button>
+        <button dir="auto" id="deleteMessage-${messageId}" class="backdrop-blur-chat-bg btn visible col-12" >
+            <i class="bi bi-trash3-fill"></i>
+            پاک کردن پیام
         </button>
         `
         body.innerHTML+=emojiDiv
-        document.getElementById(`reply-${messageId}`).addEventListener("click",()=>{
+        $(`#messageMenu #reply-${messageId}`).off().on("click",()=>{
             // Copy the innerHTML to the clipboard
             replyMessage(messageId);
         })
-        document.getElementById(`copyMessage-${messageId}`).addEventListener("click",()=>{
+        $(`#messageMenu #copyMessage-${messageId}`).off().on("click",()=>{
             // Copy the innerHTML to the clipboard
             console.log(element.querySelector('.dataMessage').innerHTML)
             copyToClipboard(element.querySelector('.dataMessage').innerText);
 
             // Optional: Provide user feedback (e.g., show a success message)
-            ref("Message copied to clipboard!",null,null, "success");
+            showAlert("Message copied to clipboard!","info");
+        })
+        $(`#messageMenu #editMessage-${messageId}`).off().on("click",()=>{
+            // Copy the innerHTML to the clipboard
+            editMessage($(element).data('mess_org_id'));
+
+            // Optional: Provide user feedback (e.g., show a success message)
+            // ref("Message Deleted!",null,null, "success");
+        })
+        $(`#messageMenu #deleteMessage-${messageId}`).off().on("click",()=>{
+            // Copy the innerHTML to the clipboard
+            deleteMessage($(element).data('mess_org_id'));
+
+            // Optional: Provide user feedback (e.g., show a success message)
+            // ref("Message Deleted!",null,null, "success");
         })
         menu.addEventListener("click",()=>{
             menu.style.display = "none";
@@ -3290,22 +4466,12 @@ function messageMenu() {
 }
 // Helper function to copy text to the clipboard
 function copyToClipboard(text) {
-    // Create a temporary textarea element to copy the content
-    const textarea = document.createElement('textarea');
+
+
     
-    // Set the value of the textarea to the content you want to copy
-    textarea.value = text;
-
-    // Append the textarea to the body (it's required for the copy command to work)
-    document.body.appendChild(textarea);
-
-    // Select the content in the textarea
-    textarea.select();
-
-    // Execute the copy command to copy the selected content
     try {
-        // Use the Clipboard API to copy the content to the clipboard
-        document.execCommand('copy');
+        navigator.clipboard.writeText(text) 
+        showAlert('Copied to ClipBoard','info')
     } catch (err) {
         console.error('Error copying text: ', err);
     }
@@ -3334,138 +4500,409 @@ function escapeHtml(input) {
 // =======================================================================================
 // message find
 function searchMessageReply() {
-    var replyMessages = document.querySelectorAll('.replyMessage'); // Select all reply messages
-    replyMessages.forEach(reply => {
-        reply.addEventListener('click', () => {
-            const replyID = reply.getAttribute('replyID'); // Get the replyID attribute
+    $('.replyMessage').not('[data-finish="true"]').each(function(){
+        
+        const $reply = $(this)
+        $reply.attr('data-finish',true)
+        $reply.off('click').on('click', () => {
+            console.log($reply)
+            const replyID = $reply.data('reply-id'); // Get the replyID attribute
             if (replyID) {
                 scrollToMessage(replyID); // Call the scrollToMessage function
-                reply.classList.add('long-press-effect')
-                reply.classList.remove('long-press-effect')
+
             } else {
                 console.error('No replyID found for this reply');
             }
         });
-    });
+    })
 }
 
 
 // ========================================================
 // notification content
 
-// function playNotificationSound() {
-//         const sound = document.getElementById("notification-sound");
-//         sound.currentTime = 0; // Reset to the beginning in case it's already playing
-//         sound.play().catch((error) => {
-//             console.error("Failed to play notification sound:", error);
-//         });
+function playNotificationSound(sound_id="message_sound") {
+        const sound = document.getElementById(sound_id);
+        sound.currentTime = 0; // Reset to the beginning in case it's already playing
+        sound.play().catch((error) => {
+            console.error("Failed to play notification sound:", error);
+        });
    
-// }
+}
 
-// // Function to show browser notification
-// function showBrowserNotification(sender,messageContent,roomID) {
-//     if (document.hidden || !window.location.pathname.includes(`/join/${roomID}`)) {
-//         Notification.requestPermission().then(permission => {
-//             if (permission === "granted") {
-//                 const notification = new Notification(`${sender}:`, {
-//                     body: messageContent,
-//                     icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
-//                 });
+// Function to show browser notification
+function showBrowserNotification(sender,messageContent,roomID) {
+    if (document.hidden || !window.location.pathname.includes(`/join/${roomID}`)) {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                const notification = new Notification(`${sender}:`, {
+                    body: messageContent,
+                    icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
+                });
         
-//                 // اضافه کردن قابلیت باز کردن لینک هنگام کلیک
-//                 notification.onclick = () => {
-//                     let chatTab = null;
+                // اضافه کردن قابلیت باز کردن لینک هنگام کلیک
+                notification.onclick = () => {
+                    let chatTab = null;
     
-//                     // بررسی همه تب‌های باز برای پیدا کردن تب چت
-//                     for (let i = 0; i < window.length; i++) {
-//                         if (window[i].location.href.includes(`/join/${roomID}`)) {
-//                             chatTab = window[i];
-//                             break;
-//                         }
-//                     }
+                    // بررسی همه تب‌های باز برای پیدا کردن تب چت
+                    for (let i = 0; i < window.length; i++) {
+                        if (window[i].location.href.includes(`/join/${roomID}`)) {
+                            chatTab = window[i];
+                            break;
+                        }
+                    }
     
-//                     // اگر تب چت پیدا شد، به آن سوییچ کن؛ در غیر این‌صورت، یک تب جدید باز کن
-//                     if (chatTab) {
-//                         chatTab.focus();
-//                     } else {
-//                         window.open(`${href}/join/${roomID}`, "_blank");
-//                     }
-//                 };
-//             }
-//         });
-        
-//         playNotificationSound()
-//     }else{
-//         console.log("Notification==> ",Notification.permission)
-//     }
-// }
-// socket.on("notification",async(data , ack) => {
-//     const decryptedMessage = await {
-//         // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
-//             ...data,
-//             message: data.message ? decryptMessage(data.message) : data.message, // رمزگشایی message فقط اگر وجود داشته باشد
-//             // sender: data.sender ? decryptMessage(data.sender) : data.sender, // رمزگشایی sender فقط اگر وجود داشته باشد
-//             handle: data.handle ? decryptMessage(data.handle) : data.handle, // رمزگشایی handle فقط اگر وجود داشته باشد
-//             roomID : data.roomID ? decryptMessage(data.roomID): data.roomID,
-//             title : data.title ? decryptMessage(data.title): data.title
-//         };
-
-//         console.log(decryptedMessage)
-
-//     if(decryptedMessage.sender != currentUser.username){
-//         showBrowserNotification(`In ${decryptedMessage.title} ${decryptedMessage.handle} said`,decryptedMessage.message,decryptedMessage.roomID)
-//         playNotificationSound()
-//     }
-// })
-
-
-setInterval(() => {
-    if (!socket.connected) {
-        console.warn("🔴 Connection lost! Reconnecting...");
-        socket.connect();
-    }
-}, 5000); // هر ۵ ثانیه یک‌بار بررسی کنه
-
-socket.on("disconnect", () => {
-    console.warn("🔴 Disconnected from server! Trying to reconnect...");
-    setTimeout(() => {
-        socket.connect();
-    }, 2000); // تلاش برای اتصال مجدد بعد از ۲ ثانیه
-});
-
-socket.on("connect", () => {
-    console.log("🟢 Reconnected to server!");
-    
-    // if(roomID){
-            // Show the loadingChatWindow spinner if hidden
-            const loadingChatWindowElement = document.getElementById('loadingChatWindow');
-            if (loadingChatWindowElement.classList.contains('d-none')) {
-                loadingChatWindowElement.classList.remove("d-none");
-                loadingChatWindowElement.classList.add("show");
+                    // اگر تب چت پیدا شد، به آن سوییچ کن؛ در غیر این‌صورت، یک تب جدید باز کن
+                    if (chatTab) {
+                        chatTab.focus();
+                    } else {
+                        window.open(`${href}/join/${roomID}`, "_blank");
+                    }
+                };
             }
-            var encryptedRoomID =encryptMessage(roomID)
-            var encryptedData =encryptMessage(currentUser.username)
-            console.log({ roomID: encryptedRoomID,username: encryptedData})
-            socket.emit("joinRoom",{ roomID: encryptedRoomID,username: encryptedData})
-        // }
-    
+        });
+        
+        playNotificationSound('notification_sound')
+    }else{
+        console.log("Notification==> ",Notification.permission)
+        playNotificationSound('message_sound')
+    }
+}
+socket.on("notification",async(data , ack) => {
+
+    if(data.sender != currentUser.username){
+        showBrowserNotification(data.title,data.message,data.roomID)
+    }
+})
+
+
+function join(username, newRoomID) {
+if (typeof socket !== 'undefined') {
+    const encryptedRoomID = encryptMessage(newRoomID)
+    const encryptedUsername = encryptMessage(username)
+    socket.emit("joinRoom", {
+    roomID: encryptedRoomID,
+    username: encryptedUsername
+    });
+    roomID = newRoomID;
+}
+}
+socket.on("disconnect", () => {
+    console.warn("🔴 Disconnected from server!");
+    showAlert("Offline — messages will send when you reconnect", "warning");
+});
+
+socket.on("reconnect", () => {
+    console.log("🟢 Reconnected!");
+    showAlert("Back online", "primary");
+    const roomID = localStorage.getItem('last_room_joined_MC')
+    const encryptedUsername = encryptMessage(currentUser.username);
+    Promise.resolve(socket.emit("authenticate", encryptedUsername, (response) => {
+        if (response.success) {
+            console.log("Re-authenticated successfully");
+            // Now safe to send queued messages
+            if (response.roomID && response.update) {
+                    join(currentUser.username, response.roomID);
+
+            } else {
+                $loadingElement.removeClass('d-none')
+                const cache_roomList = localStorage.getItem('roomList')??[]
+                socket.emit('roomList')
+                if(localStorage.getItem('roomList')) room_list_genration(JSON.parse(cache_roomList))
+            }
+            flushMessageQueue(); // Your function to send queued messages
+            update_user_status();
+
+        } else {
+            console.error("Authentication failed after reconnect");
+        }
+    }));
+
+
 });
 
 
-// socket.on("ping", () => {
-//     console.log("📡 Ping received from server");
-// });
-// Ping the server every 15 seconds (1000 ms is too frequent)
+function flushMessageQueue() {
+    let queue = getMessageQueue();
 
-setInterval(() => {
-    socket.emit("ping");
-    console.log("📡 Ping received from server");
-}, 15000); // ⏱ Recommended: every 15 seconds
-// Server responds
+    if (queue.length === 0) {
+        console.log("No queued messages to send.");
+        return;
+    }
+
+    console.log(`Flushing ${queue.length} queued message(s)...`);
+
+    // Process messages one by one to preserve order and avoid overwhelming server
+    const sendNext = async () => {
+        if (queue.length === 0) {
+            
+            if (roomID != "") {
+                $loadingElement.removeClass('d-none')
+                var encryptedRoomID =encryptMessage(roomID)
+                var encryptedData =encryptMessage(currentUser.username)
+                console.log({ roomID: encryptedRoomID,username: encryptedData})
+                socket.emit("joinRoom",{ roomID: encryptedRoomID,username: encryptedData})
+                
+            }
+            console.log("All queued messages processed.");
+            return;
+        }
+
+        const item = queue[0]; // Oldest message first
+
+        // Skip if we've already tried too many times
+        if (item.attempts >= 1) {
+            console.warn(`Giving up on message after 1 attempts:`, item.id);
+            updateMessageStatus(item.id, 'failed-permanent');
+            dequeueMessage(item.id);
+            queue.shift();
+            saveMessageQueue(queue);
+            sendNext();
+            return;
+        }
+
+        item.attempts += 1;
+
+        socket.emit("chat", item.encrypted, (ack) => {
+            if (ack && ack.success) {
+                console.log(`Queued message sent successfully: ${item.id}`);
+                
+                // Update UI to show sent
+                updateMessageStatus(item.id, 'sent');
+                
+                // Remove from queue
+                dequeueMessage(item.id);
+                queue.shift();
+                saveMessageQueue(queue);
+
+                // Continue with next
+                sendNext();
+            } else {
+                console.warn(`Failed to send queued message (attempt ${item.attempts}):`, ack?.error || "No response");
+
+                // Update UI to show pending/failed temporarily
+                updateMessageStatus(item.id, 'pending');
+
+                // Save updated attempts count
+                saveMessageQueue(queue);
+
+                // If still connected, retry this message after delay
+                if (socket.connected) {
+                    setTimeout(sendNext, 2000 + item.attempts * 1000); // Exponential backoff
+                }
+                // Else: wait for next reconnect (queue persists)
+            }
+        });
+    };
+
+    // Start sending
+    sendNext();
+}
+if(roomID){
+    console.log('roomID=>',roomID)
+    join(currentUser.username,roomID)
+}else{
+    $loadingElement.removeClass('d-none')
+    const cache_roomList = localStorage.getItem('roomList')??[]
+    socket.emit('roomList')
+    $(document).ready(()=>{
+
+        if(localStorage.getItem('roomList')) room_list_genration(JSON.parse(cache_roomList))
+    })
+
+
+}
+socket.on("connect", () => {
+    // socket.emit("userWake");
+    socket.emit("userLoggedIn")
+    console.log("Socket connected:", socket.id);   
+});
+
+socket.on("userWentSleep", (username) => {
+    let sleepUser = localStorage.getItem("userSleep");
+
+    try {
+        sleepUser = sleepUser ? JSON.parse(sleepUser) : [];
+    } catch {
+        sleepUser = [];
+    }
+
+    if (!Array.isArray(sleepUser)) {
+        sleepUser = [];
+    }
+
+    if (!sleepUser.includes(username)) {
+        sleepUser.push(username);
+        localStorage.setItem("userSleep", JSON.stringify(sleepUser));
+    }
+    update_user_status();
+    console.log("User is now in sleep mode:", username);
+});
+socket.on("userCameBack", (data) => {
+    const {username, name} = data
+    let sleepUser = localStorage.getItem("userSleep");
+    console.log('username comeback',username)
+    // showAlert(`${name} is online now.`,'info')
+    try {
+        sleepUser = sleepUser ? JSON.parse(sleepUser) : [];
+    } catch {
+        sleepUser = [];
+    }
+
+    if (!Array.isArray(sleepUser)) {
+        sleepUser = [];
+    }
+
+    // remove user from sleep list
+    sleepUser = sleepUser.filter(user => user !== username);
+
+    localStorage.setItem("userSleep", JSON.stringify(sleepUser));
+    update_user_status();
+
+    console.log("User woke up:", username);
+    // Update UI here (online indicator, status badge, etc.)
+});
+
+const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutes
+// const INACTIVITY_LIMIT = 5 * 1000; // 15 minutes
+let inactivityTimer;
+let isSleeping = false;
+
+function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    // console.log('active',isSleeping)
+    if (isSleeping) {
+        socket.emit("userWake");
+        isSleeping = false;
+    }
+
+    inactivityTimer = setTimeout(() => {
+        socket.emit("userSleep");
+        isSleeping = true;
+    }, INACTIVITY_LIMIT);
+}
+
+// events that count as activity
+["mousemove", "keydown", "click", "scroll", "touchstart"].forEach(event => {
+    window.addEventListener(event, resetInactivityTimer);
+});
+
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+        socket.emit("userSleep");
+        isSleeping = true;
+    } else {
+        resetInactivityTimer();
+    }
+});
+
+
+// start timer on load
+resetInactivityTimer();
+
+
+socket.on("onlineUsers", (onlineUsernames) => {
+    localStorage.setItem('onlineUsernames', JSON.stringify(onlineUsernames));
+    update_user_status();
+});
+
+
+
+function update_user_status() {
+    const onlineUsernames = JSON.parse(localStorage.getItem("onlineUsernames") || "[]");
+    onlineUsernames.forEach(username => {
+        // console.log("Online user:", username);
+        $(`.user-status[data-phone="${username}"]`).each(function () {
+            const $statusEl = $(this);
+            const phone = $statusEl.data("phone");
+
+            if (!phone) return;
+
+            if (onlineUsernames.includes(phone)) {
+                const sleepingUsers = JSON.parse(localStorage.getItem("userSleep") || "[]");
+
+                if (sleepingUsers.includes(phone)) {
+                    $statusEl.html(`${user_status_badge['sleeping']}`);
+                } else {
+                    $statusEl.html(`${user_status_badge['online']}`);
+                }
+            } else {
+                $statusEl.html('');
+            }
+        });
+
+    });
+    
+    // document.querySelectorAll('#roomList .room-item').forEach(li => {
+    //     const phone = li.getAttribute("data-username");
+    //     const statusEl = li.querySelector(`#online-${phone}`);
+    //     if (!statusEl) return;
+
+    //     if (onlineUsernames.includes(phone)) {
+    //         statusEl.innerHTML = localStorage.getItem(`userSleep`) && JSON.parse(localStorage.getItem(`userSleep`)).includes(phone) ? '<span class="sleep-dot text-warning" title="Sleeping"><i class="bi bi-moon-stars-fill"></i></span><i>Sleeping</i>' : '<span class="online-dot" title="Online"></span><i>Online</i>';
+    //     } else {
+    //         statusEl.innerHTML = '';
+    //     }
+    // });
+    // $(`#${div_ID}_userCheckboxList .user-row`).each(function () {
+    //     const $row = $(this);
+    //     const phone = $row.data("phone");
+    //     const $statusEl = $row.find(".user-status");
+
+    //     if (!$statusEl.length) return;
+
+    //     if (onlineUsernames.includes(phone)) {
+    //         const sleepingUsers = JSON.parse(localStorage.getItem("userSleep") || "[]");
+
+    //         if (sleepingUsers.includes(phone)) {
+    //             $statusEl.html(
+    //                 `
+    //                 <span class="sleep-dot badge bg-white col-auto m-auto" title="Sleeping">
+    //                     <i class="bi bi-moon-stars-fill text-warning"></i>
+    //                     <i class="text-muted">Sleeping</i>
+    //                 </span>`
+    //             );
+    //         } else {
+    //             $statusEl.html(
+    //                 '<span class="badge bg-white col-auto m-auto" title="Online"><span class="online-dot" title="Online"></span> <i class="text-muted">Online</i></span>'
+    //             );
+    //         }
+    //     } else {
+    //         // optional: offline state
+    //         $statusEl.html(
+    //             ''
+    //             // '<span class="offline-dot badge bg-secondary col-auto m-auto" title="Offline"></span><i>Offline</i>'
+    //         );
+    //     }
+    // });
+}
+// socket.on("connect", () => {
+//     console.log("🟢 Reconnected to server!");
+    
+//     // if(roomID){
+//             // Show the loading spinner if hidden
+//             const loadingElement = document.getElementById('loading');
+//             if (loadingElement.classList.contains('d-none')) {
+//                 loadingElement.classList.remove("d-none");
+//                 loadingElement.classList.add("show");
+//             }
+//             var encryptedRoomID =encryptMessage(roomID)
+//             var encryptedData =encryptMessage(currentUser.username)
+//             console.log({ roomID: encryptedRoomID,username: encryptedData})
+//             socket.emit("joinRoom",{ roomID: encryptedRoomID,username: encryptedData})
+//         // }
+    
+// });
+
+
+// Ping the server every 15 seconds (1000 ms is too frequent)
+// setInterval(() => {
+//     socket.emit("ping");
+//     console.log("📡 Ping received from server");
+    
+// }, 15000); // ⏱ Recommended: every 15 seconds
+// // Server responds
 socket.on("pong", () => {
   console.log("✅ Server is alive!");
 });
-// socket.on("onlineUsers", (onlineUsernames) => {
-//   // Update UI with who’s online
-//   console.log("👥 Online users:", onlineUsernames);
-// });
+

@@ -4,8 +4,7 @@ const crypto = require('crypto');
 const ipRangeCheck = require("ip-range-check");
 const express = require("express");
 const multer = require("multer");
-const axios = require('axios');
-const jwt = require('jsonwebtoken');
+// const jwt = require('jsonwebtoken');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
     fs = require('fs'),
@@ -37,6 +36,11 @@ const DOMPurify = createDOMPurify(window);
     middleware = require("./middleware/index"), // Import the middleware
     { v4: uuidv4 } = require('uuid'),
     Message = require("./models/message"),
+    // cron = require('node-cron'),
+    getMessagesUpToYesterday_file_delete = require('./services/getYesterdayMessages'),
+    {deleteFile,room_managament,room_delete_messages,delete_OrphanFiles} = require('./services/del_room'),
+    {socketEncrypt,socketDecrypt,encryptAES256} = require('./services/encryption'),
+    { message_encryption,message_encryption_map,sendBackupToPHP,processMessage,getUnreadMessages,count_new_msg_room} = require('./services/messages_func'),
     server = https.createServer(options, app),
     { getUsers } = require("./users/users"),
     rooms = [],
@@ -49,9 +53,12 @@ const DOMPurify = createDOMPurify(window);
         },
     });
 
-const { timeStamp } = require("console");
+// const { timeStamp, error } = require("console");
 var session = require("express-session");
-const message = require('./models/message');
+const Log_message = require('./services/log');
+const room = require('./models/room');
+// const { settings } = require('cluster');
+// const { now } = require('mongoose');
 var MemoryStore = require("memorystore")(session);
 
 env.config();
@@ -64,31 +71,32 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// Middleware to enforce HTTPS
-app.use((req, res, next) => {
-    if (req.headers.host && req.protocol === 'http') {
-        return res.redirect(301, `https://${req.headers.host}${req.url}`);
-    }
-    next();
-});
 // کلید و توکن نمونه
 const secretKey = process.env.SECRETKEY;
+const SECRET_KEY_RTSP = process.env.SECRETKEY_RTSP;
 
-const algorithm = 'AES-256-CBC';
-// console.log(secretKey)
-// تابع برای رمزنگاری
-function encrypt(text) {
-    const iv = crypto.randomBytes(16); // تولید IV تصادفی
-    const key = crypto.createHash('sha256').update(secretKey).digest(); // تولید کلید 32 بایتی از SHA-256
-    const cipher = crypto.createCipheriv(algorithm, key, iv); // استفاده از کلید و IV
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return iv.toString('hex') + ':' + encrypted; // IV و متن رمزنگاری شده را باز می‌گرداند
+
+function sanitizeMessage(message) {  
+    const withBreaks = message.replace(/\n/g, '<br>');
+  const clean = DOMPurify.sanitize(withBreaks, {    
+        ALLOWED_TAGS: [      
+            'div','table','thead','tbody','tr','td','th',      
+            'br','img','a','span','p','pre'    
+        ],    
+        ALLOWED_ATTR: [      
+            'style',      
+            'data-excel-formula',      
+            'data-excel-value',      
+            'data-excel-type',      
+            'src',      
+            'href'    
+        ]  
+    });
+  if (clean !== withBreaks) {    
+        console.warn("⚠️ Message contained unsafe content and was sanitized");  
+    }
+  return withBreaks;
 }
-
-
-console.log(process.env.SESSION_SECRET)
-
 // const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 const mongoURI = "mongodb://adminChat:XMUZWqR4CnOwf@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 mongoose
@@ -98,51 +106,11 @@ mongoose
 
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
-// File upload storage settings
 
+app.use(express.json());
+app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const sessionMiddleware = session({
-    secret: process.env.SESSION_SECRET || 'a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771',
-    resave: false,
-    saveUninitialized: true,
-    cookie: {
-        secure: process.env.NODE_ENV === 'production',  // This should be false in development
-        httpOnly: true,
-        sameSite: 'None',
-    },
-});
-
-app.use(
-    session({
-        store: new MemoryStore({
-            checkPeriod: 86400000, // بررسی هر 24 ساعت (1 روز)
-        }),
-        secret:
-            process.env.SESSION_SECRET ||
-            "a247be870c3def81c99684460c558f29a7b51d0d895df10011b5277fa8612771",
-        resave: false,
-        saveUninitialized: true,
-        cookie: { 
-            secure: true, // فقط در HTTPS
-            maxAge: 3 * 30 * 24 * 60 * 60 * 1000 // زمان انقضا: 3 ماه
-        },
-    })
-);
-
-// Apply session middleware for socket.io
-io.use((socket, next) => {
-    sessionMiddleware(socket.request, socket.request.res || {}, (err) => {
-        if (err) {
-            return next(err);
-        }
-        next(); // Proceed with socket connection
-    });
-});
-
-
-
-  
 // Passport Configuration
 app.use(passport.initialize());
 app.use(passport.session());
@@ -155,24 +123,210 @@ passport.deserializeUser(async (username, done) => {
     } catch (err) {
       done(err);
     }
-  });
+});
   
+
+const sessionMiddleware = session({
+    store: new MemoryStore({
+        checkPeriod: 86400000
+    }),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false,
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 3 * 30 * 24 * 60 * 60 * 1000
+    }
+});
+
+
+
+app.use(sessionMiddleware);
+// app.use(cookieParser())
+
+io.use((socket, next) => {  
+    sessionMiddleware(socket.request, {}, async (err) => {      
+        try {
+             if (err) {
+            throw new Error(err);
+            };
+            const session = socket.request.session;
+            if (!session || !session.passport || !session.passport.user) {  
+                throw new Error("unauthorized");     
+            }
+            const user = await User.findByUsername(session.passport.user);
+            if (!user) {  
+                throw new Error("unauthorized User");    
+            }
+            if (!user?.device_login) {  
+                throw new Error("unauthorized Device");    
+            }
+            socket.user = user;
+            socket.token = session.token;
+            return next();      
+        } catch (error) {
+            console.error(`IO connection: `,error.message)
+            return next(error)
+        }
+       
+    });
+});
+
+// Middleware to enforce HTTPS
+const skippTokenRefreshPaths = [
+    "upload",
+    "uploads",
+    "login",
+    "js",
+   ];
+app.use(async (req, res, next) => {
+    // اگر این مسیر قرار نیست توکن ریفرش شود
+    const path_splited = req.path.split('/')
+    const token_update = !(skippTokenRefreshPaths).includes(path_splited[1])
+    if (req.headers['x-forwarded-proto'] === 'http') {
+        return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    let user ;
+    if (req.isAuthenticated && req.isAuthenticated()){
+        const token = req.cookies.autoLogin ;
+        if(token&& token_update){
+            const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 3 months
+            const new_token = crypto.randomBytes(64).toString("hex");
+            user = await User.findOneAndUpdate({"devices.token": token },
+            {
+                "device_login":new_token
+                ,
+                $set: {
+                    "devices.$.token": new_token,
+                    "devices.$.expiresAt": expires,
+                    "devices.$.ip": req.ip,
+                    "devices.$.lastActive": new Date()
+                }
+                
+            },{new:true});
+            req.session.username = user.username;
+            req.session.token = new_token
+        }
+
+        return next();
+    }
+    // TODO: set cookie-parser later
+    const cookieHeader = req.headers.cookie;
+    req.cookies ={}
+    if (!cookieHeader){
+        return next()
+    }
+    const cookies = cookieHeader.split(';')
+    for(const cookie of cookies) {
+        const parts = cookie.split('=')
+        const key = parts[0].trim()
+        const value = parts.slice(1).join('=')
+        req.cookies[key] = decodeURIComponent(value)
+    }
+    if (!req.cookies?.autoLogin) return next();
+    const token = req.cookies.autoLogin ;
+    if (!token) return next();
+
+    try {
+
+        user = await User.findOne({ 
+            "devices.token": token, 
+            "devices.expiresAt": { $gt: new Date() }
+        });
+        // const user_reza = await User.updateOne({username : '09173121943'},{ $set:{"devices":[]}});
+        // console.log(user_reza)
+
+        if (!user) return next();
+
+        req.logIn(user, async (err) => {
+            if (err) return next(err);
+            const new_token = crypto.randomBytes(64).toString("hex");
+            const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 3 months
+            if(!token_update) return next()
+            user = await User.findOneAndUpdate({"devices.token": token },
+            {
+                "device_login":new_token
+                ,
+                $set: {
+                    "devices.$.token": new_token,
+                    "devices.$.expiresAt": expires,
+                    "devices.$.ip": req.ip,
+                    "devices.$.lastActive": new Date()
+                }
+                
+            },{new:true});
+
+
+            req.session.username = user.username;
+            req.session.token = new_token
+            req.token = new_token
+            req.user = user;
+            res.cookie("autoLogin", new_token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: "lax",
+                path: "/",
+                expires: expires
+            });
+            return next();
+        });
+
+    } catch (err) {
+        return next(err);
+    }
+
+});
+
+
 app.use(function (req, res, next) {
     res.locals.currentUser = req.user;
     next();
 });
-app.use(express.json());
+
 
 // Routes
 app.get("/:path", (req, res, next) => {
     if (req.params.path === 'undefined') {
         return res.redirect('/');  // Redirect to the root route if path is 'undefined'
+    }else if(req.params.path.includes(['profile'])){
+        const path = req.params.path
+        if(!req.user) return res.redirect("login");
+        const username = req.user.username; // Assuming username is stored in req.user
+
+        return res.render(path,{username})
     }
     next();  // Proceed with the normal flow if path is not 'undefined'
 });
 
-app.get("/", middleware.isLoggedIn, (req, res) => {
-    res.render("index", { roomID: "" });
+app.get("/", middleware.isLoggedIn,async (req, res) => {
+    const username = req.user.username?? null; // Assuming username is stored in req.user
+    const token = req.cookies.autoLogin ;
+
+
+    // Clear previous room reference
+    const currentUser = await User.findOneAndUpdate({ username ,"devices.token": token },
+        {
+            roomID: null ,
+            $set: {
+                // "devices.$.token": new_token,
+                "devices.$.roomID": null,
+                "devices.$.lastActive": new Date()
+            }
+    });
+    const Device_room = currentUser?.devices.filter(d=> d.token == token)[0].roomID ?? null
+    Room.findOneAndUpdate({roomID: Device_room,"member_data.id":currentUser?._id},{
+        member_data:
+        {
+            $set:{
+               "member_data.$.leaved_at" : new Date()
+            }
+        }
+    })
+    if(username) res.render("index", { roomID: "" ,username: username});
+    else   res.render("login");
+
 });
 
 app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
@@ -187,13 +341,13 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
                 // Private room: Only allow members
                 if (room.members.includes(username) || username == '09173121943') {
                 // if (room.members.includes(username) ) {
-                    res.render("index", { roomID: roomID });
+                    res.render("index", { roomID: roomID,room ,username: username });
                 } else {
                     res.redirect(`/?error=${encodeURIComponent("You are not a member of this private room")}`);
                 }
             } else if (room.setting[0].Joinable_url === "public") {
                 // Public room: Anyone can join
-                res.render("index", { roomID: roomID });
+                res.render("index", { roomID: roomID,room , username: username });
             } else {
                 res.redirect(`/?error=${encodeURIComponent("Invalid room setting")}`);
             }
@@ -206,20 +360,15 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
     }
 });
 
-const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
-const AES_IV = crypto.randomBytes(16); // Initialization Vector
-
-// رمزنگاری AES-256
-function encryptAES256(text) {
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), AES_IV);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return AES_IV.toString('hex') + ':' + encrypted.toString('hex');
-}
-
 // Login/Registration Routes (Passport Auth)
 app.get("/login", (req, res) => {
-    res.render("login");
+    const username = req?.session?.username ?? null; // Assuming username is stored in req.user
+    // if(username){
+    //     return res.render("index", { roomID: "" ,username: username});
+    // } else{
+
+        return res.render("login");
+    // }
 });
 
 // Using async/await properly for login and handling redirects
@@ -229,13 +378,21 @@ app.post("/login", async (req, res, next) => {
         const user = await User.findByUsername(sanitizedUsername);
         if (!user) {
             // User not found
-            return res.redirect("/login?error=User Not Found");
+            return res.redirect(`/login?error=${encodeURIComponent("Username or Password is wrong")}`);
         }
     
         // Direct comparison for cleartext password
+        // TODO : set bypass passwords on login
+        // const bcrypt = require("bcrypt");
+
+        // const valid = await bcrypt.compare(req.body.password, user.password);
+
+        // if (!valid) {
+        //     return res.redirect("/login?error=Invalid Password");
+        // }   
         if (req.body.password !== user.password) {
             // Invalid password
-            return res.redirect("/login?error=Invalid Password");
+            return res.redirect(`/login?error=${encodeURIComponent("Username or Password is wrong")}`);
         }
     
         passport.authenticate("local", async (err, authenticatedUser, info) => {
@@ -245,26 +402,49 @@ app.post("/login", async (req, res, next) => {
                 return next(err);
             }
     
-            if (!authenticatedUser) {
+            if (!user) {
                 // Authentication failed
-                return res.redirect("/login?error=Authentication Failed");
+                return res.redirect(`/login?error=${encodeURIComponent("Authentication Failed")}`);
             }
     
-            req.logIn(authenticatedUser, async (err) => {
+            req.logIn(user, async (err) => {
                 if (err) {
                     // Error during login
                     console.error("Error during login:", err);
                     return next(err);
                 }
     
-                req.session.username = authenticatedUser.username;
-    
+                req.session.username = user.username;
+                
                 try {
                     // Reset socketID to null after login
-                    await User.updateOne(
-                        { _id: authenticatedUser._id },
-                        { $set: { socketID: null } }
-                    );
+                    
+                    const token = crypto.randomBytes(64).toString("hex");
+                    req.session.token = token;
+                    const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 3 months
+                    const newDevices ={
+                        token: token,       
+                        ip: req.ip,       
+                        userAgent: req.headers["user-agent"],       
+                        createdAt: new Date(),       
+                        expiresAt: expires
+                    }
+                    await User.updateOne( { _id: user._id }, 
+                    {   $push: {     
+                            devices: {     
+                                $each:[newDevices],
+                                $slice:-5
+                            }  
+                        } 
+                    });
+
+                    res.cookie("autoLogin", token, {
+                        httpOnly: true,
+                        secure: true,
+                        sameSite: "lax",
+                        path:"/",
+                        expires: expires
+                    });
                 } catch (updateErr) {
                     console.error("Error resetting socketID:", updateErr);
                     return next(updateErr);
@@ -305,6 +485,9 @@ app.post("/login", async (req, res, next) => {
   
 app.post("/register", (req, res) => {
     const clientIP = req.ip || req.connection.remoteAddress;
+    if(!req?.user?.username) return res.status(404);  
+    const username = req.user.username; // Assuming username is stored in req.user
+    if(username !== '09173121943')res.redirect("/login?error=Access Denied.");
     const allowedRanges = [
         "172.16.28.0/24",  // existing range
         "94.74.128.194",   // additional IP
@@ -351,7 +534,6 @@ app.post("/register", (req, res) => {
 
 
 
-
 const uploadDir = path.join(__dirname, "uploads");
 
 // Ensure upload directory exists
@@ -359,58 +541,192 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+// File upload storage settings
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
+        if(!req?.session?.username) return cb(new Error ("No username detected."));  
+        const username = req.session.username; // Assuming username is stored in req.user
         const safeFileName = Buffer.from(file.originalname, "latin1").toString("utf8"); // Ensure UTF-8
-        cb(null, Date.now() + "_" + safeFileName.replace(/\s+/g, "_")); // Avoid spaces
+        cb(null, username + "_"+ Date.now() + "_" + safeFileName.replace(/\s+/g, "_")); // Avoid spaces
     },
 });
 
 const upload = multer({
     storage: storage,
     limits: { fileSize: 50 * 1024 * 1024 }, // 10 MB max
-}).single("file");
+}).array("files");
+
+const storage_rtsp = multer.diskStorage({    
+    destination: (req, file, cb) => {        
+        cb(null, uploadDir);    
+    },    
+    filename: (req, file, cb) => {        
+        const safeFileName = Buffer.from(file.originalname, "latin1").toString("utf8");        
+        cb(null, safeFileName.replace(/\s+/g, "_"));    
+    },
+});
+const upload_rtsp_file = multer({ 
+        storage: storage_rtsp 
+    }).array("files");
+
+// Handle file upload (existing code)
+app.post("/upload_rtsp",async (req, res) => {
+    const clientIP = req.ip || req.connection.remoteAddress;
+
+    const allowedRanges = [
+        "172.16.28.30",  // existing range
+        "94.74.128.194",   // additional IP
+        "94.74.128.193"    // additional IP
+    ];
+    
+    const ipIsAllowed = allowedRanges.some(range => ipRangeCheck(clientIP, range));
+    if(!ipIsAllowed) return res.status(401).end()
+    upload_rtsp_file(req, res,async (err) => {
+
+
+        if(!req.body.payload && !req.files){
+            return res.status(400).json({error:"No message"})
+        }
+        if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+        try{
+            const json = decrypt(req.body.payload,SECRET_KEY_RTSP)
+            if(!json?.message){
+
+                return res.status(401).end()
+            }
+            const savedFiles = req?.files?.map(f=>({
+                file: `/uploads/${f.filename}`,
+                fileName: Buffer.from(f.originalname, "latin1").toString("utf8"),
+                fileType: f.mimetype,
+            }))
+            // return res.status(200).json({success:true, savedFiles})
+            // File successfully uploaded
+            const roomID = '8x12wLE6irmn714ker' //rtsp room
+            const username = 'Heimdall'
+            Log_message(json.message,savedFiles??null,roomID)
+            return res.status(200).json({success:true })
+        } catch (error) {
+            console.log(`uploading RTSP ${error.message}`)
+            res.json({
+        message : error.message})
+        }
+
+    })
+})
 
 // Handle file upload (existing code)
 app.post("/upload", (req, res) => {
-    upload(req, res, (err) => {
+    upload(req, res,async (err) => {
+        if(!req?.files || req?.files?.length == 0 ){
+            return res.status(400).json({error:"No files uploaded"})
+        }
         if (err) {
             return res.status(400).json({ error: err.message });
         }
 
-        // File successfully uploaded
-        const filePath = `/uploads/${req.file.filename}`;
+        try {
+            if(!req?.session?.username){
 
-        // Respond with the file data (including the file path and metadata)
-        res.json({
-            message: "File uploaded successfully",
-            fileData: {
-                file: filePath,
-                fileType: req.file.mimetype, // MIME type of the uploaded file
-                fileName:  Buffer.from(req.file.originalname, "latin1").toString("utf8"), // Original file name
-            },
-        });
-        console.log("File uploaded successfully:", req.file.originalname);
-        console.log("File path:", filePath);
+                return res.status(401).end()
+            } else{
+                const user_auth =  await User.findOne({username: req.session.username}).then(user=>{
+
+                    if(!user){
+                       return false;
+                    }else{
+                        console.log(`${user.username} uploading ... `)
+                        return true
+                    }
+                })
+                if(!user_auth){
+                    return res.status(401).end()
+                }
+            }
+            console.log(req.files)
+            // File successfully uploaded
+
+            // Respond with the file data (including the file path and metadata)
+            const savedFiles = await req.files.map(f=>({
+                file: `/uploads/${f.filename}`,
+                fileName: Buffer.from(f.originalname, "latin1").toString("utf8"),
+                fileType: f.mimetype,
+            }))
+            res.json({
+                message: "File uploaded successfully",
+                fileData: savedFiles,
+            });
+            // console.log("File uploaded successfully:", req.file.originalname);
+            // console.log("File path:", filePath);
+                
+        } catch (error) {
+            req.files.forEach(f=>{
+                deleteFile(`/uploads/${f.filename}`)
+            })
+           res.json({
+            message : error.message})
+        }
+       
         // Broadcast upload success event (emit file data)
         // io.emit("uploadSuccess", { fileData: { filePath, fileName: req.file.originalname } });
     });
 });
 
-// Serve the files from the 'uploads' directory
-app.get('/uploads/:file', (req, res) => {
-    const fileName = req.params.file;  
-    const filePath = path.join(uploadDir, fileName);
-    if (!fs.existsSync(filePath)) {    
-        console.error("File not found:", filePath);    
-        return res.status(404).send('File not found');  
+// Serve the files from the 'uploads' 
+app.get("/uploads/:file", async (req, res) => {  
+    try {
+        const fileName = path.basename(req.params.file); // جلوگیری از path traversal
+        if (!req?.session?.username) {      
+            return res.status(401).end();    
+        }
+        const username = req.session.username;    
+        console.log(`${fileName}--------> ${username}`)
+        const filePath = path.join(uploadDir, fileName);
+    if (!fs.existsSync(filePath)) {      
+            return res.status(404).end();    
+        }
+    const access = await file_access(`/uploads/${fileName}`, username);
+    if (!access.success) {      
+            return res.status(403).json(access);    
+        }
+    return res.sendFile(filePath);
+  } catch (error) {    
+        console.error("UPLOADS:", error.message);    
+        return res.status(500).end();  
     }
-  res.sendFile(filePath);
 });
+async function authinticate_room(roomID,username){
+    const resault = await Room.findOne({ roomID }).then(room=>{
+        if (!room) return false;
+        if(!room?.setting[0]?.Joinable_url) return true
+        if (room.setting[0].Joinable_url === "private" && !room.members.includes(username)) {
+            return false;
+        }else{
+            // socket.join(roomID);
+            return true
+        }
+    })
+    return resault
+}
+async function file_access(file,username){
 
+    if(!file|| !username) return {success:false , message:'File not found.'}
+    const message = await Message.findOne({"file.file":file}).select("read roomID")
+    if(message?.length == 0 ) return {success:false , message:'File not found.'}
+    const check_room_permissions = await authinticate_room(message?.roomID,username)
+    // TODO: fix read files in chat later
+    // const read = await message?.read.filter((r) => r.username === username);
+        // if(read.length > 0 && check_room_permissions){
+        if(check_room_permissions){
+            return  {success: true}
+        }else{
+            return {success: false, message: 'No accesss.'}
+        }
+}
 // API to Save a Message
 // app.post("/messages", async (req, res) => {
 //     const { sender, message } = req.body;
@@ -606,6 +922,87 @@ app.post('/remove_user_rooms_data', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+app.post('/autoLogin', async (req, res) => {
+    try {
+        const tokenHeader = req.headers['authorization']?.split(' ')[1];
+        if (!tokenHeader) return res.status(400).json({ error: 'Authorization token missing' });
+        
+        // Decrypt the token
+        const secretKey = '9e107d9d372bb6826bd81d3542a419d6cc64ff4ab6356cd63a54d865b40a8c4a';
+        const decryptedToken = decrypt(tokenHeader, secretKey);
+
+        // Decrypt the payload
+        const encryptedPayload = req.body.payload;
+        const decryptedData = decrypt(encryptedPayload, secretKey);
+        const { phone,token } = decryptedData;
+        if(!phone){
+            return res.json({ success:false, message:'No Access'});
+        }
+        let success =false ,message = ''
+        const currenUser = await User.findOne({username: phone})
+        // console.log(decryptedData)
+        // console.log(currenUser)
+        // return res.json({ success:false, message:'No Access'});
+
+        if(currenUser){
+            const is_have_login_yet = currenUser?.devices.filter(d=> d.userAgent == 'Mission Form')[0]
+            const is_have_token = token ? currenUser?.devices.filter(d=> d.token == token)[0] : null
+            if(is_have_token && is_have_login_yet){
+                    success = true
+                    message = `${currenUser?.first_name} ${currenUser?.last_name}، خوش آمدید`
+            }else{
+                const Gen_token = crypto.randomBytes(64).toString("hex");
+                const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 3 months
+                
+                if(is_have_login_yet){
+                    await User.updateOne( { _id: currenUser._id ,'devices.userAgent':'Mission Form'}, 
+                    {   $set: {     
+                            "devices.$.token":Gen_token,
+                            "devices.$.expiresAt":expires
+                        } 
+                    },{new:true}).then(u=>{
+                        success = true
+                        message = `${u?.first_name} ${u?.last_name}، خوش آمدید`
+    
+                    })
+                }else{
+                    const newDevices ={
+                        token: Gen_token,       
+                        ip: '',       
+                        userAgent: 'Mission Form',       
+                        createdAt: new Date(),       
+                        expiresAt: expires
+                    }
+                    await User.updateOne( { _id: currenUser._id }, 
+                    {   $push: {     
+                            devices: {     
+                                $each:[newDevices],
+                                $slice:-5
+                            }  
+                        } 
+                    },{new:true}).then(u=>{
+                        success = true
+                        message = `${u?.first_name} ${u?.last_name}، خوش آمدید`
+    
+                    })
+                }
+                return res.json({ success, message , token: Gen_token??null });
+            }
+            
+        }else{
+            success = false
+            message = 'حساب کاربری شما اشتباه است'
+
+        }
+
+        return res.json({ success, message });
+        
+        
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Server error' });
+    }
+});
 
 
 // auto from domains login
@@ -719,24 +1116,66 @@ app.post('/remove_user_rooms_data', async (req, res) => {
 // });
 
 
-// Handle Logout
-app.get("/logout",async function (req, res) {
-   
-    req.logout();
-    res.redirect("back");
+
+
+
+app.get("/logout", async (req, res, next) => {
+  try {
+    const username = req.session?.username ?? null;
+    const token = req.cookies?.autoLogin ?? null;
+
+
+    // 1) Remove that device token from the user's devices array (if present)
+    if (username && token) {
+      await User.updateOne(
+        { username, "devices.token": token },
+        { $pull: { devices: { token } } }
+      );
+    console.log(username , token)
+    }
+
+
+    // 2) Passport logout (passport@0.6 uses a callback)
+    req.logout((err) => {
+      if (err) return next(err);
+
+
+      // 3) Destroy server session
+      req.session?.destroy((err2) => {
+        if (err2) return next(err2);
+
+
+        // 4) Clear cookie (options should match how you set it)
+        res.clearCookie("autoLogin", {
+          httpOnly: true,
+          secure: true, // only works over HTTPS
+          sameSite: "lax",
+          path: "/",
+        });
+
+
+        // 5) Respond
+        res.redirect("/login");
+      });
+    });
+  } catch (e) {
+    console.log(e.message)
+    next(e);
+  }
 });
+
+
 
 app.get("/sitemap.xml", function (req, res) {
     res.sendFile("sitemap.xml", { root: path.join(__dirname, "../public") });
 });
 
-app.use(function (req, res) {
-    // res.status(404).render("404");
-});
+// app.use(function (req, res) {
+//     // res.status(404).render("404");
+// });
 
 
 server.listen(port, '0.0.0.0', () => console.log(`Listening on ${port}`));
-
 
 
 
@@ -797,17 +1236,17 @@ const addUserToRoom = async (username, roomID) => {
 //     return index === -1 ? false : true;
 // };
 
-const updateUserSocketId = async (username, socketId) => {
+const updateUserSocketId = async (user, socketId) => {
     try {
-        const user = await User.findOneAndUpdate(
-            { username: username },
+        const currentUser = await User.findOneAndUpdate(
+            { _id: user._id },
             { socketID: socketId },
             { new: true } // Return the updated user
         );
-        if (user) {
-            console.log(`Updated socketId for user ${username}: ${socketId}`);
+        if (currentUser) {
+            console.log(`Updated socketId for user ${user.username}: ${socketId}`);
         } else {
-            console.log(`User ${username} not found in the database`);
+            console.log(`User ${user.username} not found in the database`);
         }
     } catch (error) {
         console.error("Error updating socketId in database:", error);
@@ -826,73 +1265,107 @@ const updateUserSocketId = async (username, socketId) => {
 
 // SOCKET UNIT
 
-const socketSecretKey = Buffer.from(process.env.SOCKET_SECRET_KEY, 'hex');
-
-// تابع برای رمزگذاری
-function socketEncrypt(text) {
-    const iv = crypto.randomBytes(16); // تولید IV تصادفی
-    const cipher = crypto.createCipheriv('aes-256-cbc', socketSecretKey, iv);
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return iv.toString('hex') + ':' + encrypted; // ترکیب IV و متن رمزنگاری‌شده
-}
 
 
-// تابع برای رمزگشایی
-function socketDecrypt(encryptedText) {
-    const [ivHex, encryptedHex] = encryptedText.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', socketSecretKey, iv);
+// message_encryption()
 
-    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-}
+// index.js
+
+// ── وظیفهٔ کرون ──
+//   └─ '0 0 * * *' → هر روز ساعت 00:00 (00 دقیقه، 00 ساعت، هر روز ماه، هر ماه، هر روز هفته)
+// ====================== اجرا ======================
+
+// cron.schedule('0 0 * * *', async () => {
+//   try {
+//     console.log('⏰ شروع چک کردن پیام‌های تا دیروز...');
+//     const msgs = await getMessagesUpToYesterday_file_delete();
+
+//     console.log(`📥 ${msgs.length} پیام پیدا شد (تا دیروز).`);
+//     // اینجا می‌تونید کاری انجام بدید:
+//     //   • ذخیره در فایل
+//     //   • ارسال به سرویس دیگری
+//     //   • پردازش و پاک‌سازی
+//     // به‌عنوان مثال، نوشتن در لاگ:
+//     msgs.forEach(m => console.log(`${m.createdAt.toISOString()} – ${m.content}`));
+//   } catch (err) {
+//     console.error('❌ خطا در دریافت پیام‌ها:', err);
+//   }
+// });
+
+// console.log('✅ برنامه زمان‌بندی شد؛ هر روز ساعت 00:00 اجرا می‌شود.');
+
+// let room_names_filter = [
+//     'درخواست چک کردن آنتن سمت موک (#144601)',
+//     'اقای زارعی-درخواست تغییر انتن (#144604)',
+//     'درخواست انتقال یوزر - crm5 161392 (#144605)',
+//     '',
+//     '',
+//     '',
+//     '',
+//     '',
+//     '',
+// ]
+// room_managament({ 'seq': 0, 'createdAt': {$lte: '2025-07-14T11:15:53.600+00:00'}})
+setInterval(() => {
+    getMessagesUpToYesterday_file_delete('8x12wLE6irmn714ker',14) // RTSP rooms
+    getMessagesUpToYesterday_file_delete('MYL0V3')
+}, (24*60*60*1000));
+// setInterval(() => {
+    // }, (12*60*60*1000));
+setInterval(() => {
+    getMessagesUpToYesterday_file_delete('npmDtEwjElmn74vqmu',30,false) // log room clear
+    delete_OrphanFiles()
+}, (7*24*60*60*1000));
+getMessagesUpToYesterday_file_delete('8x12wLE6irmn714ker',14) // RTSP rooms
+getMessagesUpToYesterday_file_delete('MYL0V3')
+// saved mess fwti: 5uyMAg0qf7mnlz05bm
 
 
-async function message_encryption(roomID){
-        const message_encryption = await Message.find({roomID})
-        message_encryption.map(msg=> message_encryption_map(msg))
 
-}
-async function message_encryption_map(msg){
-        await Message.findOneAndUpdate({id:msg.id, encrypt: (false || null)},{$set :{message: socketEncrypt(msg.message) , encrypt:true}})
-}
-// ارسال پیام پشتیبان به PHP
-async function sendBackupToPHP(Number, jsonMessage) {
-    const encrypted = encryptAES256(JSON.stringify(jsonMessage));
 
-    try {
-        await axios.get(`https://mc.farahoosh.ir/missionform/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
-        // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
-    } catch (err) {
-        console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
-    }
-}
+
+
 const onlineUsersServer = new Map(); // socket.id => username
 
+io.on("connection", async (socket) => {
 
-io.on("connection", (socket) => {
-    let socketId = socket.id;
-    let currentUsername ;
-    let roomID ; // Make sure you're getting socketId properly
-    socket.on("userLoggedIn", async (data) => {
-        const { username } = data;
+    const user = await User.findOneAndUpdate({ _id: socket.user._id ,"devices.token": socket.token },
+        {
+            
+            socketID: socket.id ,  status: "online", lastActive: new Date(),
+            $set: {
+                // "devices.$.token": new_token,
+                "devices.$.socketID": socket.id,
+                "devices.$.lastActive": new Date()
+            }
+        },
+    {new:true} );
+     // اگر کسی با همان user دوباره وصل شود، قبلی را قطع کن  
+    // const existingSockets = io.sockets.sockets;
+    // const oldSocket = existingSockets.get(user.socketID);
+    // const oldSocket = io.sockets.connected[user.socketID];
+    // if (oldSocket && oldSocket.id !== socket.id) {
+    //     oldSocket.disconnect(true);  
+    // }
+    socket.on("userLoggedIn", async () => {
+        const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token })
+        const  username  = currentUser.username;
         if (!username) {
             return console.error("Username not provided for userLoggedIn");
         }
-        
-        const currentUser = await User.findOne({ username });
         if (!currentUser) {
             return console.error("User not found for socket ID:", socket.id);
         }
-
-        currentUsername = username;
         onlineUsersServer.set(socket.id, username); // Track online
 
-        await updateUserSocketId(username, socket.id);
-        
-        socket.broadcast.emit("userCameBack", username);
+        // await updateUserSocketId(user, socket.id);
+        if(username == '09016956747'){
+
+            socket.emit("userCameBack", {username,name:`${currentUser.first_name} ${currentUser.last_name}`});
+        }else{
+
+            socket.broadcast.emit("userCameBack", {username,name:`${currentUser.first_name} ${currentUser.last_name}`});
+        }
         socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
     });
     socket.on("userSleep", async () => {
@@ -901,8 +1374,8 @@ io.on("connection", (socket) => {
 
         // mark user as inactive
         await User.updateOne(
-            { username },
-            { status: "sleep", lastActive: new Date() }
+            { _id:user._id },
+           { $set:{ status: "sleep", lastActive: new Date() }}
         );
 
         onlineUsersServer.delete(socket.id);
@@ -912,19 +1385,24 @@ io.on("connection", (socket) => {
     });
 
     socket.on("userWake", async () => {
-        const user = await User.findOne({ socketID: socket.id });
-        const username = user.username
-        if (!username) return;
+        if (!user || !user.username) return;
+        const username = user.username ?? null
 
         await User.updateOne(
-            { username },
+            { _id: user._id },
             { status: "online", lastActive: new Date() }
         );
 
         // add back to online list
         onlineUsersServer.set(socket.id, username);
         socket.emit("onlineUsers", Array.from(onlineUsersServer.values())); // Send online usernames
-        socket.broadcast.emit("userCameBack", username);
+        if(username == '09016956747'){
+
+            socket.emit("userCameBack", {username,name:`${user.first_name} ${user.last_name}`});
+        }else{
+
+            socket.broadcast.to(user.roomID).emit("userCameBack", {username,name:`${user.first_name} ${user.last_name}`});
+        }
     });
 
 
@@ -938,35 +1416,52 @@ io.on("connection", (socket) => {
     // Listen for authentication / identification from client
     socket.on("authenticate", async (encryptedUsername, callback) => {
         try {
-            const username = socketDecrypt(encryptedUsername); // Your decrypt function
 
-            const user = await User.findOneAndUpdate(
-                { username },
-                { $set: { socketID: socket.id, online: true, lastSeen: new Date() } },
-                { new: true }
+            const currentUser = await User.findOneAndUpdate({_id: socket.user._id ,"devices.token": socket.token }, 
+                {status:'online',
+                "devices.$.lastActive": new Date(),
+                "devices.$.socketID": socket.id,
+
+                },{new: true}
             );
 
-            if (!user) {
+            if (!currentUser) {
                 return callback({ success: false, message: "User not found" });
             }
 
             // Join the user's room if they have one
-            if (user.roomID) {
-                socket.join(user.roomID);
-                console.log(`${username} joined room ${user.roomID}`);
+            const Device = currentUser.devices.filter(d=> d.token == socket.token)[0]
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+            if (Device_room) {
+                socket.join(Device_room);
+                console.log(`${user.username} joined room ${currentUser.roomID}`);
             }
+            const room_lastUpdate = await Room.findOne({roomID: Device.roomID}).select("createdAt lastUpdated")
+            const Device_dc = new Date(Device?.dc_time)
+            const room_date = room_lastUpdate?.lastUpdated ?? room_lastUpdate.createdAt
 
-            callback({ success: true, roomID: user.roomID });
-            console.log(`User authenticated and socketID updated: ${username} -> ${socket.id}`);
+            
+            callback({ success: true, roomID: Device_room , update: (Device_dc.getTime()<room_date.getTime()) });
+            console.log(`User authenticated and socketID updated: ${user.username} -> ${socket.id}`);
         } catch (err) {
             console.error("Authentication error:", err);
             callback({ success: false, message: "Authentication failed" });
         }
     });
 
-    socket.on("createRoom", async ({ handle, roomName }) => {
-        if(true) return
-        roomName = roomName;
+    socket.on("createRoom", async (data) => {
+        // if(true) return
+        const { handle, roomName, roomMembers, Joinable_url} = data ;
+        if(!handle || !roomName || !roomMembers){
+            socket.emit("error", { message: `Please Fill the form.`})
+                return
+        }
+        const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token })
+        if (!currentUser) {
+            socket.emit("error", { message: "User not found or not part of a room."});
+            return
+        
+        }
         function generateRoomID() {
             const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
             let roomID = "";
@@ -985,106 +1480,81 @@ io.on("connection", (socket) => {
         while (await Room.findOne({ roomID : uniqueRoomID })) {
             roomID = `${uniqueRoomID}-${Math.floor(Math.random() * 1000)}`; // Generate a unique name
         }
-    
+        if (roomMembers && !Array.isArray(roomMembers)) { 
+            const result = []; 
+            for (const num of roomMembers.split(',')) {  
+                const n = num.trim();  
+                if (n.length === 11 && !isNaN(n)) {   
+                    result.push(n);  
+                } 
+            } 
+            roomMembers = result;
+        }
+        const User_members =  await User.find({ username: { $in: roomMembers } }).select('username')
+        roomMembers.forEach(member=>{
+            if(User_members.filter(user=> user == member.username)[0]){
+                socket.emit("error", { message: `${member} not Found.`})
+                return
+            }
+        })
+        roomMembers.push(currentUser.username)
         const room = new Room({
             roomID : uniqueRoomID,
             roomName : roomName,
-            admin: handle.trim(),
-            members: [], // Initialize the members array
+            admin: currentUser.username,
+            members: roomMembers, // Initialize the members array
+            setting:[{Joinable_url: Joinable_url ??"private"}]
         });
     
         await room.save(); // Save the room to the database
-    
-        const userRead = await User.findOne({ username: handle }).select("first_name last_name").lean();
-        const data = { name:`${userRead.first_name} ${userRead.last_name}`, handle: handle, room: room };
+        const member_users = await User.find({ username : {$in: roomMembers} }).select("username first_name last_name").lean();
+        const userRead = await User.findOne({ username: currentUser.username }).select("first_name last_name").lean();
+        const data_to_join = { name:`${userRead.first_name} ${userRead.last_name}`,
+            handle: handle, room: room,
+            member_users
+        };
 
         socket.join(room.roomID); // Add the socket to the room
-        
-        // Add the user to the room
-        addUserToRoom(currentUsername, uniqueRoomID);
-        
-        socket.emit("joined", data); // Notify the user of successful join
-        socket.broadcast.to(room.roomID).emit("newconnection", data); // Broadcast to other users
+        await User.updateOne({ _id: socket.user._id ,"devices.token": socket.token },
+            {
+                $set: {
+                    // "devices.$.token": new_token,
+                    "devices.$.roomID": room.roomID,
+                    "devices.$.lastActive": new Date()
+                }
+            });
+            // Add the user to the room
+        addUserToRoom(currentUser.username, uniqueRoomID);
+
+        socket.emit("joined", data_to_join); // Notify the user of successful join
+        socket.broadcast.to(room.roomID).emit("newconnection", data_to_join); // Broadcast to other users
     });
     
     
-   // Handle joining a room
-    // socket.on("joinRoom", async ({ roomID }) => {
-    //     try {
-    //         // Check if the room exists
-    //         const roomExists = await Room.findOne({ roomID: roomID });
-            
-    //         if (roomExists) {
-    //             // Join the socket to the room
-    //             socket.join(roomID);
-                
-    //             // Ensure user is added to the room (update the 'room' or 'members' field in the database)
-    //             addUserToRoom(socket.id, roomID);
-                
-    //             // Fetch past messages for the room and send to the user
-    //             const messages = await Message.find({ roomID: roomID }).sort({ createdAt: 1 });
-    //             socket.emit("restoreMessages", messages);
-                
-    //             // Optional: Notify room of new connection (if needed)
-    //             socket.broadcast.to(roomID).emit("userJoined", { userID: socket.id, roomID: roomID });
-    //         } else {
-    //             socket.emit("error", { error: "Room does not exist" });
-    //         }
-    //     } catch (error) {
-    //         console.error("Error joining room:", error);
-    //         socket.emit("error", { error: "Failed to join room" });
-    //     }
-    // });
-
-    // socket.on('joinRoom', async ({ roomID , username }) => {
-    //     try {
-    //         if (typeof roomID !== 'string') {
-    //             throw new Error("Invalid roomID type. Expected a string.");
-    //         }
-    
-    
-    //         // Check if the room exists
-    //         const room = await Room.findOne({ roomID });
-    
-    //         if (!room) {
-    //             throw new Error("Room does not exist");
-    //         }
-    
-    //         // Add the user to the room
-    //         addUserToRoom(username, roomID);
-    
-    //         // Join the socket.io room
-    //         socket.join(roomID);
-    
-    
-    //         socket.emit("joined", { room });
-    //         socket.broadcast.to(roomID).emit("userJoined", { userId: username, roomID });
-    
-    //     } catch (error) {
-    //         console.error("Error joining room:", error.message);
-    //         socket.emit("error", { message: error.message });
-    //     }
-    // });
 
     socket.on("joinRoom", async (data) => {
         try {
-
-            roomID = socketDecrypt(data.roomID);
-            let room = await Room.findOne({ roomID });
-            await message_encryption(roomID)
-            let user = await User.findOne({ socketID: socket.id });
-
-            if (!user) {
-                user = await User.findOne({ username: socketDecrypt(data.username) });
-                if (!user) {
-                    throw new Error("User not found or not part of a room.");
-                }
+            const roomID = socketDecrypt(data.roomID??'');
+            if(!roomID || !data.roomID){
+                socket.emit("error", { message: 'No room.' });
+                return
             }
-            if (!room) throw new Error(`Room "${roomID}" does not exist`);
+            let room = await Room.findOne({ roomID });
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token })
+            if (!currentUser) {
+                socket.emit("error", { message: "User not found or not part of a room."});
+                return
+                
+            }
+            if (!room) {
+                socket.emit("error", { message: "Room not Found."});
+                return
+            }
 
-            const username = user.username;
+            const username = currentUser.username;
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
 
-            const lastroom = user.roomID;
+            const lastroom = Device_room;
             if (lastroom && lastroom !== roomID) {
                 socket.leave(lastroom);
 
@@ -1096,66 +1566,222 @@ io.on("connection", (socket) => {
                     { username },
                     { roomID: null }
                 );
+                await User.updateOne({ _id: socket.user._id ,"devices.token": socket.token },
+                {
+                    $set: {
+                        // "devices.$.token": new_token,
+                        "devices.$.roomID": null,
+                        "devices.$.lastActive": new Date()
+                    }
+                });
             }
 
             // Check if target room exists
-
-            // Permission check for private rooms
-            if (room.setting[0].Joinable_url === "private" && !room.members.includes(username)) {
-                io.to(socket.id).emit("error", { message: "You are not a member of this private room" });
-                return;
-            }
+            const check_room_permissions = await authinticate_room(roomID,username)
 
             // Join the new room
-            socket.join(roomID);
-            await addUserToRoom(username, roomID);
+            if(check_room_permissions){
+                socket.join(roomID)
+                await addUserToRoom(username, roomID);
 
-            // Update user's roomID
-            await User.findOneAndUpdate({ username }, { roomID });
+                // Update user's roomID
+                // await User.findOneAndUpdate({ username }, { roomID });
 
-
-            // Send settings, messages, and members
-            socket.emit("applySettings", user.settings);
-            const unreadMessages = await getUnreadMessages(roomID, username);
-            if (unreadMessages.length > 0) {
-                socket.emit("restoreMessages", { messages: unreadMessages, prepend: true, unread: true, join: true });
-            } else {
-                const lastMessages = await getMessagesByLimit(roomID, 20);
-                if(lastMessages.length>0){
-                    const processedMessages = await Promise.all(lastMessages.map(msg => processMessage(msg)));
-                    socket.emit("restoreMessages", { messages: processedMessages, prepend: true, join: true });
-                }else{
-                    socket.emit("noMoreMessages", { message: "No more older messages." });
+                await User.updateOne({ _id: socket.user._id ,"devices.token": socket.token },
+                {
+                    $set: {
+                        // "devices.$.token": new_token,
+                        "devices.$.roomID": roomID,
+                        "devices.$.lastActive": new Date()
+                    }
+                });
+                let room = await Room.findOneAndUpdate({roomID,"member_data.id":currentUser._id},
+                {
+                    $set: {
+                        "member_data.$.joined_at": new Date(),
+                        "member_data.$.leaved_at": null
+                    }
+                },{new:true});
+                if (!room) {
+                    room = await Room.findOneAndUpdate(
+                        { roomID },
+                        {
+                          $push: {
+                            member_data: {
+                              id: currentUser._id,
+                              joined_at: new Date()
+                            }
+                          }
+                        }
+                      );
                 }
+                // Send settings, messages, and members
+                socket.emit("applySettings", currentUser.settings);
+                // await message_encryption(roomID)
+                const member_users = await User.find({ username : {$in: room.members} }).select("username first_name last_name lastActive status").lean();
+
+                socket.emit("members", room.members);
+                socket.emit("joined", { room, name: `${currentUser.first_name} ${currentUser.last_name}` , member_users});
+                const Messages = await getUnreadMessages(roomID, currentUser);
+                const unreadMessages = Messages.processedMessages;
+                if (unreadMessages.length > 0) {
+                    socket.emit("restoreMessages", { messages: unreadMessages, prepend: true, unread: true, join: true });
+                } else {
+                    const lastMessages = await getMessagesByLimit(roomID, 20);
+                    if(lastMessages.length>0){
+                        const processedMessages = await Promise.all(lastMessages.map(msg => processMessage(msg)));
+                        socket.emit("restoreMessages", { messages: processedMessages, prepend: true, join: true });
+                    }else{
+                        socket.emit("noMoreMessages", { message: "No more older messages." });
+                    }
+                }
+                socket.broadcast.to(roomID).emit("userJoined",
+                    { name: `${currentUser.first_name} ${currentUser.last_name}`,
+                    member_users,member_data: room.member_data
+                 });
+
+            }else{
+                socket.leave(roomID);
+
+                socket.emit("error", { message: 'No Access to join.' });
             }
-
-            socket.emit("members", room.members);
-            socket.emit("joined", { room, name: `${user.first_name} ${user.last_name}` });
-
         } catch (error) {
             console.error("Error joining room:", error.message);
             socket.emit("error", { message: error.message });
         }
     });
+    // ----------------user management---------------
+     socket.on("member_manage",async(data,callback)=>{
+        const {status,user} = data
+        const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+        const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+        
+        let room = currentUser.username =='09173121943'|| status == 'kick'?
+            await Room.findOne({roomID: Device_room})
+            :await Room.findOne({roomID: Device_room, admin: currentUser.username})
+        let message,
+            access = false;
+        if(!room){
+            return callback({ success: false, message: 'شما دسترسی لازم ندارید.' });
+        }
+        const user_data = await User.findOne({username : user})
+        if(!user_data){
+            return callback({ success: false, message: "کاربر پیدا نشد." });
+        }
+        access = true
+        
+        switch (status) {
+            case 'admin':
+                if(user_data.username != room.admin){
+                    room = await Room.findOneAndUpdate({roomID:room.roomID},{
+                       admin: user_data.username
+                    },{new:true})
+                    message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} ادمین شد.`
+                }else{
+                    access = false
+                    message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} هم اکنون ادمین است.`
+                }
+                break;
+        
+            case 'add':
+                if(!room.members.includes(user_data.username)){
+                   room = await Room.findOneAndUpdate({roomID:room.roomID},{
+                        $push:
+                        {
+                            members: user_data.username
+                        }
+                    },{new:true})
+                    message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} به اتاق افزوده شد.`
+                }else{
+                    access = false
+                    message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} هم اکنون عضو اتاق است.`
 
+                }
+                break;
+            case 'kick':
+                if(room.members.includes(user_data.username)){
+                    if(user_data.username == room.admin){
+                        access = false
+                        message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} ادمین است، اول این سمت را انتقال دهید`
+                    }else{
+
+                        room = await Room.findOneAndUpdate({roomID:room.roomID},{
+                            $pull:
+                            {
+                                members: user_data.username
+                            }
+                        },{new:true})
+                        if(user_data.username == currentUser.username){
+                            
+                            message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} اتاق را ترک کرد`
+                        }else{
+
+                            message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} بیرون انداخته شد.`
+                        }
+                    }
+                }else{
+                    access = false
+                    message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} عضو اتاق نیست.`
+
+                }
+                break;
+        
+            default:
+                access = false
+                break;
+        }
+        if(access){
+            const member_users = await User.find({ username : {$in: room.members} }).select("username first_name last_name lastActive status").lean();
+            Log_message(message,null,room.roomID)
+            io.in(Device_room).emit("member_update",{room_admin:room?.admin,member_data:room?.member_data, members:member_users})
+        }
+        return callback({ success: access, message });
+     })
     // Create an in-memory object to track the last fetched date for each room (or user)
     socket.on("requestOlderMessages", async ({ roomID, counter=0 , type='first'}) => {
+        const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+        const Device_room = currentUser?.devices.filter(d=> d.token == socket.token)[0].roomID
+
+        console.log('user:',user.username," ==>",currentUser.username," in room: ",Device_room)
         try {
             // Debugging: Log the incoming data to ensure it's correct
-            
-            // Adjust counter to fetch the previous batch of messages
-            const startingID = counter;
-    
+                        // Find user by username AND update socketID if needed
+            if (!currentUser || !Device_room) {
+                console.log('try older message:',currentUser)
+                socket.emit("error", { message: "Failed to load older messages." });
+                throw new Error("User not found or not in a room.");
+            }
+            const check_room_permissions = await authinticate_room(roomID,currentUser.username)
+
+            if(!check_room_permissions){
+                socket.emit("error", { message: "Failed to Load (no access)." });
+                socket.leave(roomID);
+
+                return
+            }else{
+
+                socket.join(roomID)
+            }
             // Calculate the limit dynamically based on the counter value
             
             const limit =()=>{
-                if(counter!==0){
-                return (counter < 20) ? counter-1 : 20; // Use counter if it's less than 20, otherwise limit to 20
+                if(typeof counter == 'number'){
+                    if(counter!==0){
+                    return (counter < 20) ? counter-1 : 20; // Use counter if it's less than 20, otherwise limit to 20
+                    }
                 }
                 else return 20;
             }
+            let olderMessages ;
             // Fetch the older messages using the starting ID and dynamic limit
-            const olderMessages = await getMessagesByID(startingID, limit(),type); // Function to fetch messages
+            if(type.includes(['reply','latest'])){
+                // Adjust counter to fetch the previous batch of messages
+                const startingID = counter;
+                olderMessages = await getMessagesByID(startingID, limit(),type); // Function to fetch messages
+            }else{
+                olderMessages = await getMessagesByDate(Device_room,counter, limit(),type); // Function to fetch messages
+
+            }
     
             // If there are older messages, process and send them back to the client
             if (olderMessages.length > 0) {
@@ -1196,6 +1822,8 @@ io.on("connection", (socket) => {
             } else {
                 console.log("No older messages found.");
                 socket.emit("noMoreMessages", { message: "No more older messages." });
+                // if(type.includes(['last','first'])){
+                // }
             }
         } catch (err) {
             // Log the error if something goes wrong
@@ -1222,7 +1850,7 @@ async function getMessagesByID(startingID, limit,type) {
         .lean(); // Use lean() to get plain JavaScript objects
         }
     else if(type=='last'){
-
+        
         // Query the database for messages with IDs numerically less than the given counter
         return await Message.find({
             roomID: room,
@@ -1271,130 +1899,93 @@ async function getMessagesByLimit(roomID, limit) {
     
     // Helper function to get all unread messages
 // Helper function to get all unread messages
-    async function getUnreadMessages(roomID, username) {
-        const rawMessages = await Message.find({ roomID: roomID }).sort({ timestamp: -1 }).lean();
 
-        // Filter unread messages for the user
-        const unreadMessages = rawMessages.filter((msg) => {
-            const isUnread = !msg.read || !msg.read.some((r) => r.username === username);
-            return isUnread;
-        });
-
-        // Process unread messages
-        const processedMessages = await Promise.all(unreadMessages.map((msg) => processMessage(msg)));
-
-        // If there are any unread messages, set readLine:true for the last one
-        if (processedMessages.length > 0) {
-            processedMessages[processedMessages.length - 1].readLine = true; // Set readLine to true for the last message
-        }
-
-        return processedMessages;
-    }
 
     // Helper function to group messages by date
 // Helper function to group messages by date
-async function getMessagesByDate(roomID, date , reverse = 1) {
-    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+async function getMessagesByDate(roomID, val ,limit, type) {
 
-    const rawMessages = await Message.find({
-        roomID: roomID,
-        timestamp: { $gte: startOfDay, $lte: endOfDay },
-    }).sort({ timestamp: reverse }).lean();
+ 
+    
 
-    const processedMessages = await Promise.all(rawMessages.map((msg) => processMessage(msg)));
+    console.log(`Fetching messages ${type=='last' ? `newer` : `older`} than date =`, val, "for room =", roomID);
+    if(type=='latest'){
+            // Query the database for messages with IDs numerically less than the given counter
+        return await Message.find({
+            roomID: roomID,
+        })
+        .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
+        .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
+        .lean(); // Use lean() to get plain JavaScript objects
+        }
+    else if(type=='last'){
 
-    // If there are messages, set readLine:true for the last one
-    if (processedMessages.length > 0) {
-        processedMessages[0].dateLine = true; // Set readLine to true for the last message
+        // Query the database for messages with IDs numerically less than the given counter
+        return await Message.find({
+            roomID: roomID,
+            // Extract the numeric part of the 'id' to compare with 'counter'
+            timestamp: { $gte: new Date(val) }, // The id format should still be 'room-counter'
+        })
+        .sort({  timestamp: 1 }) // Sort by 'id' in descending order to get older messages first
+        .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
+        .lean(); // Use lean() to get plain JavaScript objects
     }
-
-    return processedMessages;
+    else if(type=='first'){
+    // Query the database for messages with IDs numerically less than the given counter
+    return await Message.find({
+        roomID: roomID,
+        // Extract the numeric part of the 'id' to compare with 'counter'
+        timestamp: { $lte: new Date(val) },
+    })
+    .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
+    .limit(limit || 20) // Limit the result to 50 messages, or the specified limit
+    .lean(); // Use lean() to get plain JavaScript objects
+    }else if(type.split('-')[0]=="reply"){
+        const messageID = val.split('-')[1]
+        // Query the database for messages with IDs numerically less than the given counter
+        return await Message.find({
+            roomID: roomID,
+            // Extract the numeric part of the 'id' to compare with 'counter'
+            id: { $lt: `${roomID}-${messageID+39}` }, // The id format should still be 'room-counter'
+        })
+        .sort({  timestamp: -1 }) // Sort by 'id' in descending order to get older messages first
+        .limit(39) // Limit the result to 50 messages, or the specified limit
+        .lean(); // Use lean() to get plain JavaScript objects
+    }
+    
 }
 
     
     // Process a single message (convert sender and read users to human-readable form)
 
-    async function processMessage(msg) {
-        const user = msg.sender ? await User.findOne({ username: msg.sender }).select("first_name last_name").lean():'';
-        const readUsers = await Promise.all(
-            (msg.read || []).map(async (readEntry) => {
-                const userRead = await User.findOne({ username: readEntry.username }).select("first_name last_name").lean();
-                return {
-                    username: socketEncrypt(readEntry.username), // رمزنگاری username
-                    name: userRead ? `${userRead.first_name} ${userRead.last_name}` : (readEntry.username), // رمزنگاری name
-                    reaction: readEntry.reaction ? (readEntry.reaction) : '', // رمزنگاری reaction
-                    time: readEntry.time.toString(), // رمزنگاری time
-                };
-            })
-        );
 
-        let replyMessage;
-        if (msg.quote !== null) {
-            replyMessage = await Message.findOne({ id: msg.quote }).select("sender message file").lean();
-            if(replyMessage) {
-                    
-                
-                const replyname = replyMessage ? await User.findOne({ username: replyMessage.sender }).select("first_name last_name").lean() : '';
-                replyMessage = {
-                    ...replyMessage,
-                    handle: replyname ? `${replyname.first_name} ${replyname.last_name}` : null,
-                    sender: socketEncrypt(replyMessage.sender), // رمزنگاری sender
-                    message: replyMessage.message, // رمزنگاری message
-                }
-            }else{
-                replyMessage ={
-                    ...replyMessage,
-                    sender : '',
-                    message : socketEncrypt("This message has been deleted.")
-                }
-            }
-        }
-
-        return {
-            ...msg,
-            message: msg.message, // رمزنگاری message
-            reply: replyMessage || null,
-            handle: user ? `${user.first_name} ${user.last_name}` : msg.sender ? socketEncrypt(msg.sender) :'', // رمزنگاری handle
-            readUsers,
-            readLine: false, // Mark unread messages with a readLine
-        };
-    }
-
-    socket.on("roomCounterId", async (userRoomID ,callback)=>{
-                    // Get the next sequence value from the counter collection
-            const counter = await Room.findOneAndUpdate(
-                { roomID: userRoomID },  // Find the counter for this room
-                // { $inc: { seq: 1 } },  // Increment the sequence number
-                // { new: true, upsert: true }  // Create if it doesn't exist
-            );
-            // Create and save the message
-            if(counter){
-                const updatedCounter= 1000000+ (counter.seq||0) + 1
-                callback({ success: true , messageId: `${userRoomID}-${updatedCounter}`});
-            }else{
-                callback({ success: false , message : error});
-
-            }
-
-    })  
-    
+ 
 
     // In your socket.io 'connection' handler or dedicated event
     socket.on('roomCounterId', async (data, callback) => {
     try {
         const {roomID,username} = data 
-        if (!username || typeof username !== 'string') {
-        return callback({ success: false, message: 'Invalid username' });
-        }
+
         if (!roomID || typeof roomID !== 'string') {
         return callback({ success: false, message: 'Invalid roomID' });
         }
-        const currentUser = await User.findOneAndUpdate(
-            { username:username },
-            { $set: { socketID: socket.id } }, // Always update socketID
-            { new: true }
-        );
+        const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+        if(!currentUser) {
+            callback({
+            success: false,
+            message: `Failed to generate message ID`
+            });
+            return
+        }
+
+        const check_room_permissions = await authinticate_room(roomID,currentUser.username)
+        socket.join(roomID)
+        if(!check_room_permissions){
+            socket.leave(roomID);
+
+            socket.emit("error", { message: "Failed to generate (no access)." });
+            return
+        }
         // ── Atomic counter increment ───────────────────────────────
         const counter = await Room.findOneAndUpdate(
         { roomID: currentUser.roomID },           // Use roomID as the document _id (clean & efficient)
@@ -1431,32 +2022,62 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     }
     });
     socket.on("chat", async (data , callback) => {
+        let { id, username: encryptedUsername,roomID, message, file, quote, voice } = data;
         try {
-            let { id, username: encryptedUsername,roomID, message, file, quote } = data;
 
-            const username = socketDecrypt(encryptedUsername);
-            const userRoomID = socketDecrypt(roomID);
 
             // Find user by username AND update socketID if needed
-            const currentUser = await User.findOneAndUpdate(
-                { username },
-                { $set: { socketID: socket.id } }, // Always update socketID
-                { new: true }
-            );
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const decrypted_roomID = socketDecrypt(roomID)
 
-            if (!currentUser || !userRoomID) {
+            // پیدا کردن همه اعضای اتاق
+                    // دریافت اطلاعات اتاق از دیتابیس
+
+            if (!currentUser ) {
                 throw new Error("User not found or not in a room.");
             }
+            const check_room_permissions = await authinticate_room(decrypted_roomID,currentUser.username)
 
-            // Ensure socket is in the room
-            socket.join(userRoomID);
+            if(!check_room_permissions){
+                socket.leave(roomID);
+
+                socket.emit("error", { message: "Failed to send (no access)." });
+                return
+            }
+            const username = currentUser.username;
+            if(!id){
+                // ── Atomic counter increment ───────────────────────────────
+                const counter = await Room.findOneAndUpdate(
+                { roomID: decrypted_roomID },           // Use roomID as the document _id (clean & efficient)
+                { $inc: { seq: 1 } },
+                { 
+                    upsert: true,                // Create if room doesn't exist yet
+                    new: true,                   // Return the UPDATED document (after increment)
+                    setDefaultsOnInsert: true    // Optional: if you have schema defaults
+                }
+                );
+
+                // Calculate the visible / custom message number
+                // 1000000 + seq gives you IDs starting from 1000001, 1000002, ...
+                const messageNumber = 1000000 + counter.seq;
+
+                id = `${decrypted_roomID}-${messageNumber}`;
+
+            }
 
             // Proceed with message processing...
-            message = socketDecrypt(message);
-            message = DOMPurify.sanitize(message, {
-                ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
-                ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'] 
-            });
+            if(message){
+                message = socketDecrypt(message);
+                message = message.trim()
+            }
+            const clean = sanitizeMessage(message);
+            // if(username == '09016956747' && decrypted_roomID=="MYL0V3" && clean){
+            //     const words = clean.split(' ')
+            //     const bad_words = ['بمیرم', 'میمیرم','فدات','فداتشم']
+            //     if(words.some(word=> bad_words.includes(word)) || bad_words.includes(clean)){
+            //         throw new Error(`خدا نکنه دورت بگردم （づ￣3￣）づ╭❤️～`);
+            //     }
+            // }
             quote = socketDecrypt(quote);
             let fileDetails = null;
 
@@ -1473,22 +2094,18 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                     }))
                     : null;  // If no file, return null
             
-            }else{
-                
-                console.error("erorr : ",file);
             }
             
             const timestamp = new Date();
             if(!username) throw new Error("User not found or not part of a room.");
-            if (!message  && !file)                 throw new Error("no message.");
+            if (!message  && !file && !voice) throw new Error("no message.");
             // Validate the user
 
-            const clean = DOMPurify.sanitize(message);
             const newMessage = new Message({
                 id: id,  // ID format: roomID-auto-increment number
-                roomID: userRoomID,
+                roomID: decrypted_roomID,
                 sender: username,
-                quote: quote ? `${userRoomID}-${quote}`:null,
+                quote: quote ? `${decrypted_roomID}-${quote}`:null,
                 message: clean ? socketEncrypt(clean) : '',
                 file: fileDetails, // Map over the uploaded file to structure them correctly
                 read: [{ username, time: timestamp }], // <- Mark as read by sender
@@ -1499,7 +2116,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             await newMessage.save();
             // Update room's last update timestamp
             let timeUp = await Room.findOneAndUpdate(
-                { roomID: userRoomID },
+                { roomID: decrypted_roomID },
                 { $set: { lastUpdated: timestamp } }
             );
             // Enrich the message with sender details
@@ -1508,25 +2125,18 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 sender: username,
                 // handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
+            
             let encryptedMessage = await processMessage(enrichedMessage)  
             // Broadcast the message to the room
-            io.in(userRoomID).emit("chat",await encryptedMessage,{ success: true });
+            io.in(decrypted_roomID).emit("chat",await encryptedMessage,{ success: true });
             callback({ success: true , messageId: id});
-            // پیدا کردن همه اعضای اتاق
-                    // دریافت اطلاعات اتاق از دیتابیس
-            const room = await Room.findOne({ roomID : userRoomID});
+            const room = await Room.findOne({ roomID : decrypted_roomID});
             if (!room) throw new Error("Room not found!");
 
             const roomMembers = room.members; // لیست اعضای اتاق
             
             // گرفتن Socket ID کاربران از دیتابیس
             const onlineUsers = await User.find({ username: { $in: roomMembers } });
-            encryptedMessage ={
-                ...data,
-                roomID : socketEncrypt(userRoomID),
-                title : socketEncrypt(room.roomName)
-            }
-            const selfSender = await User.findOne({ username });
 
             let tempMessage;
             // ارسال پیام به تمام کاربران حاضر در اتاق
@@ -1542,15 +2152,15 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                             const receiverNumber = pvMatch[2];
                             tempMessage = {
                                 title: 'MetaChat',
-                                message: `New message from <i>${selfSender.first_name} ${selfSender.last_name}</i>`,
-                                reciver:`<i>${user.first_name} ${user.last_name}`,
+                                message: `${currentUser.first_name} ${currentUser.last_name}</i><br>${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
+                                reciver:`${user.first_name} ${user.last_name}`,
                                 timestamp
                             };
                         } else if (taskMatch) {
                             const taskID = taskMatch[1];
                             tempMessage = {
                                 title: 'New comment (MetaChat): '+room.roomName,
-                                message: `<br><i>${selfSender.first_name} ${selfSender.last_name}</i> Commented: <br>${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
+                                message: `<br><i>${currentUser.first_name} ${currentUser.last_name}</i> Commented: <br>${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
                                 taskID:taskID,
                                 link: "/view?TaskID=" + taskID,
                                 reciver:`<i>${user.first_name} ${user.last_name}`,
@@ -1559,48 +2169,51 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                         } else {
                             tempMessage = {
                                 title: `New Message (MetaChat): ${room.roomName}`,
-                                message: `<b><i>${selfSender.first_name} ${selfSender.last_name}</i></b>: <br>${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
-                                reciver:`<i>${user.first_name} ${user.last_name}`,
+                                message: `${currentUser.first_name} ${currentUser.last_name}: ${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
+                                reciver:`${user.first_name} ${user.last_name}`,
                                 timestamp
                             };
                         }
-                        
-                        if (user.socketID) {
-                            tempMessage={
-                                ...tempMessage,
-                                roomID : userRoomID
+                        user?.devices.forEach(device=>{
+
+                            if (device.socketID) {
+                                tempMessage={
+                                    ...tempMessage,
+                                    sender: currentUser.username,
+                                    roomID : decrypted_roomID
+                                }
+                                io.to(device.socketID).emit("notification", tempMessage);
                             }
-                            io.to(user.socketID).emit("notification", tempMessage);
-    
-                        }
+                        })
+                        count_new_msg_room(room,user)
                         sendBackupToPHP(user.username, tempMessage);
                     }
                 }
-                if(tempMessage) sendBackupToPHP('09173121943', tempMessage);
+                if(tempMessage && username !='09173121943') sendBackupToPHP('09173121943', tempMessage);
             });
         } catch (error) {
             console.error("Error handling chat message:", error);
-
+            
             // Send failure acknowledgment
-            callback({ success: false , messageId: `${userRoomID}-${updatedCounter}`, message : error});
+            callback({ success: false , messageId: id, message : error.message});
         }
     });
+
+      // دریافت بایت‌های صوتی  
     socket.on("edit", async (data, callback) => {
         try {
-            const {messageId, username , new_message} = data 
-            if(!messageId || !username)return
+            let {messageId , username, new_message} = data 
+            if(!messageId )return
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
 
-            const currentUser = await User.findOneAndUpdate(
-                { username:username },
-                { $set: { socketID: socket.id } }, // Always update socketID
-                { new: true }
-            );
+            username = user.username
             if (!messageId || typeof messageId !== "string" && !new_message) {
                 throw new Error("Invalid or missing messageId.");
             }
 
             // Find the current user by socket ID
-            if (!currentUser || !currentUser.roomID) {
+            if (!currentUser || !Device_room) {
                 throw new Error("User not authenticated or not in a room.");
             }
 
@@ -1613,7 +2226,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
             // Extract roomID from message ID (format: roomID-1000001 etc.)
             const [roomIDFromId] = messageId.split('-');
-            if (roomIDFromId !== currentUser.roomID) {
+            if (roomIDFromId !== Device_room) {
                 throw new Error("Message does not belong to your current room.");
             }
 
@@ -1622,36 +2235,44 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                 throw new Error("You can only edit your own messages.");
             }
 
-           
+           if(new_message){
+                new_message = socketDecrypt(new_message);
+                // new_message = new_message.trim()
+            }
+            const clean = sanitizeMessage(new_message);
 
             // === Delete the message from database ===
-            await Message.findOneAndUpdate({ id: messageId },{$set :{message: new_message , edited: new Date()}});
+            await Message.findOneAndUpdate({ id: messageId },{$set :{message: clean , edited: new Date()}});
 
             // === Update room's lastUpdated timestamp ===
-            await Room.findOneAndUpdate(
-                { roomID: currentUser.roomID },
-                { $set: { lastUpdated: new Date() } }
-            );
+            // await Room.findOneAndUpdate(
+            //     { roomID: Device_room },
+            //     { $set: { lastUpdated: new Date() } }
+            // );
 
             // === Broadcast deletion to all clients in the room ===
 
 
-            io.in(currentUser.roomID).emit("edit", {messageId , new_message});
+            io.in(Device_room).emit("edit", {messageId , new_message});
 
             // Optional: Send notification to others that a message was deleted
-            const room = await Room.findOne({ roomID: currentUser.roomID });
+            const room = await Room.findOneAndUpdate({ roomID: Device_room }, { $set: { lastUpdated: new Date() } });
             if (room) {
                 const onlineUsers = await User.find({ username: { $in: room.members } });
-
+                
                 onlineUsers.forEach((user) => {
-                    if (user.username !== username && user.socketID) {
-                        io.to(user.socketID).emit("notification", {
-                            title: `Message edited (MetaChat): ${room.roomName}`,
-                            message: `<i>${currentUser.first_name} ${currentUser.last_name}</i> edited a message.`,
-                            roomID: currentUser.roomID,
-                            timestamp: new Date()
-                        });
-                    }
+                    user?.devices.forEach(device=>{
+                        if (user.username !== username && user.socketID) {
+                            io.to(device.socketID).emit("notification", {
+                                sender: currentUser.username,
+                                title: `Message edited (MetaChat): ${room.roomName}`,
+                                message: `${currentUser.first_name} ${currentUser.last_name} edited a message.`,
+                                roomID: Device_room,
+                                timestamp: new Date()
+                            });
+                        }
+                    })
+                    count_new_msg_room(room,user)
                 });
             }
 
@@ -1662,7 +2283,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
 
         } catch (error) {
-            console.error("Error deleting message:", error);
+            console.error("Error deleting message:", error.message);
             if (typeof callback === "function") {
                 callback({ success: false, error: error.message });
             }
@@ -1670,19 +2291,18 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     });
     socket.on("delete", async (data, callback) => {
         try {
-            const {messageId,username} = data 
-            if(!messageId||!username)throw new Error("Invalid  USER.");
-            const currentUser = await User.findOneAndUpdate(
-                { username:username },
-                { $set: { socketID: socket.id } }, // Always update socketID
-                { new: true }
-            );
+            let {messageId , username} = data 
+            if(!messageId)throw new Error("Invalid  USER.");
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room =  currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+            username =user.username
+
             if (!messageId || typeof messageId !== "string") {
                 throw new Error("Invalid or missing messageId.");
             }
 
             // Find the current user by socket ID
-            if (!currentUser || !currentUser.roomID) {
+            if (!currentUser || !Device_room) {
                 throw new Error("User not authenticated or not in a room.");
             }
 
@@ -1695,7 +2315,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
             // Extract roomID from message ID (format: roomID-1000001 etc.)
             const [roomIDFromId] = messageId.split('-');
-            if (roomIDFromId !== currentUser.roomID) {
+            if (roomIDFromId !== Device_room) {
                 throw new Error("Message does not belong to your current room.");
             }
 
@@ -1706,23 +2326,15 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
             // === Handle file deletion if files exist ===
             if (message.file && Array.isArray(message.file) && message.file.length > 0) {
-                const fs = require('fs').promises;
-                const path = require('path');
+
 
                 // Assuming files are saved on disk with filename stored in file.fileName
                 // Adjust the upload directory path according to your setup
                 for (const fileItem of message.file) {
                     if (fileItem.file) {
                         const filePath = path.join(uploadDir,fileItem.file.split('/')[2]);
-                        try {
-                            await fs.unlink(filePath);
-                        } catch (err) {
-                            if (err.code !== 'ENOENT') {
-                                console.error(`Failed to delete file ${filePath}:`, err);
-                            } else {
-                                console.log(`File already missing (not found): ${filePath}`);
-                            }
-                        }
+                        const res_delete = await deleteFile(filePath)
+                        if(!res_delete?.success) throw new Error("Somthing went wrong.");
                     }
                 }
             }
@@ -1732,28 +2344,117 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
             // === Update room's lastUpdated timestamp ===
             await Room.findOneAndUpdate(
-                { roomID: currentUser.roomID },
+                { roomID: Device_room },
                 { $set: { lastUpdated: new Date() } }
             );
 
             // === Broadcast deletion to all clients in the room ===
 
 
-            io.in(currentUser.roomID).emit("delete", messageId);
+            io.in(Device_room).emit("delete", messageId);
 
             // Optional: Send notification to others that a message was deleted
-            const room = await Room.findOne({ roomID: currentUser.roomID });
+            const room = await Room.findOne({ roomID: Device_room });
             if (room) {
                 const onlineUsers = await User.find({ username: { $in: room.members } });
 
                 onlineUsers.forEach((user) => {
                     if (user.username !== username && user.socketID) {
-                        io.to(user.socketID).emit("notification", {
-                            title: `Message deleted (MetaChat): ${room.roomName}`,
-                            message: `<i>${currentUser.first_name} ${currentUser.last_name}</i> deleted a message.`,
-                            roomID: currentUser.roomID,
-                            timestamp: new Date()
-                        });
+                        user?.devices.forEach(device=>{
+                            io.to(device.socketID).emit("notification", {
+                                sender: currentUser.username,
+                                title: `Message deleted (MetaChat): ${room.roomName}`,
+                                message: `${currentUser.first_name} ${currentUser.last_name} deleted a message.`,
+                                roomID: Device_room,
+                                timestamp: new Date()
+                            });
+                        })
+                    }
+                });
+            }
+
+            // Success callback
+            if (typeof callback === "function") {
+                callback({ success: true });
+            }
+        } catch (error) {
+            console.error("Error deleting message:", error);
+            if (typeof callback === "function") {
+                callback({ success: false, error: error.message });
+            }
+        }
+    });
+    socket.on("delete_file", async (data, callback) => {
+        try {
+            let {id} = data 
+            if(!id)throw new Error("Invalid  USER.");
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room =  currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+            username =user.username
+
+            if (!id || typeof id !== "string") {
+                throw new Error("Invalid or missing file_id.");
+            }
+
+            // Find the current user by socket ID
+            if (!currentUser || !Device_room) {
+                throw new Error("User not authenticated or not in a room.");
+            }
+
+
+            // Find the message
+            const message = await Message.findOne({ "file._id": id });
+            const file = message?.file.filter(file=> file._id == id)[0]
+            if (!message || !file) {
+                throw new Error("File not found.");
+            }
+
+            // Extract roomID from message ID (format: roomID-1000001 etc.)
+            const message_roomID = message.roomID;
+            if (message_roomID !== Device_room) {
+                throw new Error("Message does not belong to your current room.");
+            }
+
+            // Authorization: Only the sender can delete their own message
+            if (message.sender !== username && username != '09173121943') {
+                throw new Error("You can only delete your own messages.");
+            }
+
+            // === Handle file deletion if files exist ===
+            const filePath = path.join(uploadDir,file?.file.split('/')[2]);
+
+            const res_delete = await deleteFile(filePath)
+            if(!res_delete?.success) throw new Error("Somthing went wrong.");
+            // === Delete the message from database ===
+            await Message.updateOne({ "file._id": id },{$pull:{file:{_id: id} }});
+
+            // === Update room's lastUpdated timestamp ===
+            await Room.findOneAndUpdate(
+                { roomID: Device_room },
+                { $set: { lastUpdated: new Date() } }
+            );
+
+            // === Broadcast deletion to all clients in the room ===
+
+
+            io.in(Device_room).emit("delete_file", id);
+
+            // Optional: Send notification to others that a message was deleted
+            const room = await Room.findOne({ roomID: Device_room });
+            if (room) {
+                const onlineUsers = await User.find({ username: { $in: room.members } });
+
+                onlineUsers.forEach((user) => {
+                    if (user.username !== username && user.socketID) {
+                        user?.devices.forEach(device=>{
+                            io.to(device.socketID).emit("notification", {
+                                sender: currentUser.username,
+                                title: `Message deleted (MetaChat): ${room.roomName}`,
+                                message: `${currentUser.first_name} ${currentUser.last_name} deleted a File.`,
+                                roomID: Device_room,
+                                timestamp: new Date()
+                            });
+                        })
                     }
                 });
             }
@@ -1770,21 +2471,34 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         }
     });
     // Listen for upload progress from clients
-    socket.on("uploadProgress", (data) => {
-        const { progress } = data;
-        console.log(`Upload Progress: ${progress}%`);
+    socket.on("uploadProgress", async (data) => {
+        try {
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
 
-        // Broadcast the progress to the room (optional)
-        io.emit("uploadProgress", { progress: progress });
+            if(!Device_room) throw new Error(`No room user added to upload progress`);
+            
+            const { progress  } = data;
+            if(!progress ) throw new Error(`${!progress ? 'No progress':'No fileattached'}`)
+            console.log(`Upload Progress: ${progress}%`);
+            const room = await Room.findOne({ roomID: Device_room });
+            if (room) {
+                io.in(Device_room).emit("uploadProgress", { user:currentUser.username , progress: progress  });
+            }
+        } catch (error) {
+            socket.emit("error",{message:error})
+        }
+       
     });
 
     
     socket.on("addReaction", async ({ username, messageId, reaction }) => {
         try {
-            const time = new Date();
             const timestamp = new Date();
-            const currentUser = await User.findOne({ socketID: socket.id });
-            if (!currentUser || !currentUser.roomID) {
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+
+            if (!currentUser || !Device_room) {
                 throw new Error("User not found or not part of a room.");
             }
             const username = currentUser.username;
@@ -1810,8 +2524,8 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             await message.save();
     
             // Emit the updated message to the room
-            io.to(message.roomID).emit("reactionAdded", { messageId, username, time, reaction });
-            const room = await Room.findOne({ roomID : currentUser.roomID});
+            io.to(message.roomID).emit("reactionAdded", { messageId, username, time:timestamp, reaction });
+            const room = await Room.findOneAndUpdate({ roomID : Device_room},{ $set: { lastUpdated: new Date() } });
             if (!room) throw new Error("Room not found!");
 
             const roomMembers = room.members; // لیست اعضای اتاق
@@ -1820,13 +2534,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             const onlineUsers = await User.find({ username: { $in: roomMembers } });
             
             const selfSender = await User.findOne({ username });
-            
-            const axios = require('axios');
 
-            const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
-            const AES_IV = crypto.randomBytes(16); // Initialization Vector
-
- 
            
 
             // ارسال پیام به تمام کاربران حاضر در اتاق
@@ -1839,8 +2547,6 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
                         let tempMessage;
                         
                         if (pvMatch) {
-                            const senderNumber = pvMatch[1];
-                            const receiverNumber = pvMatch[2];
                             tempMessage = {
                                 title: 'New private message (MetaChat)',
                                 message: `<b>Private Chat</b><br><i>${selfSender.first_name} ${selfSender.last_name}</i> said: <br>Reacted to your message`,
@@ -1969,15 +2675,73 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     //     }
     // });
     
-    socket.on("markMessagesRead", async ({ messageIds, roomID }) => {
+    socket.on("voice_heared", async (data) => {
         try {
-            const currentUser = await User.findOne({ socketID: socket.id });
-
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+            const roomID = Device_room
             if (!currentUser) {
+                console.log(socket.id)
                 throw new Error("User not found.");
             }
-
+            const {file_id} = data
             if (!roomID) {
+                
+                console.log(Device_room,'==>',roomID)
+                throw new Error("No room provided.");
+            }
+
+            // ✅ Validate room membership
+            const room = await Room.findOne({ roomID }).lean();
+            if (!room) {
+                throw new Error("Room not found!");
+            }
+
+            const isMember = room.members?.some(m =>
+                typeof m === 'string'
+                    ? m === currentUser.username
+                    : m.username === currentUser.username
+            );
+
+            if (!isMember) {
+                throw new Error("User is not a member of this room!");
+            }
+            const username = currentUser.username;
+
+            // ✅ Update all messages in parallel
+                await Message.findOneAndUpdate(
+                    {   roomID,
+                        "file._id":file_id,
+                        "read.username":  username 
+                    },
+                    {
+                        $set: 
+                            { 
+                                "read.$.voice_heared":1
+                            } 
+                    },{new:true}
+                ).then((m)=>{
+                    io.in(roomID).emit("update_voice_heared", {file_id,username,messageId:m.id})
+                    socket.emit('error',m)
+                } )
+        } catch (error) {
+            console.error("Error in voice_heared:", error.message);
+            socket.emit('error',error.message)
+        }
+    })
+    socket.on("markMessagesRead", async ({ messageIds, roomID }) => {
+        try {
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+
+            if (!currentUser) {
+                console.log(socket.id)
+                throw new Error("User not found.");
+            }
+            
+            if (!roomID) {
+                
+                console.log(Device_room,'==>',roomID)
                 throw new Error("No room provided.");
             }
 
@@ -2040,7 +2804,7 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
             updatedMessages
                 .filter(Boolean)
                 .forEach((msg) => {
-                    socket.to(roomID).emit("readMessageUpdate", msg);
+                    socket.broadcast.to(roomID).emit("readMessageUpdate", msg);
                 });
 
         } catch (error) {
@@ -2050,38 +2814,69 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
 
     
     socket.on("info", async () => {
-        const currentUser = await User.findOne({ socketID: socket.id });
+        const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
         if (currentUser) {
-            const room = await Room.findOne({ roomID: currentUser.roomID });
-            const users = await User.find({ roomID: currentUser.roomID });
-            const messages = await Message.find({ roomID: currentUser.roomID }).sort({ timestamp: 1 });
-
-            socket.emit("info", { room, users, messages });
+            
+            socket.emit("info", currentUser);
+        } else {
+            socket.emit("error", { message: "User not found" });
+        }
+    });
+    
+    socket.on("roomList", async () => {
+        const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+        const Device = currentUser.devices.filter(d=> d.token == socket.token)[0]
+        if (currentUser) {
+            const room = await Room.aggregate([{  
+                $match: { members: currentUser.username } }, 
+                {  
+                    $addFields: {   sortDate: { $ifNull: ["$lastUpdated", "$createdAt"] }  } }, 
+                    {  $sort: { sortDate: -1 }
+                }
+            ]);            
+            let users_name=[];
+            await room.forEach(room=>{
+                room?.members.filter(username=> !users_name.includes(username)).forEach(u_name=>{
+                    users_name.push(u_name)
+                })
+                
+            })
+            const users = await User.find({ username : {$in: users_name} }).select("username first_name last_name lastActive status").lean();
+            // const messages = await Message.find({ roomID: currentUser.roomID }).sort({ timestamp: 1 });
+            socket.emit("roomList", { room,users });
+            // await room.filter(room=> new Date(Device?.dc_time??null) <= new Date(room?.lastUpdated ?? null).getTime()).forEach(room=>{
+            
+            await room.filter(room=> room?.lastUpdated !== null).forEach(room=>{
+                count_new_msg_room(room,currentUser)
+            })
         } else {
             socket.emit("error", { message: "User not found or not in a room" });
         }
     });
+
     socket.on("typing", async (data) => {
         try {
-            const { username, isTyping , name} = data; // Extract username and typing status
-    
+            const { username, isTyping , name, status} = data; // Extract username and typing status
+            
             if (!username || typeof isTyping === "undefined") {
                 console.error("Invalid data received for typing event:", data);
                 return;
             }
-    
+            
             // Find the user and their room
-            const currentUser = await User.findOne({ username }).lean();
-            if (!currentUser || !currentUser.roomID) {
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+            if (!currentUser || !Device_room) {
                 console.error("Error: User not found or not in a room");
                 socket.emit("error", { message: "User not found or not in a room" });
                 return;
             }
     
             // Broadcast typing status to others in the room (excluding the sender)
-            socket.broadcast.to(currentUser.roomID).emit("typing", { 
+            socket.broadcast.to(Device_room).emit("typing", { 
                 username,
                 name, 
+                status,
                 isTyping 
             });
         } catch (error) {
@@ -2092,11 +2887,10 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     
     socket.on("saveSettings", async (settings , username) => {
         try {
-            const user = await User.findOne({ username: username });
             if (!user) throw new Error("User not found");
             
-            user.settings = settings; // Assume `settings` field exists in user schema
-            await user.save();
+            await User.updateOne({_id:user._id},{settings}) ; // Assume `settings` field exists in user schema
+            // await user.save();
     
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -2104,12 +2898,13 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
         }
     });
     socket.on("countNewMessage", async(username, roomID, callback) => {
-       
+        if (!user) throw new Error("User not found");
+
         // Fetch messages from the database (adjust this based on your database query)
         Message.find({ roomID: roomID }) // Get all messages in the room
             .then(messages => {
                 let newMessageCount = messages.filter(msg =>
-                    !msg.read.some(r => r.username === username) // Check if the user has NOT read it
+                    !msg.read.some(r => r.username === user.username) // Check if the user has NOT read it
                 ).length;
     
                 // Send back the count
@@ -2123,52 +2918,82 @@ async function getMessagesByDate(roomID, date , reverse = 1) {
     socket.on("lastUpdatedTime", async (username, roomID, callback) => {
         const room = await Room.findOne({ roomID: roomID });
       
-        const time = room.lastUpdated ?? null;  // ❗️ اینجا دیگه تاریخ ساختگی نمی‌دیم
+        const time = room?.lastUpdated ?? null;  // ❗️ اینجا دیگه تاریخ ساختگی نمی‌دیم
         callback(time);
-      });
+    });
       
 
-socket.on("leaveRoom", async ({ username , roomID }) => {
-    try {
-        if (!username || !roomID) {
-            socket.emit("error", { error: `${username} : ${roomID} Invalid data provided for leaving the room` });
-            return;
+    socket.on("leaveRoom", async ({ username , roomID }) => {
+        try {
+            if (!username || !roomID) {
+                socket.emit("error", { error: `${username} : ${roomID} Invalid data provided for leaving the room` });
+                return;
+            }
+            if(!user){
+                socket.emit("error", { error: `User no Access.` });
+                return;
+            }
+            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
+            const room = await Room.findOneAndUpdate({roomID:Device_room,"member_data.id":currentUser._id},
+                {
+                    $set: {
+                        "member_data.$.leaved_at": new Date()
+                        
+                    }
+                },{new:true});
+            if (!room) {
+                if (!room) {
+                  await Room.findOneAndUpdate(
+                    { roomID },
+                    {
+                      $push: {
+                        member_data: {
+                          id: currentUser._id,
+                          leaved_at: new Date()
+                        }
+                      }
+                    }
+                  );
+                }
+                socket.emit("error", { error: `Room "${roomID}" does not exist` });
+                return;
+            }
+
+            // Optional: Check if user is a member (for logging/debugging only)
+            if (!room.members.includes(username)) {
+                console.warn(`User "${username}" is leaving room "${roomID}" but not listed as a member.`);
+            }
+
+            // Leave the socket.io room (but do NOT remove from DB)
+            socket.leave(Device_room);
+
+            // Clear user.roomID
+           await User.updateOne({ _id: socket.user._id ,"devices.token": socket.token },
+            {
+                $set: {
+                    // "devices.$.token": new_token,
+                    "devices.$.roomID": null,
+                    "devices.$.lastActive": new Date()
+                }
+            });
+
+            socket.broadcast.to(Device_room).emit("typing", { 
+                username: user.username,
+                isTyping : false
+            });
+
+            // Notify this user
+            socket.emit("leftRoom", { roomID:Device_room });
+
+            // Notify others in the room
+            socket.broadcast.to(Device_room).emit("userLeft", { name:`${user.first_name} ${user.last_name}`, roomID:Device_room });
+
+        } catch (error) {
+            console.error("Error handling leaveRoom event:", error);
+            socket.emit("error", { error: "Failed to leave the room due to an internal error" });
         }
-
-        // Find the room
-        const room = await Room.findOne({ roomID });
-        if (!room) {
-            socket.emit("error", { error: `Room "${roomID}" does not exist` });
-            return;
-        }
-
-        // Optional: Check if user is a member (for logging/debugging only)
-        if (!room.members.includes(username)) {
-            console.warn(`User "${username}" is leaving room "${roomID}" but not listed as a member.`);
-        }
-
-        // Leave the socket.io room (but do NOT remove from DB)
-        socket.leave(roomID);
-
-        // Clear user.roomID
-        const updatedUser = await User.findOneAndUpdate(
-            { username },
-            { roomID: null },
-            { new: true }
-        );
-
-
-        // Notify this user
-        socket.emit("leftRoom", { roomID });
-
-        // Notify others in the room
-        socket.broadcast.to(roomID).emit("userLeft", { username, roomID });
-
-    } catch (error) {
-        console.error("Error handling leaveRoom event:", error);
-        socket.emit("error", { error: "Failed to leave the room due to an internal error" });
-    }
-});
+    });
 
     
     socket.on("draw", (data) => {
@@ -2183,22 +3008,24 @@ socket.on("leaveRoom", async ({ username , roomID }) => {
         io.emit("undo", data);
     });
 
+    
 
 
-    socket.on("disconnect", async () => {
+    socket.on("disconnect", async (reason) => {
+        console.log('disconnect reason: ',`${socket.id}__${socket.user.username}==>${reason}`)
+
         try {
-            const user = await User.findOne({ username: currentUsername });
-            if (user) {
-                socket.broadcast.to(user.roomID).emit("userDisconnected", `${user.first_name} ${user.last_name}`);
-                onlineUsersServer.delete(socket.id);
+            const currentUser = await User.findOneAndUpdate({_id: socket.user._id ,"devices.token": socket.token }, 
+                {status:'offline',lastActive: new Date(),"devices.$.dc_time": new Date()},
+                { new: true });
+            const Device_room = currentUser?.devices.filter(d=> d.token == socket.token)[0].roomID
 
-                const updatedUser = await User.findOneAndUpdate(
-                    { username: currentUsername },
-                    { socketID: null, roomID: null },
-                    { new: true }
-                );
-
-            }
+            socket.broadcast.to(Device_room).emit("typing", { 
+                username: user.username,
+                isTyping : false
+            });
+            // socket.broadcast.to(currentUser.roomID).emit("userDisconnected", `${currentUser.first_name} ${currentUser.last_name}`);
+            onlineUsersServer.delete(socket.id);
         } catch (error) {
             console.error("Error during disconnect:", error);
         }
@@ -2209,7 +3036,6 @@ socket.on("leaveRoom", async ({ username , roomID }) => {
     socket.on("error", (error) => {
         console.log(getUsers());  // Check if the user list is correct
 
-        console.log("Socket error:", error);
 
 
         
@@ -2220,6 +3046,8 @@ socket.on("leaveRoom", async ({ username , roomID }) => {
                 console.error("Error logging object:", error);
             }
         };
-            });
+                console.log("Socket error:", `${socket.id}__${user.username}==>${safeLog(error)}`);
+
+    });
     
 });

@@ -13,20 +13,19 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/DOMPurify-main/DOMPurify-main/dist/purify.min.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="/bootstrap-4.4.1-dist/css/bootstrap.min.css">
-    <link rel="stylesheet" type='text/css' href="/css/style.css">
+    <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
+    <!-- <link rel="stylesheet" href="/bootstrap-4.4.1-dist/css/bootstrap.min.css"> -->
     <link rel="stylesheet" type='text/css' href="/css/loading.css">
     <link rel="stylesheet" type='text/css' href="/css/typingLoader.css">
     <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"> -->
-    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito&display=swap" rel="stylesheet">
-    <script src="/js/jquery-3.3.1.min.js"></script>
-    <link rel="stylesheet" href="/css/bootstrap-icons-1.11.3/font/bootstrap-icons.min.css">
+    <!-- <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito&display=swap" rel="stylesheet"> -->
+    <!-- <script src="/js/jquery-3.3.1.min.js"></script> -->
+    <!-- <link rel="stylesheet" href="/css/bootstrap-icons-1.11.3/font/bootstrap-icons.min.css"> -->
     <!-- <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script> -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
         " integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
-    <script src="/bootstrap-4.4.1-dist/js/bootstrap.min.js" ></script>
+    <!-- <script src="/bootstrap-4.4.1-dist/js/bootstrap.min.js" ></script> -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
     <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/browser-image-compression@latest/dist/browser-image-compression.js"></script> -->
     <script src="/js/crypto-js.min.js"></script>
@@ -37,42 +36,49 @@
         " integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
     <script type="text/javascript" src="/js/browser-image-compression.js"></script>
+    <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/animate.compat.css" />
+    <script src="/js/jquery-4.0.0.min.js"></script>
     <script src="/js/sweetAlert.js"></script>
     <script src="/js/side.js"></script>
+    <script src='/js/timeFormated.js' defer></script>
+    <link href="/vendor/animate/animate.min.css" rel="stylesheet">
+    <link rel="stylesheet" type='text/css' href="/css/style_v0411.css">
 
 </head>
 
-<body>
+<body data-bs-theme="dark" >
     <div id="backgroundImg" class="backgroundImg"></div>
 
-    <audio id="notification-sound" src="/sound/notif.wav" preload="auto"></audio>
+    <audio id="message_sound" src="/sound/notif.wav" preload="auto"></audio>
+    <audio id="notification_sound" src="/sound/message.ogg" preload="auto"></audio>
+    <div class="col-12  position-sticky top-0 z-3">
+        
 
-
-    <div id="loading" class="loader px-3 hide">
-        <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
-                <span>Loading, please wait...</span>
-    </div>
-    <nav class="headerMain navbar navbar-dark bg-dark">
-        <a class="navbar-brand" href='/'><img class='img-fluid' src='../svg/logo.svg' width='20px'><span class='my-auto'>&nbspMETA CHAT</span></a>
-        <% if(!currentUser){ %>
-            <a class="btn btn-primary btn align-right text-white" href='/login'>login <i class='fa fa-user'></i></a>
+        <nav class="headerMain navbar  navbar-dark px-1">
+            <a class="navbar-brand" href='/'><img class='img-fluid col-2' src='../svg/logo.svg' width='25px'><span class='my-auto'>&nbspMETA CHAT</span></a>
+            <% if(!currentUser){ %>
+                <a class="btn btn-primary btn align-right text-white" href='/login'>login <i class='fa fa-user'></i></a>
             <% } else { %>
-                <div class="dropdown align-right">
-                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %>
+            <div class="dropdown">
+                <button class="btn btn-outline-light " type="button" data-bs-toggle="dropdown" id="dropdownMenuButton" aria-haspopup="true" aria-expanded="false">
+                    <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %>
+                </button>
+                <div class="dropdown-menu " aria-labelledby="dropdownMenuButton">
+                    <a id="profileButton" class="btn btn-dark btn-xs dropdown-item" href="/profile">
+                         <i class="bi bi-person-badge"></i> پروفایل
+                    </a>
+                    <button id="settingsButton" class="btn btn-dark btn-xs dropdown-item">
+                         <i class="bi bi-gear-fill"></i> تنظیمات
                     </button>
-                    <div class="dropdown-menu dropdown-menu-right bg-secondary" aria-labelledby="dropdownMenuButton">
-                        <button id="settingsButton" class="btn btn-dark btn-xs dropdown-item">
-                            Settings
-                        </button>
-                        <a class="btn btn-dark btn-xs dropdown-item" href="/logout">
-                            Log Out     <i class="bi bi-box-arrow-right"></i>
-                        </a>
-                    </div>
+                    <a class="btn btn-dark text-danger btn-xs dropdown-item" href="/logout">
+                         <i class="bi bi-box-arrow-right"></i> خروج  
+                    </a>
                 </div>
-                
-               
-    </nav>
+            </div>
+        </nav>
+    </div>
     <div id="settingsPanel" class="settings-panel">
          <!-- Close button -->
          <button id="closeSettings" class="close-btn"><i class="bi bi-x-square" style="font-size: larger;"></i></button>
@@ -150,6 +156,10 @@
     <% } %>
     <div id="offlineMessage">You're offline</div>
 
+    <div id="loading" class="loader px-3 d-none">
+        <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
+                <span>Loading, please wait...</span>
+    </div>
     <script>
         function updateOfflineStatus() {
             const offlineMessage = document.getElementById('offlineMessage');

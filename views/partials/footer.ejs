@@ -1,4 +1,4 @@
-<footer class="page-footer darken-3 text-white justify-content-center">
+<footer class="page-footer position-sticky bottom-0 z-3 blurBackDark text-white justify-content-center">
     <div class="container ">
         <div class="row">
             <div style="    display: flex;" class="text-center justify-content-center col-md-12 mx-auto my-1">
@@ -15,6 +15,28 @@
         </div>
     
     </div>
-    <div class="footer-copyright text-center py-1 my-1">Created with &nbsp &#10084 &nbsp by Reza Boushehri(BB) </div>
+    <div class="footer-copyright text-center py-1 my-1">Created with &nbsp &#10084 &nbsp by Reza Boushehri </div>
+    
+    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Function to get URL parameters
+        function getQueryParam(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
 
+        // Check for 'error' in URL and show alert
+        const errorMessage = getQueryParam('error');
+        if (errorMessage) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: errorMessage,
+                confirmButtonColor: '#d33',
+                customClass: {
+                    popup: 'backdrop-blur-chat-bg userFg-color' // Add custom class here
+                }
+            });
+        }
+    </script>
 </footer>

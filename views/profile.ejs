@@ -1,0 +1,23 @@
+<%-include('partials/header.ejs') %>
+
+<p style="display:none" id='username'><%=username%></p>
+<!-- <div id="alert" class="px-3"></div> -->
+<a class="fs-3 ms-3 text-white lead" href="/">Main menu</a>
+<div id="main" class="container">
+    <span class="fs-4 text-white lead  border-bottom">Logged in Devices</span>
+    <ul class="list-group rounded mt-3 overflow-auto h-60rem" id="devices_ul">
+        <!-- Tab panes will be inserted dynamically -->
+    </ul>
+</div>
+
+
+    <script  src='../socket_conn.js'></script>
+    <script  src='../profile.js'></script>
+    <!-- <script src='../roomManagement.js' defer></script> -->
+    <script src="../setting.js" defer></script>
+
+    <%-include('partials/footer.ejs')%>
+        </body>
+
+        </html>
+ 

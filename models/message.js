@@ -9,7 +9,8 @@ const messageSchema = new mongoose.Schema({
     read: [
         {
             username: { type: String, required: true },
-            reaction: { type: String , default:null},
+            reaction: { type: String},
+            voice_heared: { type: Boolean},
             time: { type: Date, required: true },
         },
     ], 
@@ -25,6 +26,7 @@ const messageSchema = new mongoose.Schema({
         },
     ], // Optional file URL or path
     timestamp: { type: Date, default: Date.now }, // Timestamp of the message
+    edited: { type: Date, default: null }, // Timestamp of the message
 });
 
 module.exports = mongoose.models.Message || mongoose.model("Message", messageSchema);

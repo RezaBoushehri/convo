@@ -145,25 +145,7 @@ if (roomID != "") {
 }
 
 {/* <input type="text" id="emojiSearch" class="form-control" placeholder="Search emojis..." onkeyup="filterEmojis(${messageId})"> */}
-function alerting(message,type='success'){
-    $("#alert")
-    .html(
-        `<div class='alert alert-${type}' role='alert'>
-          ${message}
-        </div>`,
-    )
-    .hide();
-$("#alert").slideDown(500);
-    window.setTimeout(function () {
-        $(".alert")
-            .fadeTo(500, 0)
-            .slideUp(500, function () {
-                $(this).remove();
-            });
-    }, 3000);
-    return;
-    
-}
+
 function emoji(messageId) {
     if (document.querySelectorAll('.stickerPicker')) {
         document.querySelectorAll('.stickerPicker').forEach(el => el.remove());
@@ -346,14 +328,14 @@ $("#file-input").on("change", async (e) => {
     const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
 
     if (!file) {
-        alerting("No file selected.", 'warning');
+        showAlert("No file selected.", 'warning');
         button.disabled = false;
         fileInput.disabled = false;
         return;
     }
 
     if (file.size > maxSize) {
-        alerting("The file is too large. Maximum size allowed is 10 MB.", 'warning');
+        showAlert("The file is too large. Maximum size allowed is 10 MB.", 'warning');
         button.disabled = false;
         fileInput.disabled = false;
         return;
@@ -364,7 +346,7 @@ $("#file-input").on("change", async (e) => {
     const fileExtension = fileName.split('.').pop();
 
     if (harmfulExtensions.includes(fileExtension)) {
-        alerting("The selected file has a potentially harmful extension. Please upload a safe file.", 'danger');
+        showAlert("The selected file has a potentially harmful extension. Please upload a safe file.", 'danger');
         button.disabled = false;
         fileInput.disabled = false;
         return;
@@ -402,21 +384,21 @@ $("#file-input").on("change", async (e) => {
                 const response = JSON.parse(xhr.responseText);
                 fileData = response.fileData;
                 console.log("File uploaded successfully", fileData);
-                alerting("Upload complete.", "success");
+                showAlert("Upload complete.", "success");
             } else {
-                alerting("Failed to upload the file.", "danger");
+                showAlert("Failed to upload the file.", "danger");
             }
         };
 
         xhr.send(formData);
         socket.on("uploadSuccess", (data) => {
-            alerting(`File ${data.dir} uploaded successfully!`);
+            showAlert(`File ${data.dir} uploaded successfully!`);
             document.getElementById('upload-container').remove();
 
         });
     } catch (error) {
         console.error("Error processing file:", error);
-        alerting("An error occurred while processing the file.", 'danger');
+        showAlert("An error occurred while processing the file.", 'danger');
     } finally {
         $("#upload-progress").hide();
         button.disabled = false;
@@ -710,7 +692,7 @@ button.addEventListener("click", async () => {
     socket.on("chat", (response) => {
         if (response.error) {
 
-            alerting(response.error,'danger');
+            showAlert(response.error,'danger');
             return;
         }
 
@@ -1060,7 +1042,7 @@ socket.on("left", (user) => {
 //=================================================================
 //Handle User-Disconnected event
 socket.on("userJoined", (data) => {
-    alerting(`${data} has join the room`);
+    showAlert(`${data} has join the room`);
 });
 socket.on("members", (data) => {
     
@@ -1751,7 +1733,7 @@ if(document.getElementById("saveSettings")){
         // Optionally save settings to the server
         socket.emit("saveSettings", userSettings , currentUser.username);
 
-        alerting("Settings saved successfully!");
+        showAlert("Settings saved successfully!");
         document.getElementById("settingsPanel").style.display = "none"; // Close panel
         window.location.reload(); // This will refresh the page and reset the UI
 
@@ -3015,7 +2997,7 @@ function messageMenu() {
             copyToClipboard(element.querySelector('.dataMessage').innerText.trim());
 
             // Optional: Provide user feedback (e.g., show a success message)
-            alerting("Message copied to clipboard!");
+            showAlert("Message copied to clipboard!");
         })
         menu.addEventListener("click",()=>{
             menu.style.display = "none";
@@ -3120,7 +3102,7 @@ function searchMessageReply() {
 // notification content
 
 function playNotificationSound() {
-        const sound = document.getElementById("notification-sound");
+        const sound = document.getElementById("message_sound");
         sound.currentTime = 0; // Reset to the beginning in case it's already playing
         sound.play().catch((error) => {
             console.error("Failed to play notification sound:", error);
@@ -3201,7 +3183,7 @@ socket.on("disconnect", () => {
 
 socket.on("connect", () => {
     console.log("🟢 Reconnected to server!");
-    const roomID = document.querySelector("#roomID").textContent.trim();
+    const roomID = localStorage.getItem('last_room_joined_MC');
     
     if(roomID){
             // Show the loading spinner if hidden

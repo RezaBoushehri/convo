@@ -49,3 +49,71 @@ borderRadRange.addEventListener("input", () => {
 document.getElementById("closeSettings").addEventListener("click", () => {
     document.getElementById("settingsPanel").style.display = "none";
 });
+function res_alert(message, type = 'info', duration = 5000) {
+      let i = Math.floor(duration / 1000);
+      const type_check_class={
+        'info':'info',
+        'warning':'warning',
+        'success':'success',
+        'danger':'danger',
+        'error':'danger',
+      }
+      // Remove any existing alert so they don’t stack like bad life choices
+      $('#response').remove();
+
+      const $alert = $(`
+          <div id="response"
+              class="alert alert-${type_check_class[type]??'info'} alert-dismissible position-fixed top-0 end-0  mt-3 col-md-auto me-3 animate__animated"
+              role="alert"
+              style="
+                  z-index: 1060;
+                  display: none;
+              ">
+              <div class="d-flex col-12 justify-content-between align-items-center">
+                  <span class="col-auto">${message}</span>
+                  <small class="ms-3 col text-muted">
+                      fade out in : <span>${i}</span>s
+                  </small>
+              </div>
+              <button type="button" class="btn-close btn-sm btn m-1 p-1" data-bs-dismiss="alert"></button>
+          </div>
+      `);
+
+      $('body').append($alert);
+
+      // Animate in
+      $alert
+          .removeClass('animate__fadeOutRight')
+          .addClass('animate__fadeInRight')
+          .show();
+
+      const interval = setInterval(() => {
+          i--;
+          $('#response span:last').text(i);
+
+          if (i <= 0) {
+              clearInterval(interval);
+
+              $alert
+                  .removeClass('animate__fadeInRight')
+                  .addClass('animate__fadeOutRight');
+
+              setTimeout(() => {
+                  $alert.remove();
+              }, 800); // match animation duration
+          }
+      }, 1000);
+  }
+
+    function capitalizeWord(word) {
+        if (!word) return "";
+        return word[0].toUpperCase() + word.slice(1);
+    }
+
+    $(document).ready(()=>{
+        $(document).on('click','[data-bs-toggle="collapse"]',()=>{
+            $('[aria-expanded="true"] i').addClass('bi-chevron-compact-up').removeClass('bi-chevron-compact-down')
+            $('[aria-expanded="false"] i').addClass('bi-chevron-compact-down').removeClass('bi-chevron-compact-up')
+        })
+        
+    })
