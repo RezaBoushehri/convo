@@ -747,6 +747,8 @@ function prepareFileDetails(fileData) {
     }
     // ---------- بازگرداندن UI به حالت اولیه ----------
     function resetUI() {
+        checkShowSendBtn()
+
         $('#chat_windowFooter #editable-message-text')
             .fadeIn()
         $('#chat_windowFooter .message_btn')
