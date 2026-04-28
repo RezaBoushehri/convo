@@ -1,13 +1,8 @@
 
-  let notifPVCount;
-  const myModalEl = document.getElementById('PVchatModal');
-  let currentRoomID = null; // Track currently joined room
+let roomID = $('#roomID').text()??''
+localStorage.removeItem('last_room_joined_MC')
 
-
-
-let roomID = $('#roomID').text().trim() ?? '';
 $('#roomID').text('');
-
 
 const 
     $loadingElement = $('#loading'),
@@ -33,8 +28,10 @@ let sentMessagesId=[],
     loadNextMessage = false;    
     sentMessagesIdLast=[],
     member_users ={},
-    loadedForClicking=false
-    , hasScrolledDown = false; // Flag to track if the scroll has already occurred
+    loadedForClicking=false,
+    voice_playbackRate = localStorage.getItem('voice_playbackRate') ?? 1,
+
+    hasScrolledDown = false; // Flag to track if the scroll has already occurred
 let scrolling = true;
 let lastMessageDate = null;
 let headTagVal = null;
@@ -45,7 +42,7 @@ let messagesCreatedHandler=[]
 let messageIdSplited=[]
 let lastSender = null;
 let unreadedScroll=0;
-localStorage.removeItem('last_room_joined_MC')
+let NEED_TO_RELOAD_ROOM_UI=false
 
 
   // ❌ WebSocket در دسترس نبود، می‌ریم سراغ Socket.IO
@@ -77,86 +74,96 @@ if (isMobileDevice()) {
     // Add specific behavior for mobile/tablet
     document.querySelector('#chat-window #output').style.overflowY = 'auto'; // Example adjustment
 }
-let previousLineCount = 1; // تعداد خطوط قبلی
+// let previousLineCount = 1; // تعداد خطوط قبلی
 
-message.addEventListener('input', () => {
+// message.addEventListener('input', () => {
 
-    // محاسبه تعداد خطوط فعلی
-    const lineHeight = parseInt(window.getComputedStyle(message).lineHeight, 10); // ارتفاع خط از CSS
+//     // محاسبه تعداد خطوط فعلی
+//     const lineHeight = parseInt(window.getComputedStyle(message).lineHeight, 10); // ارتفاع خط از CSS
  
-     // تعداد خطوط فعلی
-     const currentLineCount = Math.ceil(message.scrollHeight / lineHeight);
+//      // تعداد خطوط فعلی
+//      const currentLineCount = Math.ceil(message.scrollHeight / lineHeight);
  
-     // بررسی افزایش یا کاهش خطوط
-     if (currentLineCount !== previousLineCount) {
-         // محدود کردن تعداد خطوط به 5
-         const maxLines = 5;
-         const allowedLineCount = Math.min(currentLineCount, maxLines);
+//      // بررسی افزایش یا کاهش خطوط
+//      if (currentLineCount !== previousLineCount) {
+//          // محدود کردن تعداد خطوط به 5
+//          const maxLines = 5;
+//          const allowedLineCount = Math.min(currentLineCount, maxLines);
  
-         // محاسبه ارتفاع جدید بر اساس تعداد خطوط مجاز
-         const newHeight = allowedLineCount * lineHeight;
+//          // محاسبه ارتفاع جدید بر اساس تعداد خطوط مجاز
+//          const newHeight = allowedLineCount * lineHeight;
  
-         // محاسبه مدت زمان ترنزیشن بر اساس تغییرات ارتفاع
-         const heightDifference = Math.abs(newHeight - message.offsetHeight); // تفاوت بین ارتفاع فعلی و جدید
-         const transitionDuration = Math.min(heightDifference * 20, 1000); // مدت زمان ترنزیشن (محدود به 500ms)
+//          // محاسبه مدت زمان ترنزیشن بر اساس تغییرات ارتفاع
+//          const heightDifference = Math.abs(newHeight - message.offsetHeight); // تفاوت بین ارتفاع فعلی و جدید
+//          const transitionDuration = Math.min(heightDifference * 20, 1000); // مدت زمان ترنزیشن (محدود به 500ms)
  
-         // اعمال تغییرات در استایل
-         message.style.height = `${newHeight}px`;
-         message.style.transitionDuration = `${transitionDuration}ms`;
-         message.style.transform = `${transitionDuration}ms`;
-         // message.style.overflowY = currentLineCount > maxLines ? 'scroll' : 'hidden';
-        // محاسبه مقدار جابجایی به بالا (برای حفظ انیمیشن از بالا)
-        const translateY = -(newHeight ) / 2;
-        message.style.transform = `translateY(${translateY}px)`;
-        replyBox.style.transform = `translateY(${translateY - 5}px)`;
+//          // اعمال تغییرات در استایل
+//          message.style.height = `${newHeight}px`;
+//          message.style.transitionDuration = `${transitionDuration}ms`;
+//          message.style.transform = `${transitionDuration}ms`;
+//          // message.style.overflowY = currentLineCount > maxLines ? 'scroll' : 'hidden';
+//         // محاسبه مقدار جابجایی به بالا (برای حفظ انیمیشن از بالا)
+//         const translateY = -(newHeight ) / 2;
+//         message.style.transform = `translateY(${translateY}px)`;
+//         replyBox.style.transform = `translateY(${translateY - 5}px)`;
  
-         // به‌روزرسانی تعداد خطوط قبلی
-         previousLineCount = allowedLineCount-1;
+//          // به‌روزرسانی تعداد خطوط قبلی
+//          previousLineCount = allowedLineCount-1;
  
-     }
-     if(previousLineCount<=1){
-         message.style.transform = `translateY(0px)`;
+//      }
+//      if(previousLineCount<=1){
+//          message.style.transform = `translateY(0px)`;
  
-     }
-    // Handle Excel table paste events
-    const pastedData = message.innerHTML;
-    if (pastedData.includes('<table')) {
-        // Clean up any Excel-specific formatting while preserving table structure
-        const cleanedTable = pastedData
-            // .replace(/^(<br>)+/g, '') // Remove leading <br> tags
-            .replace(/<table[^>]*>/g, '<table class="table table-bordered p-2" style="border-collapse: collapse; width: 100%; ">')
-            .replace(/<td[^>]*>/g, '<td class="border border-secondary p-1">')
-            .replace(/<th[^>]*>/g, '<th class="border border-secondary p-1">');
+//      }
+//     // Handle Excel table paste events
+//     const pastedData = message.innerHTML;
+//     if (pastedData.includes('<table')) {
+//         // Clean up any Excel-specific formatting while preserving table structure
+//         const cleanedTable = pastedData
+//             // .replace(/^(<br>)+/g, '') // Remove leading <br> tags
+//             .replace(/<table[^>]*>/g, '<table class="table table-bordered p-2" style="border-collapse: collapse; width: 100%; ">')
+//             .replace(/<td[^>]*>/g, '<td class="border border-secondary p-1">')
+//             .replace(/<th[^>]*>/g, '<th class="border border-secondary p-1">');
             
-        // Update message content with cleaned table
-        message.innerHTML = cleanedTable;
+//         // Update message content with cleaned table
+//         message.innerHTML = cleanedTable;
         
-        // Adjust height for table content
-        const tableHeight = message.scrollHeight;
-        message.style.height = `${Math.min(tableHeight, 200)}px`; // Cap at 200px height
-        message.style.overflowY = tableHeight > 200 ? 'auto' : 'hidden';
-    }
-    // Keep text direction RTL (right-to-left) for Persian/Arabic text
-    if (/[\u0600-\u06FF]/.test(message.textContent)) {
-        message.style.direction = 'rtl';
-        message.style.textAlign = 'right';
-    } else {
-        message.style.direction = 'ltr';
-        message.style.textAlign = 'left';
-    }
+//         // Adjust height for table content
+//         const tableHeight = message.scrollHeight;
+//         message.style.height = `${Math.min(tableHeight, 200)}px`; // Cap at 200px height
+//         message.style.overflowY = tableHeight > 200 ? 'auto' : 'hidden';
+//     }
+//     // Keep text direction RTL (right-to-left) for Persian/Arabic text
+//     if (/[\u0600-\u06FF]/.test(message.textContent)) {
+//         message.style.direction = 'rtl';
+//         message.style.textAlign = 'right';
+//     } else {
+//         message.style.direction = 'ltr';
+//         message.style.textAlign = 'left';
+//     }
    
-    // // Only escape text nodes, preserve table structure
-    // message.innerHTML = message.innerHTML.replace(/[<>]/g, match => {
-    //     if (!message.innerHTML.includes('<table')) {
-    //         return (match);
-    //     }
-    //     return match;
-    // });
+//     // // Only escape text nodes, preserve table structure
+//     // message.innerHTML = message.innerHTML.replace(/[<>]/g, match => {
+//     //     if (!message.innerHTML.includes('<table')) {
+//     //         return (match);
+//     //     }
+//     //     return match;
+//     // });
 
-})
+// })
 // Handle paste events to clean Excel table formatting
+function checkShowSendBtn(){
+    if(message.innerText.trim() !='' || file){
+        $('#chat_windowFooter #recordSection').prop('disabled', true).addClass('d-none');    
+        $('#chat_windowFooter #button').prop('disabled', false).removeClass('d-none')
+    }else{
+        $('#chat_windowFooter #recordSection').prop('disabled', false).removeClass('d-none')
+        $('#chat_windowFooter #button').prop('disabled', true).addClass('d-none');    
+    }
+}
 message.addEventListener('paste', (e) => {
     // Allow default paste behavior first
+    checkShowSendBtn()
     setTimeout(() => {
         const pastedData = message.innerHTML;
         if (pastedData.includes('<table')) {
@@ -182,40 +189,53 @@ message.addEventListener('paste', (e) => {
         // });
     }, 0);
 });
+function join(newRoomID) {
+    
+    if (typeof socket !== 'undefined') {
+        $loadingElement.removeClass('d-none').addClass('show')
+        socket.emit("joinRoom", {
+        roomID: newRoomID,
+        });
+        roomID = newRoomID;
+    }
+}
 let cursor = null;
 let loading = false;
 let hasMore = true;
+init_page()
 
 function loadRooms(cache=false) {
     if (loading || !hasMore) return;
 
     loading = true;
-    $loadingElement.removeClass('d-none')
+    $loadingElement.removeClass('d-none').addClass('show')
     socket.emit("roomList", {
         cursor: cursor,
         cache
     });
 }
-$('#roomList_ul').on('scroll', () => {
+$('#side_contact').on('scroll', () => {
     // محاسبه فاصله تا انتهای لیست
-    const isNearBottom = $('#roomList_ul').scrollTop() + $('#roomList_ul').innerHeight() >= $('#roomList_ul')[0].scrollHeight - 320;
+    const isNearBottom = $('#side_contact').scrollTop() + $('#side_contact').innerHeight() >= $('#side_contact')[0].scrollHeight - 1200;
 
     if (isNearBottom) {
         loadRooms();
     }
 });
+function init_page(join_Logic=true){
+    $loadingElement.removeClass('d-none').addClass('show')
 
-if (roomID != "") {
-    if(document.getElementById('loading').classList.contains('d-none')){
-        document.getElementById('loading').classList.remove("d-none");
-        document.getElementById('loading').classList.add("show");
-    } 
-    join(roomID)
-    
-}else{
-    $loadingElement.removeClass('d-none')
+    if (roomID != "" && join_Logic) {
+        console.log('roomID:',roomID) 
+        join(roomID)
+        
+    }
+    cursor = null;
+    loading = false;
+    hasMore = true;
     const cache_roomList = localStorage.getItem('roomList')??[]
     loadRooms(true)
+    
     $(document).ready(()=>{
 
         if(localStorage.getItem('roomList')) room_list_genration(JSON.parse(cache_roomList))
@@ -373,7 +393,6 @@ setPlaceholder();
 document.getElementById('username').value = ''
 let image = "";
 let fileData ;
-$("#up").html('<i class= "fa fa-arrow-up" >').hide();
 
 //=================================================================
 //input image
@@ -384,9 +403,9 @@ $("#file-input").on("change", async (e) => {
    
 
     
+    checkShowSendBtn()
     button.disabled = true;
     fileInput.disabled = true;
-
     const files = e.target.files;
     const maxSize = 50 * 1024 * 1024; // 10 MB in bytes
     try {
@@ -508,7 +527,7 @@ async function enqueueMessage(dataEncrypt, dataShow) {
     saveMessageQueue(queue);
 
     // Add to UI with "pending" status
-    await addMessageToChatUI({ ...dataShow, isPending: true, id: messageId }, true);
+    await addMessageToChatUI({ ...dataShow, isPending: true, id: messageId }, true,null,null,"animate__fadeIn");
     
     init_message_ui()
     return messageId;
@@ -752,34 +771,46 @@ function prepareFileDetails(fileData) {
 
     function createUploadUI(username) {
         let user =  member_users.filter(u=> u.username==username)[0]
-        let name = user?.first_name && user?.last_name ? `${user?.first_name} ${user?.last_name}` : username
+        let name = 'N/A'
+        if(user.username == currentUser.username){
+            name = 'من'
+        }else{
+            name = user?.first_name && user?.last_name ? `${user?.first_name} ${user?.last_name}` : username
+        }
         if (!document.getElementById(`${username}_upload-container`)) {
             $('#output').append(`
-            <div id="${username}_upload-container" class="px-5 m-3 backdrop-blur-chat-fg"
-                style="justify-content:flex-end; display:flex; flex-direction:column;"> 
+            <div id="${username}_upload-container" class="px-5 rounded col-auto mx-auto m-1  backdrop-blur-chat-fg"
+                style="justify-content:flex-end; display:flex; flex-direction:column;
+                    color:var(--color-peer-${username}) !important;border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);
+                    border: 2px solid var(--color-peer-${username}) !important;
+                "> 
                 <span id="upload-info" dir="auto">${name} درحال ارسال فایل است... </span>
-                <progress id="upload-progress" class="placeholder-wave" value="0" max="100"
-                    style="width:100%; height:20px;">
-                </progress>
-                <span id="upload-status">0%</span>
+                <div class="progress">    
+                    <div id="upload-progress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" value="0" max="100">
+                        0%
+                    </div>
+                </div>
+                <span id="upload-status" class="jdate"></span>
+
             </div>
                 `);
         }
     } 
     function createFileUI_message (files){
         $('#file-input_res').removeClass('d-none').html('')
-        Array.from(files).forEach(file=>{
+        
+        Array.from(files).forEach((file,index)=>{
 
             const fileURL = URL.createObjectURL(file);
            $('#file-input_res').append(`
                
                    <div class="col-auto rounded-1 badge px-3 gap-1 d-flex bg-primary shadow">
                        <button class="btn btn-sm btn-close col-auto m-auto" onclick="$('#file-input_res').addClass('d-none');$('#file-input').val('');fileData=null"></button>
-                       <img class="rounded-1" src="${fileURL}" width="auto" height="50" onerror="$(this).remove();$('#${file.name.split('.')[0]}_ICON').removeClass('d-none')" loading="lazy"  >
+                       <img class="rounded-1" src="${fileURL}" width="auto" height="50" onerror="$(this).remove();$('#${index}_ICON').removeClass('d-none')" loading="lazy"  >
                        <div class="m-auto col-auto row">
-                           <i id="${file.name.split('.')[0]}_ICON" class="bi fs-5 m-auto d-none col-auto fileIcon bi-filetype-${(file.name).split('.')[1]}"></i> 
+                           <i id="${index}_ICON" class="bi fs-5 m-auto d-none col-auto fileIcon bi-filetype-${(file.name).split('.')[1]}"></i> 
                            <span class="col-auto m-auto">${file.name || 'Unknown File'}</span>
-                           <span class="text-small m-auto col-auto">(${(file.size / 1048576).toFixed(2)} MB)</span>
+                           <span class="text-small m-auto col-auto">${convertSize(file.size)}</span>
                        </div>
                    </div>
    
@@ -787,12 +818,22 @@ function prepareFileDetails(fileData) {
         })
         
     }
+    function convertSize (size){
+        const MB = 1024 * 1024
+        const GB = MB * 1024
+        if(size >= GB){
+            return `${(size / GB).toFixed(2)} GB`
+        }else{
+            return `${(size / MB).toFixed(2)} MB`
+        }
+    }
     socket.on("uploadProgress", (data) => {
         const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 120
         createUploadUI(data.user);
         if(data.progress == 100)$(`#${data.user}_upload-container`).remove()
-      $(`#${data.user}_upload-container #upload-progress`).val(data.progress);  
-        $(`#${data.user}_upload-container #upload-status`).text(`${Math.round(data.progress)}%`);
+        $(`#${data.user}_upload-container #upload-progress`).val(data.progress).css('width',`${data.progress}%`);  
+        $(`#${data.user}_upload-container #upload-status`).text(`${convertSize(data.loaded)} / ${convertSize(data.total)} `);
+        $(`#${data.user}_upload-container #upload-progress`).text(`${Math.round(data.progress)}%`);
         if(isNearBottom) scrollDown()
     });
 button.addEventListener("click", async () => {
@@ -890,9 +931,9 @@ button.addEventListener("click", async () => {
     xhr.upload.onprogress = (e) => {
 
         let percent = (e.loaded / e.total) * 100;
-        socket.emit("uploadProgress", { progress: percent});
+        socket.emit("uploadProgress", { progress: percent , loaded: e.loaded, total: e.total});
         $(`#${currentUser.username}_upload-container #upload-progress`).val(percent); 
-        $(`#${currentUser.username}_upload-container #upload-status`).text(`${Math.round(percent)}%`);
+        $(`#${currentUser.username}_upload-container #upload-progress`).text(`${Math.round(percent)}%`);
     };
     xhr.onload = async () => {
         
@@ -962,7 +1003,7 @@ async function voice_upload(text,quote,blob){
               let percent = (e.loaded / e.total) * 100;
               socket.emit("uploadProgress", {progress: percent});
               $(`#${currentUser.username}_upload-container #upload-progress`).val(percent); 
-                $(`#${currentUser.username}_upload-container #upload-status`).text(`${Math.round(percent)}%`);
+                $(`#${currentUser.username}_upload-container #upload-progress`).text(`${Math.round(percent)}%`);
             };
             xhr.onload = () => {
                 // Hide / reset progress UI
@@ -1089,7 +1130,7 @@ async function sendMessage(text=null, fileData, quote) {
 
 
             // Show message immediately with "sending" state
-            tempMessageId = await addMessageToChatUI({ ...dataShow, isPending: true });
+            tempMessageId = await addMessageToChatUI({ ...dataShow, isPending: true },null,null,null,"animate__fadeInUp");
             init_message_ui()
         } else {
             // Offline → queue
@@ -1108,8 +1149,9 @@ async function sendMessage(text=null, fileData, quote) {
         // Clear input fields right away (optimistic UX)
 
         // Scroll to bottom
+        $('#chat_windowFooter #recordSection').prop('disabled', false).removeClass('d-none')
         $('#chat_windowFooter #recordBtn').prop('disabled', false).removeClass('d-none')
-        $button.prop('disabled',false).html(button_html)
+        $button.prop('disabled',true).html(button_html).addClass('d-none')
         output.scrollTo({ top: output.scrollHeight, behavior: "smooth" });
     }
 
@@ -1131,7 +1173,7 @@ function showAlert(msg, type = "error") {
 
 
 function sendWithRetry(dataEncrypt, dataShow, isRetry = false) {
-    
+    NEED_TO_RELOAD_ROOM_UI = true
     socket.emit("chat", dataEncrypt, (ack) => {
         if (ack && ack.success) {
             // Success: remove from queue if exists, update UI
@@ -1209,11 +1251,7 @@ message.addEventListener("input", (event) => {
     const file = fileInput.files[0];
 
     clearTimeout(typingTimer); // Reset timer
-    if(message.innerText.trim() !='' || file){
-        $('#chat_windowFooter #recordBtn').prop('disabled', true).addClass('d-none');    
-    }else{
-        $('#chat_windowFooter #recordBtn').prop('disabled', false).removeClass('d-none')
-    }
+    checkShowSendBtn()
     if(!isTyping){
         isTyping = true
         // Emit "typing" event with correct property name
@@ -1283,7 +1321,7 @@ socket.on("chat",async(data , ack) => {
                     shouldScroll = true  
                 }
             // همیشه پیام را اضافه کن  
-                await addMessageToChatUI(decryptedMessage)
+                await addMessageToChatUI(decryptedMessage,null,null,null,"animate__fadeInUp")
                     init_message_ui()
             if(shouldScroll){    
                     scrollDown()  
@@ -1576,19 +1614,26 @@ function room_settings_initialize(setting){
     })
 }
 socket.on("joined", (data) => {
-    const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
-    const $modal_body = $('#roomInfo_modal .modal-body')
+    
+    
+    Promise.resolve(JSON.parse(localStorage.getItem(`Room_${data.room.roomID}`)??'{}')).then(cache=>{
+        // process_messages_pack(cache)
+    })
 
     member_users = data.member_users
     // console.log(member_users)
     currentUser.room = data.room.roomID
-
-    const roomList_ul = $('#roomList_ul');
-    const{room} = data
-    roomList_ul.empty().addClass('d-none');
-    // const data = decryptMessage(encryptedData)
-    console.log("User joined room:", data);
     localStorage.setItem('last_room_joined_MC',data.room.roomID)
+    const roomList_ul = $('#roomList_ul');
+    const side_contact = $('#side_contact');
+    const{room} = data
+    side_contact.addClass('hidden');
+    $('#header_div').addClass('hidden');
+    const side_cantact_hide =getQueryParam('side') ?? false
+        if(side_cantact_hide){
+            side_contact.addClass('d-none')
+        }
+    // const data = decryptMessage(encryptedData)
     $('.modal.show').each(function () {
         const modalEl = this;
         const instance = bootstrap.Modal.getInstance(modalEl);
@@ -1598,24 +1643,147 @@ socket.on("joined", (data) => {
     
     });
     $('.modal-backdrop').remove();
+
+    // 2. Construct the new URL with the existing 'side' parameter
+    const newUrl = `/join/${data.room.roomID}${side_cantact_hide ? `?side=${side_cantact_hide}` : ''}`;
+
+    // 3. Update the URL without reloading the page
+    history.pushState({}, '', newUrl);
+
     // Ensure required fields exist
     // if (!data.room || !data.room.roomID || !data.room.admin) {
     //     console.error("Invalid data received in 'joined' event:", data);
     //     return;
     // }
-    const admin = member_users.filter(user=> user.username == data.room.admin)[0]
-    room_settings_initialize(data?.room?.setting)
-    Promise.resolve(
-        $roomInfoForm.find('[name="admin"]').data('username',admin.username).text(`${admin.first_name} ${admin.last_name}`)
-    ).then(()=>{
-        update_member_room_info_modal(room.member_data ,member_users)
-    })
+
     if(document.querySelector(".close")) document.querySelector(".close").click();
-        document.querySelector("#roomInfo").innerHTML = `
+        Promise.resolve($("#roomInfo").removeClass('d-none').html(`           
+            <!-- roomInfo -->
+            <div class="modal fade" id="roomInfo_modal" tabindex="-1" role="dialog" aria-labelledby="" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg" role="document">
+                    <div class="modal-content">
+                        <!-- هدر مودال -->      
+                        <div class="modal-header bg-primary-subtle text-primary">        
+                            <h5 class="modal-title" id="exampleModalLabel"><i class="bi bi-info-circle"></i> اطلاعات اتاق</h5>
+                            <button type="button" class="close btn btn-close" data-bs-dismiss="modal" aria-label="Close">
+                        </div>
+                        <!-- بدنه مودال – فرم -->      
+                        <div class="modal-body">        
+                            <form id="roomInfoForm">
+                            <!-- Room ID -->          
+                                <div class="mb-3">            
+                                    <label class="form-label">
+                                        <i class="bi bi-hash"></i> شناسه
+                                    </label>
+                                    <div class="input-group">       
+                                        <input type="text" dir="auto" class="form-control col" name="roomID" value="${data.room.roomID}" readonly> 
+                                        <button class="btn btn-outline-secondary col-auto" type="button" onclick="copyToClipboard(${data.room.roomID}')">
+                                        <i class="bi bi-copy"> رونوشت</i> 
+                                        </button> 
+                                        <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
+                                            class='col-auto btn btn-primary' onClick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;" 
+                                            target="_blank" title="Share on whatsapp" data-bs-toggle="tooltip" data-bs-placement="bottom">
+                                            <i class='bi bi-whatsapp'> اشتراک گزاری</i>
+                                        </a>    
+                                    </div>        
+                                </div>
+                            <!-- Room Name -->          
+                                <div class="mb-3">            
+                                    <label class="form-label"><i class="bi bi-chat-left-text"></i> نام
+                                    </label>            
+                                    <input type="text" dir="auto" class="form-control" name="roomName" value="${data.room.roomName}" readonly>          
+                                </div>
+                            <!-- Admin (شماره موبایل) -->          
+                                <div class="mb-3">            
+                                    <label class="form-label">
+                                        <i class="bi bi-person-badge"></i> مدیر
+                                    </label>            
+                                    <span type="text" dir="auto" class="form-control" name="admin"></span>          
+                                </div>
+                            
+                                     
+                            
+                                <div class="mb-3">
+
+                                    <!-- تنظیمات (Setting) -->          
+                                    <label id="room_settings_label" data-bs-toggle="collapse" data-bs-target="#room_settings" class="d-flex border form-label col-12 mb-0 rounded-bottom-0 btn text-secondary fs-5 justify-content-between">
+                                        <span>
+                                            <i class="bi bi-gear"></i> تنظیمات
+                                        </span>
+                                        <i class="icon bi bi-chevron-compact-down"></i>
+                                    </label> 
+                                    <div class="col-12">
+                                        <div id="room_settings" class="mb-3 collapse border border-top-0 p-2 rounded-bottom">            
+                                            <label class="form-label"><i class="bi bi-gear"></i> تنظیمات
+                                            </label>            
+                                            <input type="text" dir="auto" class="form-control" name="joinableUrl" value="${data.room?.settings?.joinableUrl}" readonly>          
+                                        </div>
+                                    </div> 
+                                </div>
+                                <!-- اعضا (Members) -->          
+                                <div class="mb-3"> 
+                                    <div class="col-12 justify-content-between d-flex position-relative">
+                                        <label class="form-label">
+                                            <i class="bi bi-people"></i> اعضا
+                                        </label>       
+                                        <i class="bi bi-person-plus text-muted cursor-pointer" data-bs-toggle="collapse" data-bs-target="#addMember_room_modal" data-bs-parent> افزودن کاربر</i>  
+                                    </div>   
+                                    <div id="addMember_room_modal" class="collapse mb-3">
+                                        <form   class="form-floating row g-3">
+                                            <div class="input-group">
+                                                <label class="input-group-text col-auto">
+                                                    <i class="bi bi-person"> Username</i>
+                                                </label>
+                                                <input type="text" class="form-control col" name="phone"/>
+                                                <button type="button" data-submit="true" class="btn btn-outline-primary" data-bs-dissmiss="collapse" > <i class="bi bi-plus-circle"> Add</i></button>
+                                            </div>
+                                        </form>   
+                                    </div>        
+                                    <ul class="list-group hide-scrollbar" id="membersList">              
+                                                           
+                                    </ul>          
+                                </div>
+                                <div class="col-12 row m-auto mb-3">
+                                <!-- تاریخ ایجاد -->          
+                                    <div class="col px-1">            
+                                        <label class="form-label"><i class="bi bi-calendar-event"></i> تاریخ ایجاد
+                                        </label>            
+                                        <span  class="form-control" dir="auto" name="createdAt"readonly> 
+                                            ${new Date(data.room?.createdAt).toLocaleDateString('fa-IR', {year: 'numeric',month: 'short',day: 'numeric'})}    
+                                        </span>         
+                                    </div>
+                                <!-- تاریخ آخرین به‌روزرسانی -->          
+                                    <div class="col px-1">            
+                                        <label class="form-label">
+                                            <i class="bi bi-clock-history"></i> تاریخ آخرین به‌روزرسانی 
+                                        </label>            
+                                        <span  class="form-control" dir="auto" name="lastUpdated"readonly> 
+                                            ${new Date(data.room?.lastUpdated).toLocaleDateString('fa-IR', {year: 'numeric',month: 'short',day: 'numeric'})}
+                                        </span>                                     
+                                    </div>
+                                </div>
+                            </form>      
+                        </div>
+                        
+                        <!-- فوتر مودال -->
+                        <div class="modal-footer">        
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">          
+                                <i class="bi bi-x-circle"></i> بستن        
+                            </button>  
+                            ${(data.room.admin == currentUser.username)?`
+                            <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">          
+                                <i class="bi bi-check-circle"></i> تغییر دادن        
+                            </button>  
+                                ` :''}
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-1 mt-1">
             
-                <button type='button' title="رفتن به فهرست اصلی" data-bs-toggle="tooltip" data-bs-placement="bottom" 
-                    class='col-auto my-auto btn rounded-circle backdrop-blur-chat-bg btn-outline-secondary' onclick='leaveRoom()'>
+                <button type='button'  
+                    class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary' onclick='leaveRoom()'>
                     <i class='bi fs-bold bi-arrow-left'></i>
                 </button>    
             <!-- Toggle button for mobile -->
@@ -1623,10 +1791,26 @@ socket.on("joined", (data) => {
                     aria-expanded="false" aria-controls="roomControls">
                     <i class="bi bi-info-circle"></i> ${data.room.roomName}
                 </button>
-
+                <div id="headTag" class="col-12 row m-auto z-1" dir="auto" style=" text-align: center;"></div>
                
             </div>
-    `;
+    `)).then(()=>{
+        // title="رفتن به فهرست اصلی" data-bs-toggle="tooltip" data-bs-placement="bottom"
+        const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
+        const $modal_body = $('#roomInfo_modal .modal-body')
+        const admin = member_users.filter(user=> user.username == data.room.admin)[0]
+        room_settings_initialize(data?.room?.setting)
+        Promise.resolve(
+            $roomInfoForm.find('[name="admin"]').data('username',admin.username).text(`${admin.first_name} ${admin.last_name}`)
+        ).then(()=>{
+            update_member_room_info_modal(room.member_data ,member_users)
+        })
+        if($modal_body.find('.kick_myself').length == 0){
+            $modal_body.append(`
+                <span class="kick_myself my-1 gap-2 col-auto rounded-3 cursor-pointer btn btn-outline-danger" onclick="member_manage('kick','${currentUser.username}')"><i class="bi bi-person-fill-x"></i> ترک اتاق</span>
+                            `)
+        }
+    })
     // <div class="row col-12 gap-2 ">
     //                     <button type="button" class="col-auto btn btn-secondary " data-bs-toggle="tooltip" data-bs-html="true" 
     //                         title="Copy ${data.room.roomID}" data-bs-placement="left" onclick='copyId("${data.room.roomID}")' id='tooltip'>
@@ -1654,13 +1838,9 @@ socket.on("joined", (data) => {
     //                 }).join('')}
     //                 </div>
 
-    if($modal_body.find('.kick_myself').length == 0){
-        $modal_body.append(`
-            
-            <span class="kick_myself my-1 gap-2 col-auto rounded-3 cursor-pointer btn btn-outline-danger" onclick="member_manage('kick','${currentUser.username}')"><i class="bi bi-person-fill-x"></i> ترک اتاق</span>
-                        `)
-    }
+    
     // Toggle UI elements
+    $('#chat-window #output').empty()
     $("#chat-window").removeClass('d-none');
     document.querySelector("footer").style.display = "none";
     if(fileInput?.files.length != 0){
@@ -1668,11 +1848,9 @@ socket.on("joined", (data) => {
     }else{
         $('#file-input_res').addClass('d-none').html('')
     }
-    if(document.getElementById("btns")) document.getElementById("btns").style.display = "none";
-    document.querySelector(".form-inline").style.display = "flex";
+    $(".form-inline").removeClass('d-none').addClass('d-flex');
     document.querySelector("footer").style.display = "none";
     roomID = data.room.roomID
-    console.log(roomID)
     // Initialize tooltips
     $('[data-bs-toggle="tooltip"]').tooltip();
     $('#feedback').html('').addClass('d-none')
@@ -1694,6 +1872,7 @@ socket.on("joined", (data) => {
     messageIdSplited=[]
     lastSender = null;
     unreadedScroll=0;
+    NEED_TO_RELOAD_ROOM_UI = false
     message.focus()
 });
 
@@ -1729,15 +1908,15 @@ socket.on("typing", (data) => {
 
             const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 240
             const status_class={
-                'voice_record': '<span class=" p-1 placeholder-wave bg-secondary shadow rounded-pill ms-1"><i class="bi bi-mic fs-5 m-auto text-meta"></i></span>',
-                'typing': 'در حال نوشتن <div class="typingLoader"></div>',
+                'voice_record': '<span class=" p-1 placeholder-wave bg-secondary shadow rounded-pill ms-1"><i class="bi bi-mic fs-5 m-auto"></i></span>',
+                'typing': `در حال نوشتن <div class="typingLoader" style="--c:var(--color-peer-${username}) 90%,#0000;"></div>`,
             }
             if (isNearBottom) {
                 
                     $("#output").removeClass('d-none').append(
                         `
                         <div id="typing-${username}" class="col-12 mb-3">
-                            <div dir="auto" style="border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);
+                            <div dir="auto" style="color:var(--color-peer-${username}) !important;border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);
                                         border: 2px solid var(--color-peer-${username}) !important;
                                         
                                         " class="badge  placeholder-wave shadow p-2 ml-2 type backdrop-blur-chat-bg">
@@ -1769,15 +1948,13 @@ socket.on("typing", (data) => {
 
 //=================================================================
 //Handle user-left  event
-socket.on("left", (user) => {
-    document.getElementById("btns").style.display = "block";
-    document.querySelector("footer").style.display = "block";
-    document.getElementById("output").innerHTML = "";
-    document.getElementById("up").remove();
-    document.querySelector("#roomInfo").innerHTML = "";
-    document.getElementById("chat-window").style.display = "none";
-    document.querySelector(".form-inline").style.display = "none";
-});
+// socket.on("left", (user) => {
+//     document.querySelector("footer").style.display = "block";
+//     document.getElementById("output").innerHTML = "";
+//     document.querySelector("#roomInfo").innerHTML = "";
+//     document.getElementById("chat-window").style.display = "none";
+//     document.querySelector(".form-inline").style.display = "none";
+// });
 
 //=================================================================
 //Handle User-Disconnected event
@@ -1828,16 +2005,7 @@ socket.on("error", ({ message }) => {
         showAlert(message,'danger')
 });
 
-//=================================================================
-// Show the "scroll up" button when the chat window is scrollable
-const showUp = () => {
-    if (output.scrollHeight > output.clientHeight) {
-        $("#up").show(); // Show scroll-up button
-    }else{
-    
-        // $("#down").show(); // Optionally show the scroll-down button
-    };
-}
+
 
 // Scroll to the bottom of the chat window
 
@@ -1850,7 +2018,7 @@ const scrollDown = () => {
     if (loadedForClicking) {
     
         // Show the loadingChatWindow spinner if hidden
-        $loadingElement.removeClass("d-none");
+        $loadingElement.removeClass('d-none').addClass('show')
         
     
         // Emit the event and wait for the server's acknowledgment
@@ -1959,7 +2127,7 @@ if (message) {
                 if (isSmallerThanAll) {
                     
                     // console.log(firstMessageId)
-                    $loadingElement.removeClass('d-none')
+                    $loadingElement.removeClass('d-none').addClass('show')
                     sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                         // Emit the request for older messages to the server and wait for a response
                     socket.emit("requestOlderMessages", { roomID: roomID, counter: messageIdreplied  , type:`reply-${messageId}`});
@@ -2032,204 +2200,186 @@ const copyId = (id) => {
 
 socket.on("restoreMessages", async  (data) => {
     // بررسی اگر data.messages یک آرایه است
-    $loadingElement.removeClass('d-none')
+    $loadingElement.removeClass('d-none').addClass('show')
 
     try{
-        
 
+        if(data.join && !data?.unread) localStorage.setItem(`Room_${roomID}`,JSON.stringify(data))
+        process_messages_pack(data)
+    }finally{
+        $loadingElement.addClass('d-none').removeClass('show')
+    }
+
+    });
+
+    socket.on("noMoreMessages",(data) =>{
+        // console.log(data.message)
+        $loadingElement.addClass('d-none').removeClass('show')
+        loadNextMessage = false;
+        showAlert(data.message,'info')
+
+        // output.querySelector('.firstMessage').innerHTML=''
+    })
+function process_messages_pack(data){
+        if(!data) return
+        try{
             const decryptedMessages = data.messages
-            
-
-            // در اینجا می‌توانید از decryptedMessages استفاده کنید
-            // console.log(decryptedMessages);
-    
-        if(data.reply){
-            sentMessagesIdLast=[]
-            hasScrolledDown= false
-            sentMessagesId=[]
-            loadedForClicking=true
-            output.innerHTML=''
-        }
-        if(data.Latest){
-            loadNextMessage = false;
-            sentMessagesIdLast=[]
-            hasScrolledDown= false
-            sentMessagesId=[]
-            // loadedForClicking=true
-            output.innerHTML=''
-        }
-        if(data.join) output.innerHTML=''
-
-        if (output.querySelectorAll('.MessagePack').length >= 3 && !data.unread) {
-            var MessagePack = output.querySelectorAll('.MessagePack');
         
-            if (data.prepend) {
-                // chat_window.scrollTo({
-                //     top: 1, // Scroll to the bottom
-                //     behavior: "auto",            // Smooth scrolling
-                // });
-                // Remove the last 50 `.messageElm`
-                for (let i = MessagePack.length - 1; i > MessagePack.length - 2; i--) {
-                    if (MessagePack[i]) {
-                        MessagePack[i].remove();
-                        
-                        loadedForClicking=true
-                    }
-                }
-                loadNextMessage=true;
+            if(data.reply){
                 sentMessagesIdLast=[]
-            } else {
-                
+                hasScrolledDown= false
                 sentMessagesId=[]
-                // Remove the first 50 `.messageElm`
-                for (let i = 0; i < 2; i++) {
-                    if (MessagePack[i]) {
-                        MessagePack[i].remove();
+                loadedForClicking=true
+                output.innerHTML=''
+            }
+            if(data.Latest){
+                loadNextMessage = false;
+                sentMessagesIdLast=[]
+                hasScrolledDown= false
+                sentMessagesId=[]
+                // loadedForClicking=true
+                output.innerHTML=''
+            }
+            if(data.join) output.innerHTML=''
+            if (output.querySelectorAll('.MessagePack').length >= 3 && !data.unread) {
+                const MessagePack = output.querySelectorAll('.MessagePack');
+            
+                if (data.prepend) {
+                    // chat_window.scrollTo({
+                    //     top: 1, // Scroll to the bottom
+                    //     behavior: "auto",            // Smooth scrolling
+                    // });
+                    // Remove the last 50 `.messageElm`
+                    for (let i = MessagePack?.length - 1; i > MessagePack?.length - 2; i--) {
+                        if (MessagePack[i]) {
+                            MessagePack[i].remove();
+                            
+                            loadedForClicking=true
+                        }
+                    }
+                    loadNextMessage=true;
+                    sentMessagesIdLast=[]
+                } else {
+                    
+                    sentMessagesId=[]
+                    // Remove the first 50 `.messageElm`
+                    for (let i = 0; i < 2; i++) {
+                        if (MessagePack[i]) {
+                            MessagePack[i].remove();
+                            
+                        }
+                    }
+                
+                }
+            }
+            let lastSeenDate = [];
+
+
+            const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+            const fontSize = savedSettings?.fontSize || "16px";
+            
+            // Reverse messages to display last to first
+            //const reversedMessages = messages.slice().reverse();
+            let FirstMessage;
+            let LastMessage;
+            if(data.prepend){
+                FirstMessage = decryptedMessages[decryptedMessages?.length - 1].id;
+                LastMessage = decryptedMessages[0].id;
+            }else{
+                LastMessage = decryptedMessages[decryptedMessages?.length - 1].id;
+                FirstMessage = decryptedMessages[0].id ;
+
+                
+            }
+
+            var MessagePack = `<div class="MessagePack" firstMessage="${FirstMessage}" lastMessage="${LastMessage}"></div>`
+
+            if(data.prepend){
+                output.insertAdjacentHTML('afterbegin',MessagePack)
+            }else{
+                output.insertAdjacentHTML('beforeend',MessagePack)
+            }
+            const visibleMessages = [];
+            let roomID;
+            Promise.resolve(decryptedMessages.forEach((message, index) => {
+                try {
+                    if (!message || !message.timestamp || !message.sender ) {
+                        throw new Error(`Missing required fields in message at index ${index}`);
+                    }
+                    // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
+                    // console.log("data latest prepend: " , data.latest ?  data.prepend:'')
+                    let isFirstMessage ;
+                    let isLastMessage ;
+                    if(data.prepend){
+                        isFirstMessage = index === decryptedMessages.length - 1;
+                        isLastMessage = index === 0;
+                    }else{
+                        isLastMessage = index === decryptedMessages.length - 1;
+                        isFirstMessage = index === 0;
                         
                     }
-                }
-            
-            }
-        }
+                    // Prepend reversed messages to the chat UI
+                    visibleMessages.push(message.id)
+                    roomID = message.roomID
+                    addMessageToChatUI(message, data.prepend , isFirstMessage, isLastMessage);
+                        // "Unread Messages" tag
 
-        // console.log("last",sentMessagesIdLast)
-        // console.log("first",sentMessagesId)
-        // output.innerHTML=''
-    
-        let lastSeenDate = [];
-
-
-        const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
-        const fontSize = savedSettings?.fontSize || "16px";
-        
-        // Reverse messages to display last to first
-        //const reversedMessages = messages.slice().reverse();
-        let FirstMessage;
-        let LastMessage;
-        if(data.prepend){
-            FirstMessage = decryptedMessages[decryptedMessages.length - 1].id;
-            LastMessage = decryptedMessages[0].id;
-        }else{
-            LastMessage = decryptedMessages[decryptedMessages.length - 1].id;
-            FirstMessage = decryptedMessages[0].id ;
-
-            
-        }
-
-        var MessagePack = `<div class="MessagePack" firstMessage="${FirstMessage}" lastMessage="${LastMessage}"></div>`
-
-        if(data.prepend){
-        output.insertAdjacentHTML('afterbegin',MessagePack)
-        }else{
-        output.insertAdjacentHTML('beforeend',MessagePack)
-        }
-        const visibleMessages = [];
-        let roomID;
-        Promise.resolve(decryptedMessages.forEach((message, index) => {
-            try {
-                if (!message || !message.timestamp || !message.sender ) {
-                    throw new Error(`Missing required fields in message at index ${index}`);
-                }
-                // if(sentMessagesId.includes(message.id)) throw new Error(`This is the END.`);
-                // console.log("data latest prepend: " , data.latest ?  data.prepend:'')
-                let isFirstMessage ;
-                let isLastMessage ;
-                if(data.prepend){
-                    isFirstMessage = index === decryptedMessages.length - 1;
-                    isLastMessage = index === 0;
-                }else{
-                    isLastMessage = index === decryptedMessages.length - 1;
-                    isFirstMessage = index === 0;
+                } catch (error) {
+                    console.error("Error adding message to chat UI:", { error, message, index });
                     
                 }
-                // Prepend reversed messages to the chat UI
-                visibleMessages.push(message.id)
-                roomID = message.roomID
-                addMessageToChatUI(message, data.prepend , isFirstMessage, isLastMessage);
-                    // "Unread Messages" tag
 
-            } catch (error) {
-                console.error("Error adding message to chat UI:", { error, message, index });
-                
-            }
-
-        })).then(async ()=>{
-            init_message_ui()
-            if (visibleMessages.length > 0 && data.unread) {
-                await socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
-                if (typeof updatePVnotif === 'function') {
-                    updatePVnotif();
-                }else{
-                    console.log('updatePVnotif not exist')
-                }
-            }
-        })
-        // Get all the message elements
-        const messages = document.querySelectorAll(".messageElm");
-        // const messageReads = document.querySelectorAll(".messageRead");
-        // messageReads.forEach((message) => {
-            
-        //     let messageId = message.getAttribute("data-id");
-        //     let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
-        //     const rect = message.getBoundingClientRect();
-        //     messageId = roomID+"-"+ messageId.split('-')[1]
-        //     // Check if the message is in the viewport (visible)
-        //     // if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-        //         if (messageId && !visibleMessages.includes(messageId) && dataReadStatus=='unread') {
-        //             visibleMessages.push(messageId);  // Add the data-id of visible messages
-        //             // console.log("read messageId",messageId)
-        //             // console.log("read user",currentUser.username)
-        //         }
-        //     // }
-        // })
-
-        // Emit the IDs of visible messages to the server
-
-        const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
-        if(lastMessageElm){
-            const inLast = lastMessageElm.querySelector('.message')
-            if(inLast){
-                if(!inLast.querySelector('h6')){
-                    // console.log("last : ",inLast)
-                    let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
-                    inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ?'من':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
-                    // console.log('before border :',inLast.style.borderRad)
-                    // inLast.style.borderRadius = '2px' ;
-                    inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px' ;
-                    // console.log('after border :',inLast.style.borderRad)
-                }
-            }
-        }
-        if (output.innerHTML=="") {
-            
-            if (roomID) {
-        
-                // Ensure there are messages in the DOM before trying to access them
-                const messages = document.querySelectorAll(".messageRead"); // Class of each message div
-                
-                if (messages.length > 0) {
-                    let message_date = messages[0].getAttribute('data-date');
-                    
-                    if (message_date) {
-                        $loadingElement.removeClass('d-none')
-
-                        // Emit the request for older messages to the server
-                        socket.emit("requestOlderMessages", { roomID: roomID, counter: message_date });
-                    } else {
-                        console.error("Message ID is null or undefined.");
+            })).then(async ()=>{
+                init_message_ui()
+                if (visibleMessages.length > 0 && data.unread) {
+                    await socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
+                    if (typeof updatePVnotif === 'function') {
+                        updatePVnotif();
+                    }else{
+                        console.log('updatePVnotif not exist')
                     }
-                } else {
-                    $loadingElement.removeClass('d-none')
-
-                    socket.emit("requestOlderMessages", { roomID: roomID, counter:`${roomID}-0` , type:'latest' });
                 }
-            } else {
-                console.error("Element with id 'roomIDVal' not found.");
+            })
+            // Get all the message elements
+            const messages = chat_window.querySelectorAll(".messageElm");
+
+            const lastMessageElm = output.querySelector(`#Message-${messageIdSplited[messageIdSplited.length-1]}`)
+            if(lastMessageElm){
+                const inLast = lastMessageElm.querySelector('.message')
+                if(inLast){
+                    if(!inLast.querySelector('h6')){
+                        // console.log("last : ",inLast)
+                        let userColor = `var(--color-peer-${lastMessageElm.getAttribute('sender')}) !important`
+                        inLast.insertAdjacentHTML("afterbegin",`<h6 class="message-title" style="color:${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'rgb(var(--user-fg-color))' : userColor}; font-style:italic;text-align:start;">${messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ?'من':messagesCreatedHandler[messagesCreatedHandler.length-1]}</h6>`)
+                        // console.log('before border :',inLast.style.borderRad)
+                        // inLast.style.borderRadius = '2px' ;
+                        inLast.style.borderRadius = messagesCreatedHandler[messagesCreatedHandler.length - 1] === name.textContent.trim() ? 'var(--user-border-radius) var(--user-border-radius) 5px var(--user-border-radius)' : ' var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) 5px' ;
+                        // console.log('after border :',inLast.style.borderRad)
+                    }
+                }
             }
-        } 
+            
+        
+                
+            if (messages.length < 20 ) {
+                let message_date = messages[0].getAttribute('data-date');
+                
+                if (message_date) {
+                    $loadingElement.removeClass('d-none').addClass('show')
+
+                    // Emit the request for older messages to the server
+                    socket.emit("requestOlderMessages", { roomID: roomID, counter: message_date });
+                } else {
+                    console.error("Message ID is null or undefined.");
+                }
+            } else if(messages.length ==0) {
+                $loadingElement.removeClass('d-none').addClass('show')
+
+                socket.emit("requestOlderMessages", { roomID: roomID, counter:`${roomID}-0` , type:'latest' });
+            }
         
 
-        // Initialize a variable to store the last seen date to compare
+            // Initialize a variable to store the last seen date to compare
 
             // Iterate through all messages
             messages.forEach((message) => {
@@ -2291,76 +2441,62 @@ socket.on("restoreMessages", async  (data) => {
                                 sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
                 }
             }
-            if(data.reply){
-                // sentMessagesIdLast=[]
-
-                // sentMessagesId=[]
-                loadedForClicking=true
-
-                // console.log("reply loaded:",(data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
-                setTimeout(() => {
-                    scrollToMessage((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2]); // Retry scrolling to the message
-                },1500); // Adjust delay time if necessary
-            }
-            if(data.join){
-                setTimeout(() => {
-                    scrollToUnread(); // Scroll to the first unread message
-                },500); // Adjust delay time if necessary
-            }
-            else{
-                if (data.prepend ) {
-                    const messagePackDiv = document.querySelectorAll('.MessagePack');
-                    
-                    if (messagePackDiv.length > 0) {
-                        output.scrollTop = messagePackDiv[0].scrollHeight;
-                    } else {
-                        console.error('No elements found with class "MessagePack".');
+        }finally{
+            
+                if(data.reply){
+                    // sentMessagesIdLast=[]
+    
+                    // sentMessagesId=[]
+                    loadedForClicking=true
+    
+                    // console.log("reply loaded:",(data.reply).split('-')[1]+'-'+(data.reply).split('-')[2])
+                        scrollToMessage((data.reply).split('-')[1]+'-'+(data.reply).split('-')[2]); // Retry scrolling to the message
+                }
+                if(data.join){
+                        scrollToUnread(); // Scroll to the first unread message
+                }
+                else{
+                    if (data.prepend ) {
+                        const messagePackDiv = document.querySelectorAll('.MessagePack');
+                        
+                        if (messagePackDiv.length > 0) {
+                            output.scrollTop = messagePackDiv[0].scrollHeight;
+                        } else {
+                            console.error('No elements found with class "MessagePack".');
+                        }
                     }
                 }
-            }
-            if(data.unread){
-                const messageReadsUnread = document.querySelectorAll(".messageRead");
-                const visibleMessagesUnread = [];
-                messageReadsUnread.forEach((message) => {
+                if(data.unread){
+                    const messageReadsUnread = document.querySelectorAll(".messageRead");
+                    const visibleMessagesUnread = [];
+                    messageReadsUnread.forEach((message) => {
+                        
+                    let messageId = message.getAttribute("data-id");
+                    let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
+                    message.setAttribute('data-readStatus','read')
+                    const rect = message.getBoundingClientRect();
+                    messageId = roomID+"-"+ messageId.split('-')[1]
+                    // Check if the message is in the viewport (visible)
+                
+                    if (messageId && !visibleMessagesUnread.includes(messageId) && dataReadStatus=='unread') {
+                        visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
                     
-                let messageId = message.getAttribute("data-id");
-                let dataReadStatus = message.getAttribute('data-readStatus')??'unread';
-                message.setAttribute('data-readStatus','read')
-                const rect = message.getBoundingClientRect();
-                messageId = roomID+"-"+ messageId.split('-')[1]
-                // Check if the message is in the viewport (visible)
-            
-                if (messageId && !visibleMessagesUnread.includes(messageId) && dataReadStatus=='unread') {
-                    visibleMessagesUnread.push(messageId);  // Add the data-id of visible messages
-                
+                    }
+                    
+                    })
+                    
+                    // Emit the IDs of visible messages to the server
+                    if (visibleMessagesUnread.length > 0) {
+                        socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, roomID: roomID });
+                    }
                 }
-                
-                })
-                
-                // Emit the IDs of visible messages to the server
-                if (visibleMessagesUnread.length > 0) {
-                    socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, roomID: roomID });
-                }
-            }
-            // setTimeout(() => {
-            //     applyShowMore();
-            // },100);
-            // messageMenu()
-            enableScrolling()
-        }finally{
-            $loadingElement.addClass('d-none')
+                // setTimeout(() => {
+                //     applyShowMore();
+                // },100);
+                // messageMenu()
+                enableScrolling()
         }
-
-    });
-
-    socket.on("noMoreMessages",(data) =>{
-        // console.log(data.message)
-        $loadingElement.addClass('d-none')
-        loadNextMessage = false;
-        showAlert(data.message,'info')
-
-        // output.querySelector('.firstMessage').innerHTML=''
-    })
+}
 
 // function addMessageToChatUI(data, prepend=false){
 //     if(!data.id) return
@@ -2452,7 +2588,7 @@ function renderReply(reply){
 //     if(!user) return username
 //     return `${user.first_name} ${user.last_name}`
 // }
-function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true , MessagePack = output.querySelectorAll('.MessagePack')) {
+function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLastMessage=true ,animate = "", MessagePack = output.querySelectorAll('.MessagePack')) {
     
     if(messagesCreated.includes(data.id)){
         const MessageElm = output.querySelector(`#Message-${data.id.split('-')[1]}`)
@@ -2591,9 +2727,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     ${messageDateString}
                 </div
             </div>`; 
-               }
+    }
     if (data.readLine) {
-    unreadToAdd = `
+            NEED_TO_RELOAD_ROOM_UI = true
+
+        unreadToAdd = `
         <div class="unread col-12 m-auto row" style="display: flex; align-items: center; text-align: center; font-size: ${fontSize}; margin: 10px 0; font-weight: bold; color: rgb(var(--user-chat-fg-color));">
                 <span class="col-auto m-auto rounded-5 backdrop-blur-chat-fg">پیام های جدید</span>
         </div>`;
@@ -2619,6 +2757,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     // Main message content
     const readInfoHTML = data.readUsers
     ? data.readUsers
+        .filter(r => r.username !== currentUser.username || (r.username === currentUser.username&& r?.reaction))
           .map((r) => {
             if(r.username === currentUser.username&& r.reaction !== ""){
               return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
@@ -2726,10 +2865,12 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         return `
         <div class="tg-player border-0 col-12 px-1" style="background-color:transparent;" data-ready="false" data-src="${src}" data-id="${id}" data-sender="${data.sender}">
             <div class="d-flex col-12 m-auto p-0 ">
-                
+                <div class="loader_voice">
+                </div>
                 <button class="btn btn-primary col-auto m-auto rounded-circle tg-play  mt-3" type="button" data-ctime='0'>
                     <i class="bi bi-play-fill"></i>
                 </button>
+                
                 <div class="col px-2 row m-auto">
                     <div class="flex-grow-1 col-12 overflow-hidden m-auto">
                         <canvas class="tg-canvas brder-bottom rounded col-12"></canvas>
@@ -2743,8 +2884,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         `}
                     </span>
                 </div>
-
-                <audio preload="metadata" src="${src}" crossorigin="anonymous" class="voice-message"></audio>
+                <span class="playRate cursor-pointer border border-primary text-primary border-1 small mt-3  px-1 col-auto m-auto rounded" data-playrate='${voice_playbackRate}'>
+                    X${voice_playbackRate}
+                </span>
+                <audio preload="metadata" src="${src}"  crossorigin="anonymous"  class="col-12 voice-message"></audio>
             </div>
         </div>
                 `;
@@ -2756,7 +2899,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     
     contentToAdd += `
     <div id="Message-${messageId}" data-mess_org_id="${data.id}"
-         class="messageElm mb-1 animate__animated animate__fadeIn row ${isPending? `pending_${messageId}`:''}" 
+         class="messageElm mb-1 animate__animated animate__faster ${animate} row ${isPending? `isPending_${messageId}`:''}" 
          date-id="${messageDate}" 
          style="${divStyle} align-items: center;" 
          sender="${data.sender}">
@@ -2766,7 +2909,6 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
              style="${messageStyle}; margin:2px;">
 
             ${handler()}
-
             ${data.reply && data.reply!==null ? `
             <div class="col-12 ">
                 <div class="d-flex replyMessage gap-2 p-2 EmbeddedMessage cursor-pointer h-10rem position-relative m-2 peer-color-${ownMessage?`0`:`1`}" 
@@ -2969,7 +3111,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             output.insertAdjacentHTML("beforeend", lastMessage);
         
     }
-
+    if(animate){
+        setTimeout(() => {
+            $(`.messageElm.${animate}`).removeClass(`${animate}`)
+        }, 1000);
+    }
         return data.id;
 }
 function init_message_ui(){
@@ -2978,9 +3124,7 @@ function init_message_ui(){
     // Run the function to apply the functionality
     messageMenu()
     initTelegramAudioPlayers()
-    setTimeout(() => {
-        $('.messageElm.animate__fadeIn').removeClass(`animate__fadeIn`)
-    }, 1000);
+   
 }
 // const observer = new MutationObserver(mutations => {
 //     mutations.forEach(mutation => {
@@ -2992,7 +3136,6 @@ function init_message_ui(){
 //     childList: true,
 //     subtree: true
 // });
-    
 function initTelegramAudioPlayers(){
     $('.tg-player').not('[data-ready="true"]').each(function(){
 
@@ -3005,14 +3148,19 @@ function initTelegramAudioPlayers(){
         $(`#file_menu_${file_id}`).remove()
 
 
-        player.attr("data-ready","true")
-
 
         let audio = player.find('audio.voice-message')[0]
         const btn = player.find(".tg-play")  
+        const btn_playRate = player.find(".playRate")  
+        const loader = player.find(".loader_voice")  
         const icon = btn.find("i")  
         const time = player.find(".tg-time")  
         const canvas = player.find(".tg-canvas")[0]
+        const next_playRate={
+            1:1.5,
+            1.5:2,
+            2:1
+        }
 
 
         const ctx = canvas.getContext("2d")
@@ -3026,98 +3174,131 @@ function initTelegramAudioPlayers(){
         let bars = []  
         const maxBars = 120
         let isDragging = false
+        loader.html(`
+                <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
+            `)
+        btn.addClass('d-none')
 
+        // duration// رویداد بارگذاری متادیتا
+        audio.addEventListener("loadedmetadata", async function() {
+            // محاسبه زمان
+            let dm = Math.floor(audio.duration / 60);
+            let ds = Math.floor(audio.duration % 60);
+            if (ds < 10) ds = "0" + ds;
+            
+            time.text(`${dm}:${ds}`);
 
-        // duration
-        audio.addEventListener("loadedmetadata",async function(){
-            let dm = Math.floor(audio.duration/60)    
-            let ds = Math.floor(audio.duration%60)
-            if(ds < 10) ds = "0" + ds
-            time.text(`${dm}:${ds}`) 
-            const {buffer, audioCtx} = await loadAudioBuffer();
+            try {
+                // فراخوانی تابع بارگذاری
+                const { buffer, audioCtx } = await loadAudioBuffer();
 
-            // محاسبهٔ ارتفاع نوارها (یک‌بار)
-            bars = computeBars(buffer);
-            draw()
-        })
+                // محاسبه ارتفاع نوارها (یک‌بار)
+                bars = computeBars(buffer, audioCtx); // فرض بر این است که computeBars به audioCtx نیاز دارد
+                
+                draw();
+                
+                // مخفی کردن لودر و نمایش دکمه
+                loader.html("").addClass("d-none");
+                btn.removeClass("d-none");
+                player.attr("data-ready","true")
+                audio.playbackRate = voice_playbackRate
 
+            } catch (error) {
+                console.error("خطا در بارگذاری صدا:", error);
+                alert("متأسفانه صدا بارگذاری نشد!");
+            }
+        });
 
         // resume state
         if(btn.attr('data-ctime') != 0 ){
-            initialAudio()
             audio.currentTime = btn.attr('data-ctime') ?? 0
             audio.play()
         }
 
 
-        // play / pause
-        btn.off("click").on("click", function () {
+        btn_playRate.off("click").on("click", function () {
+            const playRate = btn_playRate.attr('data-playrate')??1
+            console.log(playRate)
+            const speed = next_playRate[playRate]
+            audio.playbackRate = speed
+            localStorage.setItem('voice_playbackRate',speed)
+            voice_playbackRate = speed
+
+            $('.tg-player .playRate').text(`X${speed}`).attr('data-playrate',speed)
+        })
+        // play / pause
+
+        btn.off("click").on("click",async function () {
+            try {
+                
+
+                audio.currentTime = btn.attr('data-ctime') ?? 0
 
 
-            initialAudio()
+                // stop others
+                $("audio.voice-message").not(audio).each(function () {
+                    this.pause()
+                    $(this).closest(".tg-player")
+                        .find(".tg-play i")
+                        .attr("class", "bi bi-play-fill")
 
 
-            audio.currentTime = btn.attr('data-ctime') ?? 0
+                    $(this).closest(".tg-player")
+                        .find(".tg-play")
+                })
 
 
-            // stop others
-            $("audio.voice-message").not(audio).each(function () {
-                this.pause()
-                $(this).closest(".tg-player")
-                    .find(".tg-play i")
-                    .attr("class", "bi bi-play-fill")
+                if (audio.paused) {
+                    const dot = player.find("i.bi.bi-dot")  
+                    if(dot.length>0 && sender != currentUser.username){
+                        socket.emit('voice_heared',{file_id})
+                    }
+
+    //                 audio._audioCtx.resume()
+                    audio.play()
+                    icon.attr("class", "bi bi-pause-fill")
 
 
-                $(this).closest(".tg-player")
-                    .find(".tg-play")
-                    .attr("data-ctime", "0")
-            })
+                } else {
 
 
-            if (audio.paused) {
-                const dot = player.find("i.bi.bi-dot")  
-                if(dot.length>0 && sender != currentUser.username){
-                    socket.emit('voice_heared',{file_id})
-                }
-
-                audio._audioCtx.resume()
-                audio.play()
-                icon.attr("class", "bi bi-pause-fill")
-
-
-            } else {
-
-
-                audio.pause()
-                icon.attr("class", "bi bi-play-fill")
-            }
+                    audio.pause()
+                    icon.attr("class", "bi bi-play-fill")
+                }
+            } catch (error) {
+                time.text(error.message)
+            }
         })
 
 
         // time update
         audio.addEventListener("timeupdate",function(){
+            try {
+                
+                
+                let cm = Math.floor(audio.currentTime/60)    
+                let cs = Math.floor(audio.currentTime%60)
+                let dm = Math.floor(audio.duration/60)    
+                let ds = Math.floor(audio.duration%60)
 
 
-            let cm = Math.floor(audio.currentTime/60)    
-            let cs = Math.floor(audio.currentTime%60)
-            let dm = Math.floor(audio.duration/60)    
-            let ds = Math.floor(audio.duration%60)
+                if(cs < 10) cs = "0" + cs    
+                if(ds < 10) ds = "0" + ds
 
 
-            if(cs < 10) cs = "0" + cs    
-            if(ds < 10) ds = "0" + ds
+                time.text(`${cm}:${cs} / ${dm}:${ds}`)
+                btn.attr('data-ctime',audio.currentTime)
 
 
-            time.text(`${cm}:${cs} / ${dm}:${ds}`)
-            btn.attr('data-ctime',audio.currentTime)
-
-
-            if(audio.currentTime >= audio.duration && !isDragging){
-                time.text(`${dm}:${ds}`)
-                btn.attr('data-ctime','0')
-                audio.pause()
-                icon.attr("class", "bi bi-play-fill")
-            }
+                if(audio.currentTime >= audio.duration && !isDragging){
+                    time.text(`${dm}:${ds}`)
+                    btn.attr('data-ctime','0')
+                    audio.pause()
+                    icon.attr("class", "bi bi-play-fill")
+                 }
+            } catch (error) {
+                time.text(error.message)
+            }
         })
 
 
@@ -3157,15 +3338,22 @@ function initTelegramAudioPlayers(){
 
 
 
-/* ---------- 1️⃣ بارگذاری و تبدیل به AudioBuffer ---------- */
-async function loadAudioBuffer() {
-    const response = await fetch(audio.currentSrc);
-    const arrayBuf = await response.arrayBuffer();
 
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const buffer = await audioCtx.decodeAudioData(arrayBuf);
-    return {buffer, audioCtx};
-}
+/* ---------- 1️⃣ بارگذاری و تبدیل به AudioBuffer ---------- */
+        async function loadAudioBuffer() {
+            const response = await fetch(audio.currentSrc);
+            const arrayBuf = await response.arrayBuffer();
+            
+            // ایجاد یا استفاده از Context موجود (اگر قبلاً ساخته شده)
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const buffer = await audioCtx.decodeAudioData(arrayBuf);
+            
+            player.attr("data-ready", "true");
+            
+            return { buffer, audioCtx };
+        }
+
 
         /* ---------- 2️⃣ محاسبهٔ ارتفاع نوارها (یک‌بار) ---------- */
         function computeBars(buffer) {
@@ -3232,32 +3420,32 @@ async function loadAudioBuffer() {
 
 
 
-        async function initialAudio(){
+//         async function initialAudio(){
            
-            if (!audio._initialized) {
+//             if (!audio._initialized) {
 
 
-                audio._initialized = true
+//                 audio._initialized = true
 
 
-                audio._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-                audio._source = audio._audioCtx.createMediaElementSource(audio)
-                audio._analyser = audio._audioCtx.createAnalyser()
+//                 audio._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+//                 audio._source = audio._audioCtx.createMediaElementSource(audio)
+//                 audio._analyser = audio._audioCtx.createAnalyser()
 
 
-                audio._analyser.fftSize = 128
+//                 audio._analyser.fftSize = 128
 
 
-                audio._source.connect(audio._analyser)
-                audio._analyser.connect(audio._audioCtx.destination)
+//                 audio._source.connect(audio._analyser)
+//                 audio._analyser.connect(audio._audioCtx.destination)
 
 
-                audio._bufferLength = audio._analyser.frequencyBinCount
-                audio._dataArray = new Uint8Array(audio._bufferLength)
+//                 audio._bufferLength = audio._analyser.frequencyBinCount
+//                 audio._dataArray = new Uint8Array(audio._bufferLength)
 
-                draw()
-            }
-        }
+//                 draw()
+//             }
+//         }
     })
 }
 socket.on('update_voice_heared',async(data)=>{
@@ -3638,6 +3826,7 @@ $(document).ready(function () {
     let lastScrollTop = 0; // Keeps track of the last scroll position
     let isScrolling = false; // Tracks if the chat window is currently scrolling
     let scrollTimeout; // Timer to ensure scrolling is complete
+    
 
     // Attach scroll event listener to the chat window
     $('#chat-window #output').on("scroll", function () {
@@ -3697,7 +3886,7 @@ function scrollLoader(){
                 let firstMessageId = firstMessage.getAttribute('data-id');
                 let firstMessageId_date = firstMessage.getAttribute('data-date');
                 firstMessageId = roomID +"-"+ firstMessageId.split('-')[1]
-                const threshold = 320; // Proximity in pixels to the top of the viewport
+                const threshold = 400; // Proximity in pixels to the top of the viewport
 
                 if (firstMessage.getBoundingClientRect().top >= -threshold && 
                 firstMessage.getBoundingClientRect().bottom <= window.innerHeight) { 
@@ -3714,7 +3903,7 @@ function scrollLoader(){
         
                             sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                             // Emit the request for older messages to the server
-                            $loadingElement.removeClass('d-none')
+                            $loadingElement.removeClass('d-none').addClass('show')
                             disableScrolling()
                             socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessageId_date });
                         }
@@ -3730,7 +3919,7 @@ function scrollLoader(){
                 let lastMessage_date = lastMessage.getAttribute('data-date');
                 lastMessageId = roomID +"-"+ lastMessageId.split('-')[1]
                 // console.log("before scroll:", lastMessageId)
-                const threshold = 50; // Proximity in pixels to the top of the viewport
+                const threshold = 200; // Proximity in pixels to the top of the viewport
                 let rect = lastMessage.getBoundingClientRect()  
                 if (rect.bottom >= -threshold 
                 &&rect.top <= window.innerHeight+threshold) {
@@ -3748,7 +3937,7 @@ function scrollLoader(){
         
                             sentMessagesIdLast.push(lastMessageId);  // Store the sent date to prevent duplicates
                             // Emit the request for older messages to the server
-                            $loadingElement.removeClass('d-none')
+                            $loadingElement.removeClass('d-none').addClass('show')
                             disableScrolling()
                             socket.emit("requestOlderMessages", { roomID: roomID, counter: lastMessage_date, type: 'last' });
                         }
@@ -3778,7 +3967,7 @@ function loadfirstButton(){
 
                 sentMessagesId.push(firstMessageId);  // Store the sent date to prevent duplicates
                 // Emit the request for older messages to the server
-                $loadingElement.removeClass('d-none')
+                $loadingElement.removeClass('d-none').addClass('show')
                 disableScrolling()
                 socket.emit("requestOlderMessages", { roomID: roomID, counter: firstMessage_date });
             }
@@ -4344,14 +4533,7 @@ function searchMessageReply() {
 
 
 
-function join(newRoomID) {
-if (typeof socket !== 'undefined') {
-    socket.emit("joinRoom", {
-    roomID: newRoomID,
-    });
-    roomID = newRoomID;
-}
-}
+
 socket.on("disconnect", () => {
     console.warn("🔴 Disconnected from server!");
     showAlert("ارتباط با سرور برقرار نیست", "warning");
@@ -4371,22 +4553,22 @@ socket.on("reconnect", () => {
             if (response.roomID && response.update) {
                     join(response.roomID);
 
-            } else {
-                $loadingElement.removeClass('d-none')
-                const cache_roomList = localStorage.getItem('roomList')??[]
-                cursor = null;
-                loading = false;
-                hasMore = true;
-                loadRooms(true)
-                const toast_messages = response?.toast_messages ?? []
+            } 
+            $loadingElement.removeClass('d-none').addClass('show')
+            const cache_roomList = localStorage.getItem('roomList')??[]
+            cursor = null;
+            loading = false;
+            hasMore = true;
+            loadRooms(true)
+            const toast_messages = response?.toast_messages ?? []
 
-                for (const m of toast_messages) {
+            for (const m of toast_messages) {
 
-                    // صبر کردن برای نمایش توستر
-                    refToast(m);
-                }
-                if(localStorage.getItem('roomList')) room_list_genration(JSON.parse(cache_roomList))
+                // صبر کردن برای نمایش توستر
+                refToast(m);
             }
+            if(localStorage.getItem('roomList')) room_list_genration(JSON.parse(cache_roomList))
+        
             flushMessageQueue(); // Your function to send queued messages
             update_user_status();
 
@@ -4412,7 +4594,7 @@ function flushMessageQueue() {
         if (queue.length === 0) {
             
             if (roomID != "") {
-                $loadingElement.removeClass('d-none')
+                $loadingElement.removeClass('d-none').addClass('show')
                 socket.emit("joinRoom",{ roomID: roomID})
                 
             }

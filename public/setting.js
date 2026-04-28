@@ -1,54 +1,159 @@
-// Display the current font size as the slider is adjusted
-// Select input elements
-const bgColorPicker = document.getElementById("bgColorPicker");
-const fgColorPicker = document.getElementById("fgColorPicker");
-const fontSizeRange = document.getElementById("fontSizeRange");
-const borderRadRange = document.getElementById("borderRadRange");
-const chatWindowBg = document.getElementById("chatWindowBg-color");
-const chatWindowFg = document.getElementById("chatWindowFg-color");
-const fontSizeValue = document.getElementById("fontSizeValue");
-const borderRadSet = document.getElementById("borderRadSet");
-const chat = document.getElementById("chat");
-const previewArea = document.getElementById("previewArea");
-
-// Update preview in real-time
-function updatePreview() {
-    chat.style.backgroundColor = bgColorPicker.value; // Background color
-    chat.style.color = fgColorPicker.value;          // Font color
-    chat.style.fontSize = `${fontSizeRange.value}px`; // Font size
-    chat.style.borderRadius = `${borderRadRange.value}px`; // Font size
-    previewArea.style.color = chatWindowFg.value;          // Font color
-    previewArea.style.backgroundColor = chatWindowBg.value; // Background color
-    fontSizeValue.textContent = `${fontSizeRange.value}px`; // Display font size
-    borderRadSet.textContent = `${borderRadRange.value}px`; // Display font size
-    scroll()
+function rgbToHex(rgb) {
+  const match = rgb.match(/^(\d+),\s*(\d+),\s*(\d+)$/);
+  if (!match) return rgb; // اگر hex بود، برگردان
+  
+  const r = parseInt(match[1]);
+  const g = parseInt(match[2]);
+  const b = parseInt(match[3]);
+  
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
-// Add event listeners for real-time preview
-bgColorPicker.addEventListener("input", updatePreview);
-chatWindowBg.addEventListener("input", updatePreview);
-chatWindowFg.addEventListener("input", updatePreview);
-fgColorPicker.addEventListener("input", updatePreview);
-fontSizeRange.addEventListener("input", updatePreview);
-borderRadRange.addEventListener("input", updatePreview);
+const hexToRgb = (hex) => {
+    const bigint = parseInt(hex.slice(1), 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `${r}, ${g}, ${b}`;
+};
+// انتخاب المنت‌ها با jQuery
+const bgColorPicker = $("#bgColorPicker");
+const fgColorPicker = $("#fgColorPicker");
+const fontSizeRange = $("#fontSizeRange");
+const borderRadRange = $("#borderRadRange");
+const fontSizeValue = $("#fontSizeValue");
+const borderRadSet = $("#borderRadSet");
+const chat = $("#chat.message");
+const previewArea = $("#previewArea");
 
-fontSizeRange.addEventListener("input", () => {
-    const fontSize = `${fontSizeRange.value}px`;
-    fontSizeValue.textContent = fontSize;
+// تابع به‌روزرسانی پیش‌نمایش
+function updatePreview() {
+    // TODO: 
+    // suggest:
+    // bg:"204, 238, 191"
+    
+    if (chat.length) chat.css('backgroundColor', bgColorPicker.val());
+    if (chat.length) chat.css('color', fgColorPicker.val());
+    if (chat.length) chat.css('fontSize', fontSizeRange.val() + 'px');
+    if (chat.length) chat.css('borderRadius', borderRadRange.val() + 'px');
+    if (fontSizeValue.length) fontSizeValue.text(fontSizeRange.val() + 'px');
+    if (borderRadSet.length) borderRadSet.text(borderRadRange.val() + 'px');
+    ChangeTheme($(theme).val())
+}
 
-    // Apply the font size dynamically to the document
-    document.documentElement.style.setProperty("--user-font-size", fontSize);
-});
-borderRadRange.addEventListener("input", () => {
-    const borderRad = `${borderRadRange.value}px`;
-    borderRadRange.textContent = borderRad;
+$(document).ready(function() {
+    // اضافه کردن event listeners با jQuery
+    theme.on('change',()=> ChangeTheme($(theme).val()));
+    bgColorPicker.on('input', updatePreview);
+    fgColorPicker.on('input', updatePreview);
+    fontSizeRange.on('change', updatePreview);
+    borderRadRange.on('change', updatePreview);
 
-    // Apply the font size dynamically to the document
-    // document.documentElement.style.setProperty("--user-font-size", borderRad);
+    // رویدادهای اضافی
+    bgColorPicker.on('input', function() {
+
+        const bgColor = (bgColorPicker.val()).startsWith("#") ? hexToRgb(bgColorPicker.val()) : bgColorPicker.val();
+        
+        document.documentElement.style.setProperty("--user-bg-color", bgColor );
+    });
+
+    // رویدادهای اضافی
+    fgColorPicker.on('input', function() {
+
+        const fgColor = (fgColorPicker.val()).startsWith("#") ? hexToRgb(fgColorPicker.val()) : fgColorPicker.val();
+        
+        document.documentElement.style.setProperty("--user-fg-color", fgColor );
+    });
+
+    // رویدادهای اضافی
+    fontSizeRange.on('change', function() {
+        const fontSize = $(this).val() + 'px';
+        if (fontSizeValue.length) fontSizeValue.text(fontSize);
+        document.documentElement.style.setProperty("--user-font-size", fontSize);
+    });
+
+    borderRadRange.on('change', function() {
+        const borderRad = $(this).val() + 'px';
+        if (borderRadSet.length) borderRadSet.text(borderRad);
+    });
+
+    const savedSettings = JSON.parse(localStorage.getItem("userSettings"));
+    if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
+
+    if (savedSettings) {
+
+        const bgColor = savedSettings.bgColor.startsWith("#") ? hexToRgb(savedSettings.bgColor) : savedSettings.bgColor;
+        const fgColor = savedSettings.fgColor.startsWith("#") ? hexToRgb(savedSettings.fgColor) : savedSettings.fgColor;
+        fontSizeRange.val(savedSettings?.fontSize.split('px')[0])
+        borderRadRange.val(savedSettings?.borderRad.split('px')[0])
+        bgColorPicker.val(rgbToHex(bgColor))
+        fgColorPicker.val(rgbToHex(fgColor))
+        console.log(rgbToHex(bgColor),rgbToHex(fgColor))
+        document.documentElement.style.setProperty("--user-font-size", savedSettings.fontSize);
+        document.documentElement.style.setProperty("--user-bg-color", bgColor);
+        document.documentElement.style.setProperty("--user-fg-color", fgColor);
+        document.documentElement.style.setProperty("--user-border-radius", savedSettings.borderRad);
+        console.log("Settings applied from local storage:", document.documentElement.style.getPropertyValue("--user-bg-color"));
+    }
+    updatePreview()
+
 });
-document.getElementById("closeSettings").addEventListener("click", () => {
-    document.getElementById("settingsPanel").style.display = "none";
+
+
+if(document.getElementById("saveSettings")){
+    document.getElementById("saveSettings").addEventListener("click", () => {
+        const panel = document.getElementById("settingsPanel");
+
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
+        const bgColor = (bgColorPicker.val()).startsWith("#") ? hexToRgb(bgColorPicker.val()) : bgColorPicker.val();
+
+        const fgColor = (fgColorPicker.val()).startsWith("#") ? hexToRgb(fgColorPicker.val()) : fgColorPicker.val();
+
+        // Save settings locally
+        const userSettings = {
+            
+            bgColor: bgColor, // Assuming a background color picker exists
+            fgColor: fgColor, // Assuming a background color picker exists
+            fontSize: `${fontSizeRange.val()}px`, // Get font size from range input
+            borderRad: `${borderRadRange.val()}px`, // Get font size from range input
+        };
+        localStorage.setItem("userSettings", JSON.stringify(userSettings));
+
+        // Optionally save settings to the server
+        socket.emit("saveSettings", userSettings , currentUser.username);
+
+        showAlert("Settings saved successfully!");
+        document.getElementById("settingsPanel").style.display = "none"; // Close panel
+        window.location.reload(); // This will refresh the page and reset the UI
+
+    });
+}
+socket.on("applySettings", (settings) => {
+
+    localStorage.setItem("userSettings", JSON.stringify(settings));
+    document.documentElement.style.setProperty("--user-bg-color", settings.bgColor);
+    document.documentElement.style.setProperty("--user-fg-color", settings.fgColor);
+    document.documentElement.style.setProperty("--user-font-size", settings.fontSize);
+    document.documentElement.style.setProperty("--user-border-radius", settings.borderRad);
 });
+if(document.getElementById("resetSettings")){
+    document.getElementById("resetSettings").addEventListener("click", () => {
+        if(confirm("تنظیمات فعلی شما پاک میشود. آیا اطمینان دارید؟")){
+            
+            localStorage.removeItem("userSettings");
+
+            // Optionally save settings to the server
+            socket.emit("saveSettings");
+        
+            showAlert("شخصی سازی شما بازنویسی شد",'success');
+            document.getElementById("settingsPanel").style.display = "none"; // Close panel
+            window.location.reload(); // This will refresh the page and reset the UI
+
+        }
+    })
+}
 function res_alert(message, type = 'info', duration = 5000) {
       let i = Math.floor(duration / 1000);
       const type_check_class={
@@ -72,7 +177,7 @@ function res_alert(message, type = 'info', duration = 5000) {
               <div class="d-flex col-12 justify-content-between align-items-center">
                   <span class="col-auto">${message}</span>
                   <small class="ms-3 col text-muted">
-                      fade out in : <span>${i}</span>s
+                      <span>${i}</span>s
                   </small>
               </div>
               <button type="button" class="btn-close btn-sm btn m-1 p-1" data-bs-dismiss="alert"></button>

@@ -2,7 +2,7 @@
 const Message = require('../models/message'),
     Room = require('../models/room'),
     axios = require('axios'),
-    {socketEncrypt,encryptAES256} = require('./encryption')
+    {socketDecrypt,socketEncrypt,encryptAES256_send_notif} = require('./encryption')
 
 
 async function message_encryption(){
@@ -16,15 +16,33 @@ async function message_encryption_map(msg){
             console.log(`${msg.id} is done.`)
         })
 }
+function removePx(value) {
+  // اگر رشته بود و px داشت، حذف کن
+  if (typeof value === 'string') {
+    return value.replace('px', '').trim();
+  }
+  // اگر عدد بود، برگردان
+  return value;
+}
 
-
+function rgbToHex(rgb) {
+    if(rgb) return null
+    const match = rgb?.match(/^(\d+),\s*(\d+),\s*(\d+)$/) ?? null;
+    if (!match) return rgb;
+    
+    const r = parseInt(match[1]);
+    const g = parseInt(match[2]);
+    const b = parseInt(match[3]);
+    
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
 // ارسال پیام پشتیبان به PHP
 async function sendBackupToPHP(Number, jsonMessage) {
-    const encrypted = encryptAES256(JSON.stringify(jsonMessage));
-
+    const encrypted = encryptAES256_send_notif(JSON.stringify(jsonMessage));
     try {
         await axios.get(`https://mc.farahoosh.ir/missionform/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
-        // console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
+        
+        console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
     } catch (err) {
         console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
     }
@@ -50,22 +68,22 @@ async function processMessage(msg) {
             const replyFile =  replyMessage.file && replyMessage.file!==null ? replyMessage.file.map(file => file.fileType)[0] :  null ;
             replyMessage = {
                 ...replyMessage,
-                sender: socketEncrypt(replyMessage.sender), // رمزنگاری sender
-                message: replyMessage.message, // رمزنگاری message
+                sender: replyMessage?.sender, // رمزنگاری sender
+                message: socketDecrypt(replyMessage?.message), // رمزنگاری message
                 file: replyFile??null, // رمزنگاری message
             }
         }else{
             replyMessage ={
                 ...replyMessage,
                 sender : '',
-                message : socketEncrypt("This message has been deleted.")
+                message : "This message has been deleted."
             }
         }
     }
 
     return {
         ...msg,
-        message: msg.message, // رمزنگاری message
+        message: socketDecrypt(msg?.message), // رمزنگاری message
         // voice: msg?.voice ? socketDecrypt(msg.voice): null, // رمزنگاری message
         reply: replyMessage || null,
         readUsers,
@@ -85,7 +103,7 @@ async function count_new_msg_room(room,user){
             ).length;
             if(newMessageCount>0){
                 user?.devices.forEach(device=>{
-                    io.to(device.socketID).emit("roomList_newMessages", { room: room ,count: newMessageCount });
+                    io.to(device.socketID).emit("roomList_newMessages", { room: room ,count: newMessageCount , last_content:socketDecrypt(room?.last_content??'') });
                 })
     
             }
@@ -106,33 +124,122 @@ async function count_new_msg_room(room,user){
 
     }
 }
-async function getUnreadMessages(roomID, currentUser) {
-    const room = await Room.findOne({roomID}).lean()
-    const member_data_u = room?.member_data.filter(mem => mem.id == currentUser._id)[0] ?? null
-    const time_toFilter = member_data_u ? member_data_u?.leaved_at ?? member_data_u?.joined_at : null
-    const rawMessages = time_toFilter
-                    ? await Message.find({ roomID , timestamp: { $lte: new Date(time_toFilter) }}).sort({ timestamp: -1 }).lean().limit(100)
-                    : await Message.find({ roomID}).sort({ timestamp: -1 }).lean().limit(100)
-    // Filter unread messages for the user
-    const unreadMessages = rawMessages.filter((msg) => {
-        const isUnread = !msg.read || !msg.read.some((r) => r.username === currentUser.username);
-        return isUnread;
-    });
+async function getUnreadMessages(roomID = null, currentUser) {
+    let allUnreadMessages = [];
+    let totalLimit = 100; // مجموع پیام‌های نهایی
 
-    // Process unread messages
-    const processedMessages = await Promise.all(unreadMessages.map((msg) => processMessage(msg)));
+    // اگر roomID مشخص شده باشد، فقط همان یک اتاق بررسی شود
+    if (roomID) {
+        const roomsToCheck = [roomID];
+        
+        for (const currentRoomID of roomsToCheck) {
+            // if (allUnreadMessages.length >= totalLimit) break;
 
-    // If there are any unread messages, set readLine:true for the last one
-    if (processedMessages.length > 0) {
-        processedMessages[processedMessages.length - 1].readLine = true; // Set readLine to true for the last message
+            const room = await Room.findOne({ roomID: currentRoomID }).lean();
+            if (!room) continue;
+
+            const memberData = room?.member_data?.find(mem => mem.id === currentUser._id)??[];
+            const timeToFilter = memberData ? (memberData.leaved_at ?? memberData.joined_at) : null;
+
+            // ساخت شرط کوئری
+            const filterCondition = timeToFilter 
+                ? { roomID: currentRoomID, timestamp: { $lte: new Date(timeToFilter) } } 
+                : { roomID: currentRoomID };
+
+            // دریافت پیام‌ها (بدون فیلتر read در اینجا، چون می‌خواهیم همه را بررسی کنیم)
+            const messages = await Message.find(filterCondition)
+                .sort({ timestamp: -1 })
+                .lean()
+                .limit(100); // محدودیت بالا برای اطمینان از دریافت پیام‌های جدید
+
+            // فیلتر کردن پیام‌های خوانده نشده
+            const unread = messages.filter(msg => {
+                if (!msg.read) return true;
+                return !msg.read.some(r => r.username === currentUser.username);
+            });
+
+            // اضافه کردن به لیست نهایی (تا سقف 20)
+            const remainingSlots = totalLimit - allUnreadMessages.length;
+            allUnreadMessages = allUnreadMessages.concat(unread.slice(0, remainingSlots));
+        }
+    } else {
+        // اگر roomID مشخص نیست، تمام اتاق‌های کاربر بررسی شود
+        // فرض: کاربر در یک آرایه از roomIDها در دیتابیس یا متغیر دیگری ذخیره شده است
+        // اگر لیست اتاق‌ها را ندارید، باید از یک کوئری مثل Room.find({ 'member_data.id': currentUser._id }) استفاده کنید
+            const userRooms = await Room.aggregate([{  
+                $match: { members: currentUser.username } }, 
+                {  
+                    $addFields: {   sortDate: { $ifNull: ["$lastUpdated", "$createdAt"] }  } }, 
+                    {  $sort: { sortDate: -1 }
+                }
+            ]); 
+        for (const room of userRooms) {
+            if (allUnreadMessages.length >= totalLimit) break;
+
+            const memberData = room?.member_data?.find(mem => mem.id === currentUser._id)??[];
+            const timeToFilter = memberData ? (memberData.leaved_at ?? memberData.joined_at) : null;
+
+            const filterCondition = timeToFilter 
+                ? { roomID: room.roomID, timestamp: { $lte: new Date(timeToFilter) } } 
+                : { roomID: room.roomID };
+
+            const messages = await Message.find(filterCondition)
+                .sort({ timestamp: -1 })
+                .lean()
+                .limit(100);
+
+            const unread = messages.filter(msg => {
+                if (!msg.read) return true;
+                return !msg.read.some(r => r.username === currentUser.username);
+            });
+
+            const remainingSlots = totalLimit - allUnreadMessages.length;
+            allUnreadMessages = allUnreadMessages.concat(unread.slice(0, remainingSlots));
+        }
     }
 
-    return {processedMessages , count: processedMessages.length};
+    // پردازش نهایی پیام‌ها (اگر تابع processMessage نیاز است)
+    const processedMessages = await Promise.all(
+        allUnreadMessages.map(msg => processMessage(msg))
+    );
+
+    // تنظیم readLine برای آخرین پیام
+    if (processedMessages.length > 0) {
+        processedMessages[processedMessages.length - 1].readLine = true;
+    }
+
+    return { processedMessages, count: processedMessages.length };
+}
+
+async function show_message_onload(username){ 
+        try {
+            const user = await User.findOne({username})
+            // فراخوانی تابع و دریافت نتیجه
+            const result = await getUnreadMessages(null, user);
+            
+            // دسترسی به آرایه پیام‌ها
+            const rawMessages = result.processedMessages || [];
+
+            // تبدیل پیام‌ها به فرمت مورد نظر برای رندر
+            const messages = rawMessages.map((m) => ({
+                title: m.roomName || 'نام اتاق نامشخص', // اطمینان از وجود roomName
+                message: socketDecrypt(m.message??''),
+                roomID: m.roomID // فرض بر این است که roomID در پیام موجود است
+            }));
+
+            return {success:true,messages};
+        } catch (error) {
+            console.error("Error fetching messages:", error);
+            return {success:false, error:"خطا در دریافت پیام‌ها"};
+        }
 }
 module.exports = {
     message_encryption,
     message_encryption_map,
     sendBackupToPHP,
+    removePx,
+    rgbToHex,
     processMessage,
     getUnreadMessages,
+    show_message_onload,
     count_new_msg_room};

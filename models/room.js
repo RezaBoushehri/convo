@@ -14,6 +14,7 @@ const roomSchema = new mongoose.Schema({
             leaved_at : { type: Date },
         }
     ], // Array of member IDs
+    last_content: { type: String }, // Room identifier
     setting: [{ type: Object }], // Array of member IDs
     lastUpdated: { type: Date }, // <-- Add this field
     createdAt: { type: Date, default: Date.now }, // Room creation timestamp

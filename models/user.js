@@ -61,17 +61,9 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: null, // Optional, will be null if not set
     },
-
-    
     settings: {
         bgColor: { type: String },
         fgColor: { type: String},
-        sideBgColor: { type: String },
-        sideFgColor: { type: String},
-        marginLeft: { type: String},
-        marginRight: { type: String},
-        chatWindowBgColor: { type: String },
-        chatWindowFgColor: { type: String},
         fontSize: { type: String},
         borderRad: { type: String},
     },

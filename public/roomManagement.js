@@ -15,7 +15,7 @@ const createRoom = () => {
             .filter(num => /^\d{11}$/.test(num));
     }    
     document.querySelector("#roomID").textContent= roomID
-    $loadingElement.removeClass('d-none')
+    $loadingElement.removeClass('d-none').addClass('show')
     socket.emit("createRoom", { 
         handle: currentUser.username,  // Assuming `name.textContent` contains the user's name
         roomName: roomID,
@@ -38,7 +38,7 @@ const joinRoom = () => {
     document.querySelector("#roomID").textContent = roomID;
 
     // Show loading animation if applicable
-    $loadingElement.removeClass('d-none')
+    $loadingElement.removeClass('d-none').addClass('show')
     // Redirect to the new URL with roomID
     window.location.href = `/join/${roomID}`;
 };
@@ -50,43 +50,114 @@ const leaveRoom = () => {
     socket.emit("leaveRoom",{username : currentUser.username , roomID : roomID});
     // // Leave room event
 
-    // // Success feedback
-    // socket.on("leftRoom", ({ roomID }) => {
-    //     // console.log(`You have left room: ${roomID}`);
-    //     // Update the UI to reflect the user leaving the room
-    // });
+    const side_contact = $('#side_contact');
+    side_contact.removeClass('hidden');
+        $('#header_div').removeClass('hidden');
+    side_contact.removeClass('d-none')
+    // const data = decryptMessage(encryptedData)
+    $('.modal.show').each(function () {
+        const modalEl = this;
+        const instance = bootstrap.Modal.getInstance(modalEl);
 
-    // // Error feedback
-    // socket.on("error", ({ error }) => {
-    //     console.error("Error:", error);
-    // });
+        if (!instance) return;
+        instance.hide();
+    
+    });
+    $('.modal-backdrop').remove();
+    $("#chat-window").addClass('d-none');
 
- 
-    // // Notify other users when someone leaves
+    $('#file-input_res').addClass('d-none').html('')
+    document.querySelector(".form-inline").style.display = "none";
+    document.querySelector("footer").style.display = "block";
+    // Initialize tooltips
+    // 2. Construct the new URL with the existing 'side' parameter
+    
+    // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 
+    // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
+    sentMessagesId=[]
+    sentMessagesIdLast=[]
+    loadedForClicking=false
+    hasScrolledDown = false; // Flag to track if the scroll has already occurred
+    scrolling = true;
+    lastMessageDate = null;
+    headTagVal = null;
+    lastProcessedDate = null;
+    ProcessedDate = null;
+    messagesCreated=[]
+    messagesCreatedHandler=[]
+    messageIdSplited=[]
+    lastSender = null;
+    unreadedScroll=0;
 
-    // document.querySelector("#roomInfo").innerHTML = "";
-    // document.getElementById("chat-window").style.display = "none";
-    // document.querySelector(".form-inline").style.display = "none";
-    // document.getElementById("btns").style.display = "block";
-    // document.querySelector("footer").style.display = "block";
-    // // Refresh the page after leaving the room
-    // window.location.reload(); // This will refresh the page and reset the UI
-    window.location.href = `/`;
+    // Notify other users when someone leaves
+    if(NEED_TO_RELOAD_ROOM_UI){
+        init_page(false)
+    }
+
+    $("#roomInfo").addClass('d-none');
+    $("#chat-window").addClass('d-none');
+    $(".form-inline").addClass('d-none');
+    document.querySelector("footer").style.display = "block";
+
+    $loadingElement.removeClass('d-none').addClass('show')
+    // Success feedback
+    
 
 };
+socket.on("leftRoom", ({ roomID }) => {
+        // console.log(`You have left room: ${roomID}`);
+        // Update the UI to reflect the user leaving the room
+    const side_cantact_hide =getQueryParam('side') ?? false
+
+    roomID = ''
+
+    const newUrl = `/${side_cantact_hide ? `?side=${side_cantact_hide}` : ''}`;
+    $loadingElement.addClass('d-none').removeClass('show')
+
+    // 3. Update the URL without reloading the page
+    history.pushState({}, '', newUrl);
+   
+    // Refresh the page after leaving the room
+    // window.location.reload(); // This will refresh the page and reset the UI
+    // window.location.href = `/`;
+});
    // Notify other users when someone leaves
 socket.on("userLeft", ({ name, roomID }) => {
     // console.log(`${username} has left the room: ${roomID}`);
     // Update the UI to reflect the user's departure
+    localStorage.removeItem('last_room_joined_MC')
     showAlert(`${name} left the chat.`,'info')
 });
+
+
+
+
 let roomList_data ;
 socket.on('roomList',async (data)=>{
-    $loadingElement.removeClass('d-none')
-    localStorage.setItem('roomList',JSON.stringify({room : data.room.slice(0,20), users:data.users}))
+     const rooms = data.room;
+    const users = data.users;
+    const nextCursor = data.nextCursor;
+    const cache = data.cache;
+
+    $loadingElement.removeClass('d-none').addClass('show')
+    if (cursor == null){
+
+        localStorage.setItem('roomList',JSON.stringify({room : data.room.slice(0,20), users:data.users}))
+    }
     roomList_data = data
-   await room_list_genration(data)
+    
+    cursor = nextCursor;
+    
+
+    if (!nextCursor) {
+        hasMore = false;
+    }
+
+
+    loading = false;
+   await room_list_genration(data,cache)
+   
 })
 socket.on('roomList_newMessages', async (data) => {
     $('#loading').removeClass('d-none')
@@ -98,6 +169,8 @@ socket.on('roomList_newMessages', async (data) => {
         room.find('.counter_message')        
             .text(data.count)        
             .removeClass('d-none');
+        room.find('.message')        
+            .html(data.last_content)        
         // update last update timestamp    
         // const now = Date.now();    
         room.attr('data-last-update', data.room.lastUpdated);
@@ -106,7 +179,7 @@ socket.on('roomList_newMessages', async (data) => {
         showAlert(error.message,'danger')
     }finally{
         sortRooms();
-        $loadingElement.addClass('d-none')
+        $loadingElement.addClass('d-none').removeClass('show')
 
     }
 });
@@ -116,10 +189,11 @@ document.querySelector(".roomNameInput").addEventListener("keyup", (event) => {
 });
 
 
-async function room_list_genration(data){
+async function room_list_genration(data,clear=true){
     const $roomList_ul = $('#roomList_ul');
-
-    $roomList_ul.empty();
+    if(clear){
+        $roomList_ul.empty();
+    }
     await data?.room.filter(room=> room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/)).map(room=>{
             const room_name_pv = room.members.filter(user=> user !== currentUser.username).map(username=>{
                 const user = data.users.filter(user=> user.username === username)[0]
@@ -138,27 +212,43 @@ async function room_list_genration(data){
                 room.roomName = room_name_pv
             }
     })
-    data?.room.forEach(room => {
 
+    data?.room.forEach(room => {
+        const user = data.users.filter(user=> user.username === room?.lastMessage?.sender)[0]
+        const name_sender = !user ? room?.lastMessage?.sender :`${user?.first_name?? ''} ${user?.last_name?? ''}`
         $li=(`
-            <li class="list-group-item row col-12 ms-1 text-white bg-dark" role="presentation" >
-                <a class="nav-link" href="/join/${room.roomID}" data-last_update="${room.lastUpdated ?? room.createdAt}" data-id="${room.roomID}">
-                <span class="fs-5 col-auto">
-                    ${room.roomName}
-                </span>
-                <span class="badge bg-danger col-auto rounded-pill position-absolute end-0 mt-1 me-1 counter_message d-none">
-                    ${room.newMessage}
-                </span>
-                
+            <li class="list-group-item cursor-pointer row m-auto col-12" onclick="join('${room.roomID}')" role="presentation">
+                <a class="nav-link"  data-last_update="${room.lastUpdated ?? room.createdAt}" data-id="${room.roomID}">
+                    <div class="row col-auto">
+                        <span class="fs-5 col-auto">
+                            ${room.roomName}
+                        </span>
+                        <span class="message col text-muted d-inline-block">
+                            
+                            <div class="col overflow-hidden text-truncate" style="height:2rem;">
+                                ${room?.lastMessage?.message.split(['<br>']).join(' ') ?? ''}
+                            </div>
+                        </span>
+                    </div>
+                    <span class="badge bg-danger col-auto position-absolute top-0 end-0 rounded-pill mt-2 me-1 counter_message d-none">
+                        ${room.newMessage}
+                    </span>
                 </a>
             </li>
+
             `)
         $roomList_ul.append($li)
     });
-    $loadingElement.addClass('d-none')
+    if(clear){
+        document.getElementById('roomList_ul').scrollTo({
+            top: 0,                        // Scroll to the top
+            behavior: "smooth",            // Smooth scrolling
+        });
+    }
+    $loadingElement.addClass('d-none').removeClass('show')
 
 }
-$(`#btns #search_roomList`).on("focus input",(e)=>{
+$(`#search_roomList`).on("focus input",(e)=>{
     if(!roomList_data || e.target.value =='') room_list_genration(roomList_data)
     let {room , users } = roomList_data
     console.log(room)

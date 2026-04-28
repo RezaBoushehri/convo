@@ -1,6 +1,6 @@
 <%-include('partials/header.ejs') %>
 </nav>
-<div class="container row g-3 col-md-12  m-auto">
+<div class="container row g-3 col-md-12  m-auto" style="height: 80vh;">
     <div class="col-md-8">
         <div id="message-container" class="text-left">
                 <p id="message"></p>
@@ -33,6 +33,7 @@
         </div>
 
         <!-- Login Form -->
+         <% if(!currentUser){ %>
         <div id="form" class="p-5 rounded">
             <form method="POST" id="loginForm" action='/login'>
                 <div class="form-group">
@@ -51,11 +52,26 @@
                 </div>
 
                 <p id="error-message" class="badge col-md-12 badge-danger py-2 my-3"></p>
-                <button type="submit" id="sendSMSlogin" class="col-md-12 btn btn-primary">Log in</button>
+                <button type="submit" id="sendSMSlogin" class="col-md-12 btn btn-meta">Log in</button>
 
             </form>
         </div>
+        <%}else{%>
+        <div id="form" dir="auto" class="p-5 rounded">
+                <p dir="auto">
+                    شما الان وارد حساب خود شده اید، خوش آمدید .
+                </p>
+                <a class="lead" href="/">فهرست اتاق ها</a>
 
+                <%if(currentUser.username == '09173121943'){%>
+                <div class="form-group">
+                    تازه میخواهید عضو شوید <span style="font-family: 'Pacifico';">meta chat</span> ؟
+                    <a class="badge badge-lg badge-success p-2" data-bs-toggle="modal" style="cursor: pointer;" data-bs-target="#signup">Sign Up</a>
+                </div>
+                <%}%>
+
+        </div>
+        <%}%>
         <div class="modal fade" id="signup" tabindex="-1" role="dialog" aria-labelledby="label" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">

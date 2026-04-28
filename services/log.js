@@ -39,7 +39,9 @@ async function Log_message(message,files=[],roomID='npmDtEwjElmn74vqmu') {
     };
     let encryptedMessage = await processMessage(enrichedMessage)  
     io.in(roomID).emit("chat",await encryptedMessage,{ success: true });
-    const room = await Room.findOneAndUpdate({ roomID : roomID},{$set:{lastUpdated:timestamp}});
+    const room = await Room.findOneAndUpdate({ roomID : roomID},{$set:{lastUpdated:timestamp , 
+        last_content: message ? socketEncrypt(`${username}: ${message}`) : socketEncrypt(`${username}: فایل ارسال کرده است`) 
+    }});
     if (!room) throw new Error("Room not found!");
 
     const roomMembers = room.members; // لیست اعضای اتاق
@@ -56,7 +58,7 @@ async function Log_message(message,files=[],roomID='npmDtEwjElmn74vqmu') {
                 
                 tempMessage = {
                     title: `New Message (MetaChat): ${room.roomName}`,
-                    message: `LOG: \n${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
+                    message: `${username}: \n${newMessage.message ? socketDecrypt(newMessage.message):'Sent You amessage'}`,
                     reciver:`${user.first_name} ${user.last_name}`,
                     timestamp
                 };
