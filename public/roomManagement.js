@@ -138,7 +138,14 @@ const leaveRoom = () => {
     if(NEED_TO_RELOAD_ROOM_UI){
         init_page(false)
     }
+<<<<<<< Updated upstream
     $('#roomList_ul li.bg-primary-subtle').removeClass('bg-primary-subtle')
+=======
+<<<<<<< HEAD
+    $('#roomList_ul li.bg-primary-subtle').removeClass('bg-primary-subtle')
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
 
     $("#roomInfo").addClass('d-none');
     $("#chat-window").addClass('d-none');
@@ -218,8 +225,17 @@ socket.on('roomList_newMessages', async (data) => {
             .html(data.last_content)        
         // update last update timestamp    
         // const now = Date.now();    
+<<<<<<< Updated upstream
         $(`#roomList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
         $(`#roomList_ul li#${data.room.roomID} .position-absolute .jdate `).text(formatDate(data.room.lastUpdated));
+=======
+<<<<<<< HEAD
+        $(`#roomList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
+        $(`#roomList_ul li#${data.room.roomID} .position-absolute .jdate `).text(formatDate(data.room.lastUpdated));
+=======
+        room.attr('data-last-update', data.room.lastUpdated);
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
         if(roomList_data) roomList_data.room.filter(rm=> rm == data.room.roomID).map(rm=> rm={...rm, newMessage: data.count})
     } catch (error) {
         showAlert(error.message,'danger')
@@ -263,6 +279,10 @@ async function room_list_genration(data,clear=true){
         const user = data.users.filter(user=> user.username === room?.lastMessage?.sender)[0]
         const name_sender = !user ? room?.lastMessage?.sender :`${user?.first_name?? ''} ${user?.last_name?? ''}`
         $li=(`
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
             <li id="${room.roomID}" data-last-update="${(room.lastUpdated ?? room.createdAt)}"  class="btn btn-outline-primary border-0 list-group-item cursor-pointer row m-auto col-12" onclick="join('${room.roomID}')" role="presentation">
                 <a class="nav-link"  data-id="${room.roomID}">
                     <div class="row col-12">
@@ -270,29 +290,62 @@ async function room_list_genration(data,clear=true){
                             ${room.roomName}
                         </span>
                         <span class="message col-12  d-inline-block border-bottom">
+<<<<<<< Updated upstream
+=======
+=======
+            <li class="list-group-item cursor-pointer row m-auto col-12" onclick="join('${room.roomID}')" role="presentation">
+                <a class="nav-link"  data-last_update="${room.lastUpdated ?? room.createdAt}" data-id="${room.roomID}">
+                    <div class="row col-auto">
+                        <span class="fs-5 col-auto">
+                            ${room.roomName}
+                        </span>
+                        <span class="message col text-muted d-inline-block">
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
                             
                             <div class="col overflow-hidden text-truncate" style="height:2rem;">
                                 ${room?.lastMessage?.message.split(['<br>']).join(' ') ?? ''}
                             </div>
                         </span>
                     </div>
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
                     <div class="row col-auto position-absolute top-0 end-0 me-1">
                         <span class="jdate col" dir="auto">${formatDate(room?.lastUpdated)}</span>
                         <span class="badge bg-danger  rounded-pill mt-2 me-1 counter_message d-none col-auto">
                             ${room.newMessage}
                         </span>
                     </div>
+<<<<<<< Updated upstream
+=======
+=======
+                    <span class="badge bg-danger col-auto position-absolute top-0 end-0 rounded-pill mt-2 me-1 counter_message d-none">
+                        ${room.newMessage}
+                    </span>
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
                 </a>
             </li>
 
             `)
         $roomList_ul.append($li)
     });
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
     Promise
         .resolve(
             $('#roomList_ul li.bg-primary-subtle').removeClass('bg-primary-subtle'))
         .then(
             $(`#roomList_ul li#${localStorage.getItem('last_room_joined_MC')}`).addClass('bg-primary-subtle'))
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     if(clear){
         document.getElementById('roomList_ul').scrollTo({
             top: 0,                        // Scroll to the top
@@ -315,16 +368,36 @@ $(`#search_roomList`).on("focus input",(e)=>{
 })
 function sortRooms() {
     const $roomList_ul = $('#roomList_ul');
+<<<<<<< Updated upstream
 
     const rooms = $roomList_ul.children('li').get();
+=======
+<<<<<<< HEAD
+
+    const rooms = $roomList_ul.children('li').get();
+=======
+    // $roomList_ul.empty()
+    const rooms = $roomList_ul.children('a').get();
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     rooms.sort((a, b) => {        
         const dateA = new Date($(a).attr('data-last-update'));        
         const dateB = new Date($(b).attr('data-last-update'));
         return dateB - dateA; // newest first    
     });
+<<<<<<< Updated upstream
     $roomList_ul.empty()
 
     $.each(rooms, function(index, room) {    
+=======
+<<<<<<< HEAD
+    $roomList_ul.empty()
+
+    $.each(rooms, function(index, room) {    
+=======
+    $.each(rooms, function(index, room) {        
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
         $roomList_ul.append(room);   
     });
 }

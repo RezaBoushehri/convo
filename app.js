@@ -2173,6 +2173,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 return
             }
             const username = currentUser.username;
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
             const tempId = id
             // ── Atomic counter increment ───────────────────────────────
             const counter = await Room.findOneAndUpdate(
@@ -2192,6 +2196,30 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             id = `${roomID}-${messageNumber}`;
 
             
+<<<<<<< Updated upstream
+=======
+=======
+            if(!id){
+                // ── Atomic counter increment ───────────────────────────────
+                const counter = await Room.findOneAndUpdate(
+                { roomID: roomID },           // Use roomID as the document _id (clean & efficient)
+                { $inc: { seq: 1 } },
+                { 
+                    upsert: true,                // Create if room doesn't exist yet
+                    new: true,                   // Return the UPDATED document (after increment)
+                    setDefaultsOnInsert: true    // Optional: if you have schema defaults
+                }
+                );
+
+                // Calculate the visible / custom message number
+                // 1000000 + seq gives you IDs starting from 1000001, 1000002, ...
+                const messageNumber = 1000000 + counter.seq;
+
+                id = `${roomID}-${messageNumber}`;
+
+            }
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
 
             // Proceed with message processing...
             if(message){
@@ -2256,7 +2284,15 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             
             let encryptedMessage = await processMessage(enrichedMessage)  
             // Broadcast the message to the room
+<<<<<<< Updated upstream
             callback({ success: true , messageId: tempId});
+=======
+<<<<<<< HEAD
+            callback({ success: true , messageId: tempId});
+=======
+            callback({ success: true , messageId: id});
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
             io.in(roomID).emit("chat",await encryptedMessage,{ success: true });
             if (!room) throw new Error("Room not found!");
 

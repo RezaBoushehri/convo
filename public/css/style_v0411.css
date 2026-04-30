@@ -1,6 +1,14 @@
 :root,[data-bs-theme=dark]{
   --primary-bg: #272727;
+<<<<<<< Updated upstream
   --rev-primary-bg: #ffff;
+=======
+<<<<<<< HEAD
+  --rev-primary-bg: #ffff;
+=======
+  --rev-primary-bg: #f4f4f4;
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
   --light-bg: #52565a;
   --primary-text: #ffffff;
   --footer-btn-color: "255, 255, 255"
@@ -15,7 +23,15 @@
   --bs-secondary-color: var(--light-bg)
 }
 :root,[data-bs-theme=light]{
+<<<<<<< Updated upstream
   --primary-bg: #ffff;
+=======
+<<<<<<< HEAD
+  --primary-bg: #ffff;
+=======
+  --primary-bg: #f4f4f4;
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
   --rev-primary-bg: #272727;
   --light-bg: #cfd5dbac;
   --primary-text: #000000;
@@ -49,7 +65,15 @@ html, body {
 
 /* Main container pinned under the header */
 #mainWrapper {
+<<<<<<< Updated upstream
     height: calc(100vh - 68px);
+=======
+<<<<<<< HEAD
+    height: calc(100vh - 68px);
+=======
+    height: calc(100vh - 74px);
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
 }
 
 /* Sidebar (contact list) */
@@ -267,6 +291,13 @@ html, body {
 }
 .messageInputDiv{
     position: relative;
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+=======
+    bottom: 10px;
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     align-items: center;
     display: flex;
     align-items: baseline;
@@ -797,7 +828,15 @@ width: max-content;
 
 #replyBox.show {
     position: absolute;
+<<<<<<< Updated upstream
     top: -56px;
+=======
+<<<<<<< HEAD
+    top: -56px;
+=======
+    top: -85px;
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     max-height: 75px; /* Set a max-height when visible */
     opacity: 1;
     transform: translateY(0); /* Reset vertical position */
@@ -1510,7 +1549,16 @@ label[for=file-input] i.bi-paperclip::before{
 .bg-theme{
   background-color: var(--primary-bg) !important;
   color: var(--primary-text) !important;
+<<<<<<< Updated upstream
 }
 #roomList_ul li{
     height: 5rem;
+=======
+<<<<<<< HEAD
+}
+#roomList_ul li{
+    height: 5rem;
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
 }

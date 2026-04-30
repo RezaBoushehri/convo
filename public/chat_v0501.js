@@ -1046,9 +1046,20 @@ async function voice_upload(text,quote,blob){
         await xhr.send(formData);     
 } 
 async function sendMessage(text=null, fileData, quote) {
+<<<<<<< Updated upstream
     let messID = `${roomID}-${Date.now() + Math.random()}`;
     let data = {
         id: messID,
+=======
+<<<<<<< HEAD
+    let messID = `${roomID}-${Date.now() + Math.random()}`;
+    let data = {
+        id: messID,
+=======
+   
+    let data = {
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
         username: currentUser.username,
         quote: quote,
         message: text === placeholderText ? '' : text,
@@ -1057,7 +1068,14 @@ async function sendMessage(text=null, fileData, quote) {
     };
     // Encrypted version for socket
     let dataEncrypt = {
+<<<<<<< Updated upstream
         id: messID,
+=======
+<<<<<<< HEAD
+        id: messID,
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
         username: (currentUser.username),
         roomID: (roomID),
         quote: (quote || ''),
@@ -1098,9 +1116,52 @@ async function sendMessage(text=null, fileData, quote) {
                 showAlert("Message cannot be empty", "warning");
                 return;
             }
+<<<<<<< Updated upstream
 
             
             console.log('send ID:', messID)
+=======
+<<<<<<< HEAD
+
+            
+            console.log('send ID:', messID)
+=======
+            let messID = null;
+
+            // Get next message ID from server (with callback → promise)
+            // messID = await new Promise((resolve) => {
+            //     socket.emit("roomCounterId", {roomID,username:currentUser.username}, (ack) => {
+            //         if (ack?.success) {
+            //             resolve(ack.messageId);
+            //         } else {
+            //             showAlert(ack?.message || "Failed to get message ID", "error");
+            //             tempMessageId = enqueueMessage(dataEncrypt, dataShow);
+
+            //             resolve(null);
+            //         }
+            //     });
+            // });
+
+            // if (!messID) return; // stop if we couldn't get ID
+    
+
+            data = {
+                ...data,
+                id: messID,
+            }
+
+            dataEncrypt = {
+                ...dataEncrypt,
+                id: messID,
+            }
+            dataShow = {
+                ...dataShow,
+                id: messID
+            }
+            
+
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
 
             // Show message immediately with "sending" state
             tempMessageId = await addMessageToChatUI({ ...dataShow, isPending: true },null,null,null,"animate__fadeInUp");
@@ -1203,9 +1264,19 @@ function updateMessageStatus(tempId, status) {
     const statusEl = el.querySelector('.pending, .status');
     console.log('statusEl',statusEl)
     if (status === 'sent') {
+<<<<<<< Updated upstream
 
         statusEl.innerHTML = '<i class="bi text-muted bi-check2"></i>';
         el.remove()
+=======
+<<<<<<< HEAD
+
+        statusEl.innerHTML = '<i class="bi text-muted bi-check2"></i>';
+        el.remove()
+=======
+        statusEl.innerHTML = '<i class="bi text-muted bi-check2"></i>';
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     } else if (status === 'failed') {
         statusEl.innerHTML = '<i class="bi bi-exclamation-circle text-danger" title="Failed"></i>';
     } else if (status === 'failed-permanent') {
@@ -1265,10 +1336,20 @@ message.addEventListener("keydown", (event) => {
 });
 //=================================================================
 socket.on("chat",async(data , ack) => {
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
     Promise.resolve($(`#roomList_ul li#${data.roomID}`).attr('data-last-update', (data.timestamp || new Date()))).then(()=>{
         
         sortRooms()
     })
+<<<<<<< Updated upstream
+=======
+=======
+   
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     console.log(data)
     const decryptedMessage = await {
             // رمزگشایی مقادیر مختلف پیام با استفاده از شرط‌ها برای چک کردن وجود مقادیر
@@ -1281,8 +1362,25 @@ socket.on("chat",async(data , ack) => {
                     sender: data.reply.sender ? (data.reply.sender) : data.reply.sender, // رمزگشایی sender در reply فقط اگر وجود داشته باشد
                 } : null, 
             };
+<<<<<<< Updated upstream
     const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 120
     if (ack.success) {
+=======
+<<<<<<< HEAD
+    const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 120
+    if (ack.success) {
+=======
+    if (ack.success) {
+        const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 120
+        const messageElement = $(`.isPending_${data.id.split('-')[1]}`);
+        if (messageElement.length>0) {   
+
+            messageElement.remove()
+            updateMessageStatus(data.id,'sent')
+            scrollDown()
+        }
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
 
         const lastMessage = document.querySelector(".lastMessage")
         if(lastMessage){
@@ -1292,7 +1390,15 @@ socket.on("chat",async(data , ack) => {
                     shouldScroll = true  
                 }
             // همیشه پیام را اضافه کن  
+<<<<<<< Updated upstream
                 await addMessageToChatUI(decryptedMessage,null,null,null,decryptedMessage.sender == currentUser.username ? '':"animate__fadeInUp")
+=======
+<<<<<<< HEAD
+                await addMessageToChatUI(decryptedMessage,null,null,null,decryptedMessage.sender == currentUser.username ? '':"animate__fadeInUp")
+=======
+                await addMessageToChatUI(decryptedMessage,null,null,null,"animate__fadeInUp")
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
                     init_message_ui()
             if(shouldScroll){    
                     scrollDown()  
@@ -1311,7 +1417,14 @@ socket.on("chat",async(data , ack) => {
             // }
         }
     
+<<<<<<< Updated upstream
         
+=======
+<<<<<<< HEAD
+        
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     
     }
     // $("#down").show(); // Show scroll-up button
@@ -1589,14 +1702,30 @@ socket.on("joined", (data) => {
     
     
     Promise.resolve(JSON.parse(localStorage.getItem(`Room_${data.room.roomID}`)??'{}')).then(cache=>{
+<<<<<<< Updated upstream
         process_messages_pack(cache)
+=======
+<<<<<<< HEAD
+        process_messages_pack(cache)
+=======
+        // process_messages_pack(cache)
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     })
 
     member_users = data.member_users
     // console.log(member_users)
     currentUser.room = data.room.roomID
     localStorage.setItem('last_room_joined_MC',data.room.roomID)
+<<<<<<< Updated upstream
     $(`#roomList_ul li#${currentUser.room} .counter_message`).addClass('d-none').text('')
+=======
+<<<<<<< HEAD
+    $(`#roomList_ul li#${currentUser.room} .counter_message`).addClass('d-none').text('')
+=======
+    const roomList_ul = $('#roomList_ul');
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     const side_contact = $('#side_contact');
     const{room} = data
     side_contact.addClass('hidden');
@@ -1826,11 +1955,21 @@ socket.on("joined", (data) => {
     // Initialize tooltips
     $('[data-bs-toggle="tooltip"]').tooltip();
     $('#feedback').html('').addClass('d-none')
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
     Promise
         .resolve(
             $('#roomList_ul li.bg-primary-subtle').removeClass('bg-primary-subtle'))
         .then(
             $(`#roomList_ul li#${data.room.roomID}`).addClass('bg-primary-subtle'))
+<<<<<<< Updated upstream
+=======
+=======
+    
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
@@ -2572,7 +2711,29 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     }
     let isPending = data?.isPending ? data.isPending : false;
 
+<<<<<<< Updated upstream
 
+=======
+<<<<<<< HEAD
+
+=======
+    if(isPending){
+        const MessageElm = output.querySelectorAll(`.messageElm`)
+
+        if (MessageElm.length > 0) {
+            const lastMessageIdStr = MessageElm[MessageElm.length - 1].id.split('-')[1];
+            if (!isNaN(lastMessageIdStr)) {
+                data.id = roomID+"-"+ (parseInt(lastMessageIdStr, 10) + 1); // Increment the last numeric id
+            } else {
+                console.error("Invalid ID format. Ensure message IDs are in the correct format, e.g., 'Message-123'.");
+            }
+        }else{
+            data.id = roomID+"-"+1000000
+        }
+        // console.log("Next message ID:", data.id);
+    }
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     const user = member_users.filter(user=> user.username === data.sender)[0]
     const user_name = user? `${user?.first_name} ${user?.last_name}`:data.sender
     let contentToAdd = "";
@@ -2598,9 +2759,22 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     const ownMessage = data.sender === currentUser.username;
 
     const styleClass = ownMessage ? "var(--user-border-radius) 5px var(--user-border-radius) var(--user-border-radius)" : "5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius) ";
+<<<<<<< Updated upstream
     data.message = data?.message
     ?.replace(/\n/g, '<br>') // Replace newlines with <br>
     ?.replace(
+=======
+<<<<<<< HEAD
+    data.message = data?.message
+    ?.replace(/\n/g, '<br>') // Replace newlines with <br>
+    ?.replace(
+=======
+    data.message = data.message
+    .replace(/\n/g, '<br>') // Replace newlines with <br>
+
+    .replace(
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
         /((https?:\/\/|www\.)[^\s<]+)/g, // Match URLs (starting with http, https, or www)
         (url) => {
             const href = url.startsWith('http') ? url : `https://${url}`; // Ensure href starts with http(s)
@@ -3522,10 +3696,19 @@ socket.on("delete_file",async(id)=>{
      if (id) {
         const fileEl = $(`#file_${id}`)
         if (fileEl) {
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
             Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
                 
                 sortRooms()
             })
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
             fileEl.removeClass(`animate__fadeInUp`).addClass('animate__animated animate__bounceOut')
             setTimeout(() => {
                 fileEl.remove();
@@ -3604,11 +3787,20 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
     if (readInfoElement) {
         // Update the read information for each read user
         const seenUser = readInfoElement.querySelector(`[user-id='${username}']`);
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
         
         Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
             
             sortRooms()
         })
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
         if(seenUser){
             if(username !== currentUser.username){
             let updateUserReact = seenUser.innerHTML.split(' ')[0]
@@ -4011,6 +4203,10 @@ function uploadImage() {
 // _______________reply____________________
 function replyMessage(messageId) {
     // Select the message element
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
     const $messageElement = $(`#Message-${messageId}`);
 
     // Extract sender and message content
@@ -4077,6 +4273,49 @@ function replyMessage(messageId) {
 
 
 
+<<<<<<< Updated upstream
+=======
+=======
+    const messageElement = document.querySelector(`#Message-${messageId}`);
+    
+    // Extract sender and message content
+    const sender = messageElement.getAttribute(`sender`);
+    let messageContent = escapeHtml(messageElement.querySelector('.dataMessage').innerText.trim());
+    if(messageContent == ''){
+        messageContent = 'File'
+    }
+    // Construct the reply box content
+    const replyBox = document.getElementById('replyBox');
+    replyBox.innerHTML = `
+    <div class="card-body row gap-2 col-12">
+        <span class="col-auto m-auto"><i class="bi fs-3 text-secondary bi-reply"></i></span>
+
+        <div class="col replyMessage blurBackDark px-2 peer-color-0"style='display: flex;flex-direction: row; justify-content: space-between;' replyid="Message-${messageId}">
+            <span dir="auto" data-reply-id=""Message-${messageId}"" id="messageReplied" >
+                ${(messageContent)}
+            </span>
+        </div>
+    </div>
+        <button onclick="clearReply()" class="btn replyClose btn-sm btn-danger btn-close"></button>
+
+    `;
+    replyBox.setAttribute('reply-id', messageId);
+    // Apply styling for blur background
+    replyBox.style.display = 'flex';
+    replyBox.style.alignItems = 'center';
+    replyBox.style.justifyContent = 'space-between';
+    replyBox.style.padding = '10px';
+    replyBox.style.borderRadius = '8px';
+    // replyBox.style.background = 'rgba(0, 0, 0, 0.1)';
+    // replyBox.style.backdropFilter = 'blur(5px)';
+    toggleReplyBox(true);
+    searchMessageReply()
+    message.focus()
+}
+
+
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
 function clearReply() {
     const replyBox = document.getElementById("replyBox");
     replyBox.removeAttribute('reply-id');
@@ -4093,11 +4332,25 @@ function toggleReplyBox(isVisible) {
     const $replyBox = $('#replyBox');
     
     if (isVisible) {
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
         $replyBox.removeClass('hide d-none');
         $replyBox.addClass('show');
     } else {
         $replyBox.removeClass('show');
         $replyBox.addClass('hide d-none');
+<<<<<<< Updated upstream
+=======
+=======
+        $replyBox.removeClass('hide');
+        $replyBox.addClass('show');
+    } else {
+        $replyBox.removeClass('show');
+        $replyBox.addClass('hide');
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
     }
 }
 
@@ -4144,11 +4397,20 @@ async function deleteMessage(messageId) {
         socket.emit('delete', { username :currentUser.username , messageId }, async (response) => {
             if (response && response.success) {
                 // Successfully deleted on server
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
                 
                 Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
                     
                     sortRooms()
                 })
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
                 if (messageElement) {
                     showAlert('Message deleted','info')
                 }
@@ -4213,11 +4475,20 @@ async function editMessage(messageId) {
             socket.emit("edit", {  username :currentUser.username , messageId , new_message}, async (response) => {
 
                 if (response && response.success) {
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
                     
                     Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
                         
                         sortRooms()
                     })
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
                     // Successfully deleted on server
                     // $el_edit.html(decryptMessage(new_message)).append('<span class="jdate">Edited</span>');
                     showAlert(response.message , 'info');
@@ -4251,11 +4522,20 @@ socket.on("delete", (messageId) => {
         const $messageElement = $(`[data-mess_org_id="${messageId}"]`);
 
         if ($messageElement) {
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
             
             Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
                 
                 sortRooms()
             })
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> a2276201ef08a35025414086e83fdaf994175b04
+>>>>>>> Stashed changes
             $messageElement.removeClass(`animate__fadeInUp`).addClass('animate__bounceOut')
             setTimeout(() => {
                 $messageElement.remove();
