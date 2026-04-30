@@ -3,7 +3,7 @@
     width: 22px;
     height: 5px;
     aspect-ratio: 4;
-    --c:rgb(var(--user-fg-color)) 90%,#0000;
+    --c:var(--accent) 90%,#0000;
     background: 
       radial-gradient(circle closest-side at left  6px top 50%,var(--c)),
       radial-gradient(circle closest-side                     ,var(--c)),
