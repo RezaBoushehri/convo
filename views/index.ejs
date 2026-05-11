@@ -67,9 +67,7 @@
                 </div>
             </div>
         </div>
-        <div id="room_modal_div_placement">
-
-        </div>
+        
     </div>
     <div id="mainWrapper" class="container-fluid ">
         
@@ -111,11 +109,11 @@
             <div id="chatArea" class="col d-flex flex-column m-0 h-100 pb-2 overflow-hidden position-relative">
                 
                 <div id="chat-window" class="flex-grow-1 d-flex flex-column h-100 flex-nowrap hide-scrollbar position-relative">
-                    <div id='roomInfo' class='row col-12 justify-content-between overflow-x-auto hide-scrollbar position-sticky z-2 top-0'></div>
+                    <div id='roomInfo' class='row col-12 justify-content-between overflow-x-auto hide-scrollbar'></div>
             
                     <!-- <div id="alert" dir="auto" style=" text-align: center;"></div> -->
-                    <div id="headTag" class="col-12 z-1 row mx-auto position-sticky top-0 "  dir="auto" ></div>
-                    <div id="output" class="px-1 mt-1 position-relative  container rounded overflow-y-auto overflow-x-hidden hide-scrollbar">
+                    <div id="headTag" class="col-12 row mx-auto z-1 position-absolute"   dir="auto" style="text-align: center;margin-top: 45px;"></div>
+                    <div id="output" class="px-1 mt-1  container rounded overflow-y-auto overflow-x-hidden hide-scrollbar">
                     </div>            
             
                 </div>
@@ -152,7 +150,7 @@
                                         tabindex="0"
                                         rows="1"
                                         aria-label="Message"
-                                        aria-placeholder="پیام دهید ..."
+                                        aria-placeholder="Message ..."
                                         autocomplete="on">
                                     </div>
                                     <div class="button-container col-auto gap-1 d-flex mx-auto">
@@ -160,7 +158,7 @@
                                             <input type="file" accept="" id="file-input" multiple>
                                             <label class="input-label" for="file-input"><i style="    font-size: large;" class="bi text-secondary   bi-paperclip"></i></label>
                                         </button>
-                                        <button class="btn  btn btn-primary  rounded-circle send-button message_btn d-none " type="submit" id="button">
+                                        <button class="btn  btn text-white btn-primary animate__animated animate__faster animate__zoomInLeft animate__zoomIn  rounded-circle send-button message_btn d-none " type="submit" id="button">
                                             <i class="bi bi-send-fill"></i>
                                         </button>
                                         <div id="recordSection" class="  col-auto d-flex">
@@ -172,7 +170,7 @@
                                             <div id="recordControls" class="d-flex me-1 col-auto m-auto btn-group align-items-center"></div>
                                             <div class="col-auto m-auto overflow-hidden rounded">
             
-                                                <!-- دکمه ضبط -->  <button id="recordBtn" class="col-auto animate__animated  btn btn-primary rounded-circle">  <i class="bi bi-mic-fill m-auto"></i> </button>
+                                                <!-- دکمه ضبط -->  <button id="recordBtn" class="col-auto animate__animated  btn btn-primary text-white rounded-circle">  <i class="bi bi-mic-fill m-auto"></i> </button>
                                                 <!-- دکمه توقف -->  <button id="stopBtn" class="col-auto animate__animated border backdrop-blur shadow text-danger btn   d-none" disabled=""> <i class="bi bi-square-fill m-auto"></i>  </button>
                                             </div>
             

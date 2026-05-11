@@ -138,7 +138,7 @@ const leaveRoom = () => {
     if(NEED_TO_RELOAD_ROOM_UI){
         init_page(false)
     }
-    $('#roomList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0')
+    $('#roomList_ul li.bg-primary-subtle').removeClass('bg-primary-subtle')
 
     $("#roomInfo").addClass('d-none');
     $("#chat-window").addClass('d-none');
@@ -266,13 +266,13 @@ async function room_list_genration(data,clear=true){
             <li id="${room.roomID}" data-last-update="${(room.lastUpdated ?? room.createdAt)}"  class="btn btn-outline-primary border-0 list-group-item cursor-pointer row m-auto col-12" onclick="join('${room.roomID}')" role="presentation">
                 <a class="nav-link"  data-id="${room.roomID}">
                     <div class="row col-12">
-                        <span class="fs-5 col-auto text-truncate">
+                        <span class="fs-5 col-auto">
                             ${room.roomName}
                         </span>
-                        <span class="row col-12   ">
+                        <span class="message col-12  d-inline-block border-bottom">
                             
-                            <div class="col-auto ms-0 overflow-hidden text-truncate text-muted" style="height:2rem;">
-                                ${room?.lastMessage?.message.replace(/<[^>]*>/g, '').replace(/\n/g, '') ?? ''}
+                            <div class="col overflow-hidden text-truncate" style="height:2rem;">
+                                ${room?.lastMessage?.message.split(['<br>']).join(' ') ?? ''}
                             </div>
                         </span>
                     </div>
@@ -290,9 +290,9 @@ async function room_list_genration(data,clear=true){
     });
     Promise
         .resolve(
-            $('#roomList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0'))
+            $('#roomList_ul li.bg-primary-subtle').removeClass('bg-primary-subtle'))
         .then(
-            $(`#roomList_ul li#${localStorage.getItem('last_room_joined_MC')}`).addClass('bg-primary').removeClass('border-0'))
+            $(`#roomList_ul li#${localStorage.getItem('last_room_joined_MC')}`).addClass('bg-primary-subtle'))
     if(clear){
         document.getElementById('roomList_ul').scrollTo({
             top: 0,                        // Scroll to the top
