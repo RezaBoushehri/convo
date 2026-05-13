@@ -22,6 +22,29 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    devices:[
+        {
+            token: { type: String },
+            ip: { type: String },
+            userAgent: { type: String},
+            createdAt: { type: Date},
+            expiresAt: { type: Date},
+            lastActive: { type: Date},
+            dc_time: { type: Date},
+            socketID: {
+                type: String,
+                default: null, // Optional, will be null if not set
+            },
+            roomID: {
+                type: String,
+                default: null, // Optional, will be null if not set
+            }
+        }
+    ],
+    device_login: {
+        type: String,
+        default: null, // Optional, will be null if not set
+    },
     socketID: {
         type: String,
         default: null, // Optional, will be null if not set
@@ -30,17 +53,19 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: null, // Optional, will be null if not set
     },
+    status: {
+        type: String,
+        default: null, // Optional, will be null if not set
+    },
+    lastActive: {
+        type: Date,
+        default: null, // Optional, will be null if not set
+    },
     settings: {
-        bgColor: { type: String, default: "rgb(204, 238, 191)" },
-        fgColor: { type: String, default: "rgb(0, 0, 0)" },
-        sideBgColor: { type: String, default: "rgb(242, 242, 242)" },
-        sideFgColor: { type: String, default: "rgb(33, 33, 33)" },
-        marginLeft: { type: String, default: "10%" },
-        marginRight: { type: String, default: "10%" },
-        chatWindowBgColor: { type: String, default: "rgb(245, 245, 245)" },
-        chatWindowFgColor: { type: String, default: "rgb(33, 33, 33)" },
-        fontSize: { type: String, default: "16px" },
-        borderRad: { type: String, default: "15px" },
+        bgColor: { type: String },
+        fgColor: { type: String},
+        fontSize: { type: String},
+        borderRad: { type: String},
     },
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 

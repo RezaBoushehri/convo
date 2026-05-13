@@ -13,20 +13,19 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/DOMPurify-main/DOMPurify-main/dist/purify.min.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="/bootstrap-4.4.1-dist/css/bootstrap.min.css">
-    <link rel="stylesheet" type='text/css' href="/css/style.css">
+    <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
+    <!-- <link rel="stylesheet" href="/bootstrap-4.4.1-dist/css/bootstrap.min.css"> -->
     <link rel="stylesheet" type='text/css' href="/css/loading.css">
     <link rel="stylesheet" type='text/css' href="/css/typingLoader.css">
     <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"> -->
-    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito&display=swap" rel="stylesheet">
-    <script src="/js/jquery-3.3.1.min.js"></script>
-    <link rel="stylesheet" href="/css/bootstrap-icons-1.11.3/font/bootstrap-icons.min.css">
+    <!-- <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito&display=swap" rel="stylesheet"> -->
+    <!-- <script src="/js/jquery-3.3.1.min.js"></script> -->
+    <!-- <link rel="stylesheet" href="/css/bootstrap-icons-1.11.3/font/bootstrap-icons.min.css"> -->
     <!-- <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script> -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
         " integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
-    <script src="/bootstrap-4.4.1-dist/js/bootstrap.min.js" ></script>
+    <!-- <script src="/bootstrap-4.4.1-dist/js/bootstrap.min.js" ></script> -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
     <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/browser-image-compression@latest/dist/browser-image-compression.js"></script> -->
     <script src="/js/crypto-js.min.js"></script>
@@ -37,115 +36,170 @@
         " integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
     <script type="text/javascript" src="/js/browser-image-compression.js"></script>
+    <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/animate.compat.css" />
+    <script src="/js/jquery-4.0.0.min.js"></script>
+    <script src="/js/sweetAlert.js"></script>
+    <script src="/js/side.js"></script>
+    <script src='/js/timeFormated.js' defer></script>
+    <link href="/vendor/animate/animate.min.css" rel="stylesheet">
+    <link rel="stylesheet" type='text/css' href="/css/style_v0411.css">
+
 </head>
 
-<body>
-    <audio id="notification-sound" src="/sound/notif.wav" preload="auto"></audio>
+<body data-bs-theme="dark" >
+    <div id="backgroundImg" class="backgroundImg"></div>
 
+    <audio id="message_sound" src="/sound/notif.wav" preload="auto"></audio>
+    <audio id="notification_sound" src="/sound/message.ogg" preload="auto"></audio>
+    <div id="header_div" class="col-12  position-sticky top-0 z-3">
+        
 
-    <div id="loading" class="loader px-3 hide">
-        <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
-                <span>Loading, please wait...</span>
-    </div>
-    <nav class="navbar navbar-dark bg-dark">
-        <a class="navbar-brand" href='/'><img class='img-fluid' src='../svg/logo.svg' width='45px'><span class='my-auto'>&nbspMETA CHAT</span></a>
-        <% if(!currentUser){ %>
-            <a class="btn btn-primary btn align-right text-white" href='/login'>login <i class='fa fa-user'></i></a>
-            <% } else { %>
-                <div class="dropdown align-right">
-                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        <nav class="backdrop-blur-chat-bg navbar px-1 position-relative">
+            <a class="navbar-brand" href='/'><img class='img-fluid col-2' src='../svg/logo.svg' width='25px'><span class='my-auto'>&nbspMETA CHAT</span></a>
+            <div class="d-flex col-auto gap-2 position-absolute end-0 me-2">
+                <div id="theme_btn" class="col-auto overflow-hidden">
+                    <button data-theme="light" class="btn btn-white animate__animated rounded-circle col-auto shadow-sm hover" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-original-title="حالت شب"><i class="bi bi-sun-fill animate__animated animate__bounceIn text-warning"></i></button>
+                    <button data-theme="dark" class="btn btn-dark animate__animated rounded-circle col-auto shadow-sm hover" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-original-title="حالت روز"><i class="bi bi-moon-fill animate__animated animate__bounceIn text-primary"></i></button>
+                </div>
+                <% if(!currentUser){ %>
+                    <a class="btn btn-primary btn align-right text-white" href='/login'>login <i class='fa fa-user'></i></a>
+                <% } else { %>
+                <div class="dropdown">
+                   
+                    <button class="btn btn-outline-reverse ff-system-ui fw-bold" type="button" data-bs-toggle="dropdown"  id="dropdownMenuButton" aria-haspopup="true" aria-expanded="false">
                         <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %>
                     </button>
-                    <div class="dropdown-menu dropdown-menu-right bg-secondary" aria-labelledby="dropdownMenuButton">
-                        <button id="settingsButton" class="btn btn-dark btn-xs dropdown-item">
-                            Settings
+                    <div class="dropdown-menu " aria-labelledby="dropdownMenuButton">
+                        <a id="profileButton" class="btn btn-dark btn-xs dropdown-item" href="/profile">
+                             <i class="bi bi-person-badge"></i> پروفایل
+                        </a>
+                        <button id="settingsButton" data-bs-toggle="modal" data-bs-target="#settingsPanel" class="btn btn-dark btn-xs dropdown-item">
+                             <i class="bi bi-vector-pen"></i> شخصی سازی
                         </button>
-                        <a class="btn btn-dark btn-xs dropdown-item" href="/logout">
-                            Log Out     <i class="bi bi-box-arrow-right"></i>
+                        <a class="btn btn-dark text-danger btn-xs dropdown-item" href="/logout">
+                             <i class="bi bi-box-arrow-right"></i> خروج  
                         </a>
                     </div>
                 </div>
-                
-               
-    </nav>
-    <div id="settingsPanel" class="settings-panel">
-         <!-- Close button -->
-         <button id="closeSettings" class="close-btn"><i class="bi bi-x-square" style="font-size: larger;"></i></button>
-        <h5>Customize Chat Window</h5>
-        <label for="margin-left">Margin Left (%)</label>
-        <input type="number" id="margin-left" value="10" min="0" max="50">
-        <br>
-
-        <label for="margin-right">Margin Right (%)</label>
-        <input type="number" id="margin-right" value="10" min="0" max="50">
-        <br>
-        <label for="chatWindowBg-color">Background Color</label>
-        <input type="color" id="chatWindowBg-color" value="rgb(67, 67, 67)">
-        <br>
-        <label for="chatWindowFg-color">Font Color(date,event,...)</label>
-        <input type="color" id="chatWindowFg-color" value="rgb(0, 0, 0)">
-        <hr>
-        <h5>User Settings</h5>
-        <label for="bgColorPicker">Select Background Color:</label>
-        <input type="color" id="bgColorPicker" value="rgb(255, 255, 255)">
-        <br>
-        <label for="fgColorPicker">Select font Color:</label>
-        <input type="color" id="fgColorPicker" value="rgb(255, 255, 255)">
-        <br>
-        <label for="sideBgColorPicker">Select side Background Color:</label>
-        <input type="color" id="sideBgColorPicker" value="rgb(255, 255, 255)">
-        <br>
-        <label for="sideFgColorPicker">Select side font Color:</label>
-        <input type="color" id="sideFgColorPicker" value="rgb(255, 255, 255)">
-        <br>
-        <label for="fontSizeSelector">Select Font Size:</label>
-        <div>
-            <label for="fontSizeRange">Font Size:</label>
-            <input 
-                type="range" 
-                id="fontSizeRange" 
-                min="12" 
-                max="24" 
-                step="1" 
-                value="16" 
-            />
-            <span id="fontSizeValue">16px</span>
-        </div>        
-        <div>
-            <label for="borderRadRange">Border Curve degree:</label>
-            <input 
-                type="range" 
-                id="borderRadRange" 
-                min="8" 
-                max="17" 
-                step="1" 
-                value="8" 
-            />
-            <span id="borderRadSet">5px</span>
-        </div>        
-
-        <div id="previewArea" class="preview-area rounded overflow-auto shadow">
-            <div dir="auto" style="border-radius: 6px;text-align: center;border: 1px solid #232323;margin: 10px 0;font-weight: bold;">
-                14/11/1382
             </div>
-            <div class="mess p-2 mr-1 m-2 rounded col-md-6">
-                <h6 style="font-style: italic;text-align: start;"> <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %></h6>
-                <div id="chat" class="p-3 container" style="display:flex;justify-content:flex-start">
-                    <p dir="auto">
-                        This is a live preview area where you can see your changes.
-                    </p>
+        </nav>
+    </div>
+    <div class="modal fade settings-panel" id="settingsPanel" tabindex="-1" role="dialog" aria-labelledby="" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg" role="document">
+            <div class="modal-content">
+                <!-- Close button -->
+                <div class="modal-header position-relative">
+
+                    <button data-bs-target="#settingsPanel"  data-bs-dismiss="modal" class="btn btn-sm btn-close position-absolute top-0 end-0 m-2 m-auto"></button>
+                    <h5>شخصی سازی صفحه</h5>
+                </div>
+                <div dir="auto" class="modal-body row gap-1 g-3">
                     
+                    <div dir="ltr" class="col-auto">
+
+                        <div class="input-group col-auto">
+                            
+                            <label class="input-group-text col-auto" for="theme">تم</label>
+                            <select class="form-select" id="theme" >
+                                <option  value="auto">حالت خودکار</option>
+                                <option  value="dark">حالت شب</option>
+                                <option value="light">حالت روز</option>
+                            </select>
+                        </div>
+                        <!-- <div class="input-group col-auto">
+                            
+                            <label class="input-group-text col-auto" for="chatWindowBg-color">Background Color</label>
+                            <input class="form-control" type="color" id="chatWindowBg-color" value="rgb(67, 67, 67)">
+                        </div> -->
+                    </div>
+                    
+                    <h5 class="mt-3">تنظیمات کاربر</h5>
+                    <hr>   
+                    <div dir="ltr" class="col-auto">
+                        <div class="input-group">  
+                            <label class="input-group-text col-auto" for="bgColorPicker">انتخاب رنگ پیام:</label>
+                            <input class="form-control-color rounded-end-2" type="color" id="bgColorPicker" value="<%=rgbToHex(currentUser?.settings?.bgColor)?? '#ffff' %>">
+                        </div>
+                    </div>
+                    <div dir="ltr" class="col-auto">
+                        <div class="input-group">
+                            <label class="input-group-text col-auto" for="fgColorPicker">انتخاب رنگ متن:</label>
+                            <input class="form-control-color rounded-end-2" type="color" id="fgColorPicker" value="<%=rgbToHex(currentUser?.settings?.fgColor)?? '#ffff' %>">
+                        </div>
+                    </div>
+                   
+                    <hr>
+                    <div dir="ltr" class="col-auto">
+                        <div class="input-group">
+                            <label class="input-group-text col-auto" for="fontSizeRange">اندازه متن:</label>
+                            <div class="form-control">
+                                <input  class=" form-control-range col-auto"
+                                    type="range" 
+                                    id="fontSizeRange" 
+                                    min="12" 
+                                    max="24" 
+                                    step="1" 
+                                    value="<%=removePx(currentUser?.settings?.fontSize)?? '16' %>" 
+                                />
+                            </div>
+                            <span class="input-group-text col-auto"  id="fontSizeValue">16px</span>
+                        </div>        
+                    </div>        
+                    <div dir="ltr" class="col-auto">
+                        <div class="input-group">
+                            <label class="input-group-text col-auto" for="borderRadRange">میزان منحنی گوشه :</label>
+                            <div class="form-control">
+                                <input class=" form-control-range  col-auto" 
+                                    type="range" 
+                                    id="borderRadRange" 
+                                    min="3" 
+                                    max="17" 
+                                    step="1" 
+                                    value="<%=removePx(currentUser?.settings?.borderRad)?? '8' %>" 
+                                />
+                            </div>
+                            <span class="input-group-text col-auto"  id="borderRadSet">5px</span>
+                        </div>        
+                    </div>        
+    
+                    <div id="previewArea" class="border card-body p-2 rounded overflow-auto shadow">
+                        <div class="col-12 mb-3">
+                            <div dir="auto" class="m-auto text-center col-auto backdrop-blur-chat-bg">
+                                14/11/1382
+                            </div>
+                        </div>
+                        <div class="messageElm">
+                            <div id="chat" class="message p-2  col-md-6">
+                                <h6 style="font-style: italic;text-align: start;"> <%= currentUser.first_name.trim() + " " + currentUser.last_name.trim() %></h6>
+                                <div  class="p-3 " style="display:flex;justify-content:flex-start">
+                                    <p dir="auto">
+                                        این یک محیط نمایشی برای نمایش نهایی ویرایش شما است.
+                                    </p>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveSettings" class="btn btn-primary">Save Settings</button>
+                    <button id="resetSettings" class="btn btn-warning">Reset Settings</button>
                 </div>
             </div>
         </div>
-        <button id="saveSettings" class="btn btn-primary">Save Settings</button>
-        <button id="resetSettings" class="btn btn-warning">Reset Settings</button>
     </div>
 
     <% } %>
     <div id="offlineMessage">You're offline</div>
 
+    <div id="loading" class="loader px-3 d-none">
+        <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
+                <span>Loading, please wait...</span>
+    </div>
     <script>
+       
         function updateOfflineStatus() {
             const offlineMessage = document.getElementById('offlineMessage');
             if (!navigator.onLine) {
