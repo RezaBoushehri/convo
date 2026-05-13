@@ -989,50 +989,52 @@ app.post('/autoLogin', async (req, res) => {
         // console.log(decryptedData)
         // console.log(currenUser)
         // return res.json({ success:false, message:'No Access'});
-        let temp = null;
+
         if(currenUser){
             const is_have_login_yet = currenUser?.devices.filter(d=> d.userAgent == 'Mission Form')[0]
             const is_have_token = token ? currenUser?.devices.filter(d=> d.token == token)[0] : null
-
-            // const Gen_token = crypto.randomBytes(64).toString("hex");
-            const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000
-            const expires = new Date(exp_time); // 3 months
-            const Gen_token = encryptAES256(exp_time.toString(),SECRET_KEY_TOKEN_AUTOLOGIN)
-            if(is_have_login_yet){
-                await User.findOneAndUpdate( { _id: currenUser._id ,'devices.userAgent':'Mission Form'}, 
-                {   $set: {     
-                        "devices.$.token":Gen_token,
-                        "devices.$.expiresAt":expires
-                    } 
-                },{new:true}).then(u=>{
-                    success = true,
-                    message = `${u?.first_name} ${u?.last_name}، خوش آمدید`
-                    temp = u?.devices.filter(d=> d.userAgent == 'Mission Form')[0]
-                })
-            }else{
-                const newDevices ={
-                    token: Gen_token,       
-                    ip: '',       
-                    userAgent: 'Mission Form',       
-                    createdAt: new Date(),       
-                    expiresAt: expires
-                }
-                await User.findOneAndUpdate( { _id: currenUser._id }, 
-                {   $push: {     
-                        devices: {     
-                            $each:[newDevices],
-                            $slice:-5
-                        }  
-                    } 
-                },{new:true}).then(u=>{
+            if(is_have_token && is_have_login_yet){
                     success = true
-                    message = `${u?.first_name} ${u?.last_name}، خوش آمدید`
-                    temp = u?.devices.filter(d=> d.userAgent == 'Mission Form')[0]
-
-                })
+                    message = `${currenUser?.first_name} ${currenUser?.last_name}، خوش آمدید`
+            }else{
+                // const Gen_token = crypto.randomBytes(64).toString("hex");
+                const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000
+                const expires = new Date(exp_time); // 3 months
+                const Gen_token = encryptAES256(exp_time.toString(),SECRET_KEY_TOKEN_AUTOLOGIN)
+                if(is_have_login_yet){
+                    await User.updateOne( { _id: currenUser._id ,'devices.userAgent':'Mission Form'}, 
+                    {   $set: {     
+                            "devices.$.token":Gen_token,
+                            "devices.$.expiresAt":expires
+                        } 
+                    },{new:true}).then(u=>{
+                        success = true
+                        message = `${u?.first_name} ${u?.last_name}، خوش آمدید`
+    
+                    })
+                }else{
+                    const newDevices ={
+                        token: Gen_token,       
+                        ip: '',       
+                        userAgent: 'Mission Form',       
+                        createdAt: new Date(),       
+                        expiresAt: expires
+                    }
+                    await User.updateOne( { _id: currenUser._id }, 
+                    {   $push: {     
+                            devices: {     
+                                $each:[newDevices],
+                                $slice:-5
+                            }  
+                        } 
+                    },{new:true}).then(u=>{
+                        success = true
+                        message = `${u?.first_name} ${u?.last_name}، خوش آمدید`
+    
+                    })
+                }
+                return res.json({ success, message , token: Gen_token??null });
             }
-            console.log({ oldT:token,sureT: temp.token, token: Gen_token??null })
-            return res.json({ success, message , token: Gen_token??null });
             
         }else{
             success = false
@@ -3221,14 +3223,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             const currentUser = await User.findOneAndUpdate({_id: socket.user._id ,"devices.token": socket.token }, 
                 {status:'offline',lastActive: new Date(),"devices.$.dc_time": new Date()},
                 { new: true });
-            if(!currentUser){
-                socket.emit("error", { error: `User no Access.` });
-                return;
-            }
             const Device_room = currentUser?.devices.filter(d=> d.token == socket.token)[0].roomID
 
             socket.broadcast.to(Device_room).emit("typing", { 
-                username: currentUser.username,
+                username: user.username,
                 isTyping : false
             });
             // socket.broadcast.to(currentUser.roomID).emit("userDisconnected", `${currentUser.first_name} ${currentUser.last_name}`);

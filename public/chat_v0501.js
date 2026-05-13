@@ -153,7 +153,7 @@ if (isMobileDevice()) {
 // })
 // Handle paste events to clean Excel table formatting
 function checkShowSendBtn(){
-    if(message.innerText.trim() !== '' || fileInput.value){
+    if(message.innerText.trim() !='' || file){
         $('#chat_windowFooter #recordSection').prop('disabled', true).addClass('d-none');    
         $('#chat_windowFooter #button').prop('disabled', false).removeClass('d-none')
     }else{
@@ -362,17 +362,21 @@ var placeholderText = "پیام دهید ...";
 // Add the placeholder when the content is empty
 function setPlaceholder() {
     if (message.textContent.trim() === "") {
-        // message.textContent = placeholderText;
+        message.textContent = placeholderText;
         message.style.transform = `translateY(0px)`;
         replyBox.style.transform = `translateY(0px)`;
 
-    } 
+    } else if (message.textContent === placeholderText) {
+        message.textContent = "";
+    }
 }
 
 // Trigger placeholder logic on focus and blur
 message.addEventListener("focus", function() {
-    setPlaceholder();
-
+    if (message.textContent === placeholderText) {
+        message.textContent = "";
+        
+    }
 });
 
 message.addEventListener("blur", function() {
@@ -523,7 +527,7 @@ async function enqueueMessage(dataEncrypt, dataShow) {
     saveMessageQueue(queue);
 
     // Add to UI with "pending" status
-    await addMessageToChatUI({ ...dataShow, isPending: true, id: messageId }, true,null,null,"animate__faster animate__fadeIn");
+    await addMessageToChatUI({ ...dataShow, isPending: true, id: messageId }, true,null,null,"animate__fadeIn");
     
     init_message_ui()
     return messageId;
@@ -782,17 +786,14 @@ function prepareFileDetails(fileData) {
                     color:var(--color-peer-${username}) !important;border-radius: 5px var(--user-border-radius) var(--user-border-radius) var(--user-border-radius);
                     border: 2px solid var(--color-peer-${username}) !important;
                 "> 
-                <span id="upload-info" dir="auto">${name} درحال بارگزاری فایل... </span>
-                
+                <span id="upload-info" dir="auto">${name} درحال ارسال فایل است... </span>
                 <div class="progress">    
                     <div id="upload-progress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" value="0" max="100">
                         0%
                     </div>
                 </div>
-                <div class="row col-12">
-                    <span id="upload-status" class=" col-auto jdate"></span>
-                    <span class="loader d-none col-auto jdate">در حال ارسال...</span>
-                </div>
+                <span id="upload-status" class="jdate"></span>
+
             </div>
                 `);
         }
@@ -831,8 +832,7 @@ function prepareFileDetails(fileData) {
     socket.on("uploadProgress", (data) => {
         const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 120
         createUploadUI(data.user);
-        // if(data.progress == 100) $(`#${data.user}_upload-container .loader`).removeClass('d-none') TODO: work later
-        if(data.progress == 100) $(`#${data.user}_upload-container`).remove()
+        if(data.progress == 100)$(`#${data.user}_upload-container`).remove()
         $(`#${data.user}_upload-container #upload-progress`).val(data.progress).css('width',`${data.progress}%`);  
         $(`#${data.user}_upload-container #upload-status`).text(`${convertSize(data.loaded)} / ${convertSize(data.total)} `);
         $(`#${data.user}_upload-container #upload-progress`).text(`${Math.round(data.progress)}%`);
@@ -933,11 +933,9 @@ button.addEventListener("click", async () => {
     xhr.upload.onprogress = (e) => {
 
         let percent = (e.loaded / e.total) * 100;
-        if(percent == 100) {
-            $(`#${currentUser.username}_upload-container #upload-progress`).val(percent); 
-            $(`#${currentUser.username}_upload-container #upload-progress`).text(`${Math.round(percent)}%`);
-        }
         socket.emit("uploadProgress", { progress: percent , loaded: e.loaded, total: e.total});
+        $(`#${currentUser.username}_upload-container #upload-progress`).val(percent); 
+        $(`#${currentUser.username}_upload-container #upload-progress`).text(`${Math.round(percent)}%`);
     };
     xhr.onload = async () => {
         
@@ -946,14 +944,13 @@ button.addEventListener("click", async () => {
             try {
                 const response = JSON.parse(xhr.responseText);
                 fileData = response.fileData || response; // adjust depending on your server response
+                console.log("File:", response);
                 fileInput.value = '';
-
                 showAlert('فایل ارسال شد','success')
-                // setTimeout(async () => {
+                setTimeout(async () => {
                     await sendMessage(text, fileData, quote);
-                    socket.emit("uploadProgress", { progress: 100 , loaded: 0, total: 0});
 
-                // }, 500);
+                }, 500);
             } catch (err) {
                 console.error("Bad JSON from upload server", err);
                 showAlert("File uploaded but server response invalid", "warning");
@@ -1106,7 +1103,7 @@ async function sendMessage(text=null, fileData, quote) {
             console.log('send ID:', messID)
 
             // Show message immediately with "sending" state
-            tempMessageId = await addMessageToChatUI({ ...dataShow, isPending: true },null,null,null,"animate__faster animate__fadeInUp");
+            tempMessageId = await addMessageToChatUI({ ...dataShow, isPending: true },null,null,null,"animate__fadeInUp");
             init_message_ui()
         } else {
             // Offline → queue
@@ -1135,8 +1132,8 @@ async function sendMessage(text=null, fileData, quote) {
 // Helper: clear inputs
 function clearInputFields() {
     message.innerHTML = "";
-    // message.style.height = "36px";
-    // message.style.transform = `translateY(0px)`;
+    message.style.height = "36px";
+    message.style.transform = `translateY(0px)`;
     replyBox.style.transform = `translateY(0px)`;
     $('#file-input_res').addClass('d-none');
     fileData = "";
@@ -1152,7 +1149,6 @@ function sendWithRetry(dataEncrypt, dataShow, isRetry = false) {
     NEED_TO_RELOAD_ROOM_UI = true
     socket.emit("chat", dataEncrypt, (ack) => {
         if (ack && ack.success) {
-            $('#output .unread').remove()
             // Success: remove from queue if exists, update UI
             dequeueMessage(ack.messageId);
             updateMessageStatus(ack.messageId, 'sent'); // e.g., add ✓✓
@@ -1296,7 +1292,7 @@ socket.on("chat",async(data , ack) => {
                     shouldScroll = true  
                 }
             // همیشه پیام را اضافه کن  
-                await addMessageToChatUI(decryptedMessage,null,null,null,decryptedMessage.sender == currentUser.username ? '':"animate__faster animate__fadeInUp")
+                await addMessageToChatUI(decryptedMessage,null,null,null,decryptedMessage.sender == currentUser.username ? '':"animate__fadeInUp")
                     init_message_ui()
             if(shouldScroll){    
                     scrollDown()  
@@ -1310,7 +1306,7 @@ socket.on("chat",async(data , ack) => {
             //         if(output.querySelectorAll(".unread").length === 0){        
             //             decryptedMessage.readLine = true      
             //         }
-                    hasScrolledDown = false    
+            //         hasScrolledDown = false    
             //     }
             // }
         }
@@ -1633,24 +1629,8 @@ socket.on("joined", (data) => {
     // }
 
     if(document.querySelector(".close")) document.querySelector(".close").click();
-        $("#roomInfo").removeClass('d-none').html(`           
-                <!-- roomInfo -->
-                <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-1 mt-1">
-                
-                    <button type='button'  
-                        class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary' onclick='leaveRoom()'>
-                        <i class='bi fs-bold bi-arrow-left'></i>
-                    </button>    
-                <!-- Toggle button for mobile -->
-                    <button class="btn btn-secondary col-auto text-warning  " type="button"  data-bs-toggle="modal" data-bs-target="#roomInfo_modal" 
-                        aria-expanded="false" aria-controls="roomControls">
-                        <i class="bi bi-info-circle"></i> ${data.room.roomName}
-                    </button>
-                    <div id="headTag" class="col-12 row m-auto z-1" dir="auto" style=" text-align: center;"></div>
-                
-                </div>
-        `)
-        Promise.resolve($("#room_modal_div_placement").removeClass('d-none').html(`
+        Promise.resolve($("#roomInfo").removeClass('d-none').html(`           
+            <!-- roomInfo -->
             <div class="modal fade" id="roomInfo_modal" tabindex="-1" role="dialog" aria-labelledby="" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg" role="document">
                     <div class="modal-content">
@@ -1669,7 +1649,7 @@ socket.on("joined", (data) => {
                                     </label>
                                     <div class="input-group">       
                                         <input type="text" dir="auto" class="form-control col" name="roomID" value="${data.room.roomID}" readonly> 
-                                        <button class="btn btn-outline-secondary col-auto" type="button" onclick="copyToClipboard('${data.room.roomID}')">
+                                        <button class="btn btn-outline-secondary col-auto" type="button" onclick="copyToClipboard(${data.room.roomID}')">
                                         <i class="bi bi-copy"> رونوشت</i> 
                                         </button> 
                                         <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
@@ -1772,7 +1752,21 @@ socket.on("joined", (data) => {
                     </div>
                 </div>
             </div>
-            `)).then(()=>{
+            <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-1 mt-1">
+            
+                <button type='button'  
+                    class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary' onclick='leaveRoom()'>
+                    <i class='bi fs-bold bi-arrow-left'></i>
+                </button>    
+            <!-- Toggle button for mobile -->
+                <button class="btn btn-secondary col-auto text-warning  " type="button"  data-bs-toggle="modal" data-bs-target="#roomInfo_modal" 
+                    aria-expanded="false" aria-controls="roomControls">
+                    <i class="bi bi-info-circle"></i> ${data.room.roomName}
+                </button>
+                <div id="headTag" class="col-12 row m-auto z-1" dir="auto" style=" text-align: center;"></div>
+               
+            </div>
+    `)).then(()=>{
         // title="رفتن به فهرست اصلی" data-bs-toggle="tooltip" data-bs-placement="bottom"
         const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
         const $modal_body = $('#roomInfo_modal .modal-body')
@@ -1832,12 +1826,11 @@ socket.on("joined", (data) => {
     // Initialize tooltips
     $('[data-bs-toggle="tooltip"]').tooltip();
     $('#feedback').html('').addClass('d-none')
-    clearReply()
     Promise
         .resolve(
-            $('#roomList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0'))
+            $('#roomList_ul li.bg-primary-subtle').removeClass('bg-primary-subtle'))
         .then(
-            $(`#roomList_ul li#${data.room.roomID}`).addClass('bg-primary').removeClass('border-0'))
+            $(`#roomList_ul li#${data.room.roomID}`).addClass('bg-primary-subtle'))
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
@@ -2028,7 +2021,7 @@ const scrollDown = () => {
             // console.log("Unread marker position:", rect);
             unreadMarker.scrollIntoView({
                 behavior: "auto",
-                block: "nearest",
+                block: "center",
             });
             hasScrolledDown = true
         }
@@ -2138,79 +2131,30 @@ setTimeout(() => {
 }, 2000); // Adjust delay based on scroll duration
 };
 
-const scrollToUnread = async() => {
+const scrollToUnread = () => {
     scrolling=false
-    console.log(hasScrolledDown)
+
     if (!hasScrolledDown) { // Check if the scroll down hasn't already been triggered
-        output.scrollTo({
-            top: output.scrollHeight,
-            behavior: "auto", // اصلاح: استفاده از smooth به جای auto
+
+    var unreadMarker = document.querySelector(".unread");
+    if (unreadMarker) {
+        const rect = unreadMarker.getBoundingClientRect();
+        // console.log("Unread marker position:", rect);
+        unreadMarker.scrollIntoView({
+            behavior: "auto",
+            block: "center",
         });
-
-        var unreadMarker = document.querySelector(".unread");
-        // فرض می‌کنیم output کانتینر اصلی ماست
-
-        function scrollToBottomWhenImagesLoaded() {
-            const images = output.querySelectorAll('img');
-            let loadedCount = 0;
-
-            // اگر هیچ عکسی نیست، مستقیم اسکرول کن
-            if (images.length === 0) {
-                performScroll();
-                return;
-            }
-
-            images.forEach(img => {
-                // اگر عکس قبلاً لود شده (مثلاً از کش مرورگر)، فوراً شمارنده رو زیاد کن
-                if (img.complete) {
-                    loadedCount++;
-                } else {
-                    // اگر لود نشده، منتظر رویداد load بمون
-                    img.addEventListener('load', () => {
-                        loadedCount++;
-                        checkAllLoaded();
-                    });
-                    // برای اطمینان، رویداد error رو هم هندل کن تا اگر عکس خراب بود، گیر نکنه
-                    img.addEventListener('error', () => {
-                        loadedCount++;
-                        checkAllLoaded();
-                    });
-                }
-            });
-
-            function checkAllLoaded() {
-                console.log(loadedCount,',',images.length)
-
-                if (loadedCount === images.length) {
-                    performScroll();
-                }
-            }
-
-            function performScroll() {
-                if (unreadMarker) {
-                    const rect = unreadMarker.getBoundingClientRect();
-                    unreadMarker.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                    });
-                } else {
-                    output.scrollTo({
-                        top: output.scrollHeight,
-                        behavior: "smooth", // اصلاح: استفاده از smooth به جای auto
-                    });
-                }
-                hasScrolledDown = true;
-            }
-        }
-
-        // این تابع رو هر وقت محتوای جدید اضافه شد صدا بزن
-        scrollToBottomWhenImagesLoaded();
-
-         //  console.log(hasScrolledDown)
+    }else{
+        output.scrollTo({
+            top: output.scrollHeight, // Scroll to the bottom
+            behavior: "auto",            // Smooth scrolling
+        });
+    }
+         hasScrolledDown = true; // Set flag to true after scrolling down
+        //  console.log(hasScrolledDown)
     }
     $("#down").fadeOut(); // Show scroll-up button
     setTimeout(() => {
-        hasScrolledDown = true; // Set flag to true after scrolling down
         scrolling = true; // Re-enable user-driven scroll handling after scrolling completes
     }, 2000); // Adjust delay based on scroll duration
 };
@@ -2696,9 +2640,8 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         }
     }
     let messageStyle = ownMessage
-    // background: linear-gradient(135deg, #ffffff ,rgb(var(--user-bg-color)) 10%, rgb(var(--user-bg-color)) 30%, rgb(var(--user-bg-color)) 50%, rgb(var(--user-bg-color)) 90%, #ffffff )!important;
         ? ` 
-            background-color:   rgb(var(--user-bg-color)) !important;
+            background-color:rgb(var(--user-bg-color)) !important;
             color:rgb(var(--user-fg-color)) !important;
             font-size:${fontSize};
             border-radius: ${borderRadiusFalse()};`
@@ -2882,7 +2825,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
    const telegramAudio = (src,id) => {
         return `
         <div class="tg-player border-0 col-12 px-1" style="background-color:transparent;" data-ready="false" data-src="${src}" data-id="${id}" data-sender="${data.sender}">
-            <div class="row col-12 m-auto p-0 ">
+            <div class="d-flex col-12 m-auto p-0 ">
                 <div class="loader_voice">
                 </div>
                 <button class="btn btn-primary col-auto m-auto rounded-circle tg-play  mt-3" type="button" data-ctime='0'>
@@ -2891,7 +2834,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 
                 <div class="col px-2 row m-auto">
                     <div class="flex-grow-1 col-12 overflow-hidden m-auto">
-                        <canvas class="tg-canvas brder-bottom col-12" width="1080"></canvas>
+                        <canvas class="tg-canvas brder-bottom rounded col-12"></canvas>
                     </div>
                     <span class="col-auto position-relative d-flex">    
                         <small class="text-muted tg-time col-auto d-flex m-auto">0:00</small>
@@ -2905,7 +2848,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 <span class="playRate cursor-pointer border border-primary text-primary border-1 small mt-3  px-1 col-auto m-auto rounded" data-playrate='${voice_playbackRate}'>
                     X${voice_playbackRate}
                 </span>
-                <audio preload="metadata" src="${src}"  crossorigin="anonymous" controls class="d-none col-12 voice-message"></audio>
+                <audio preload="metadata" src="${src}"  crossorigin="anonymous"  class="col-12 voice-message"></audio>
             </div>
         </div>
                 `;
@@ -2917,7 +2860,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     
     contentToAdd += `
     <div id="Message-${messageId}" data-mess_org_id="${data.id}"
-         class="messageElm animate__animated ${animate} row ${isPending? `isPending_${messageId}`:''}" 
+         class="messageElm mb-1 animate__animated animate__faster ${animate} row ${isPending? `isPending_${messageId}`:''}" 
          date-id="${messageDate}" 
          style="${divStyle} align-items: center;" 
          sender="${data.sender}">
@@ -2929,8 +2872,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
             ${handler()}
             ${data.reply && data.reply!==null ? `
             <div class="col-12 ">
-                <div class="d-flex replyMessage gap-2 p-2 EmbeddedMessage cursor-pointer h-10rem position-relative m-2  peer-color-${ownMessage?`0`:`1`}" 
-                    data-reply-id="Message-${(data.quote).split('-')[1]}">
+                <div class="d-flex replyMessage gap-2 p-2 EmbeddedMessage cursor-pointer h-10rem position-relative m-2 peer-color-${ownMessage?`0`:`1`}" 
+                    data-reply-id="Message-${(data.quote).split('-')[1]}"
+                    style="
+                    display: flex;flex-direction: row; justify-content: space-between;
+                    ">
                     <span class="col-auto message-title" 
                         dir="rtl" 
                         style="${ownMessage? `color: rgb(var(--user-fg-color));`:`color: var(--color-peer-${data.reply.sender});`} font-style:italic;text-align:end;">
@@ -2938,7 +2884,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             ``
                         }
                     </span>
-                    <div  class="text-truncate d-inline-block" dir="auto">${(data.reply.message !==''? data.reply.message.replace(/<[^>]*>/g, '').replace(/\n/g, '') : `${data?.reply?.file ?capitalizeWord(data.reply.file.split('/')[0]?? ''):''} File` )}
+                    <div  style="display: flex;flex-direction: row;  justify-content: space-between;" dir="auto">${(data.reply.message !==''? data.reply.message.replace(/<br>/g,'') : `${data?.reply?.file ?capitalizeWord(data.reply.file.split('/')[0]?? ''):''} File` )}
                     </div>
                 </div>
             </div>` : ''}
@@ -2959,14 +2905,8 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             </div>
                             
                         ` : file.fileType === "application/pdf" ? `
-                            <div  class="row gap-2 col position-relative p-3" >
-                                <iframe class=" rounded pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')" loading="lazy"></iframe>
-                                <a 
-                                    href="https://mc.farahoosh.ir:4000${file.file}"
-                                    class="btn  m-auto btn-outline-primary">
-                                    <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
-                                    ${file.fileName || 'Unknown File'} <i class="bi bi-box-arrow-up-right"></i>
-                                </a>
+                            <div  class="col  position-relative" >
+                                <iframe class=" col-auto rounded pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')" loading="lazy"></iframe>
                             </div>
 
                         ` : file.fileType.startsWith("video/") ? `
@@ -3144,32 +3084,21 @@ function init_message_ui(){
     searchMessageReply()
     // Run the function to apply the functionality
     messageMenu()
-    // initTelegramAudioPlayers()
+    initTelegramAudioPlayers()
    
 }
-const observer = new MutationObserver(mutations => {
-    mutations.forEach(mutation => {
-        if (mutation.addedNodes.length) {
-            mutation.addedNodes.forEach((node) => {
-                // اگر خود نود پلیر باشه
-                if ($(node).hasClass('messageElm') && $(node).find('.tg-player').length) {
-                    $(node).find('.tg-player').each(function() {
-                        initTelegramAudioPlayers();
-                    });
-                }
+// const observer = new MutationObserver(mutations => {
+//     mutations.forEach(mutation => {
+//         initTelegramAudioPlayers()
+//     });
+// });
 
-            });
-        }
-    });
-});
-
-observer.observe(document.body, {
-    childList: true,
-    subtree: true
-});
-
+// observer.observe(document.body, {
+//     childList: true,
+//     subtree: true
+// });
 function initTelegramAudioPlayers(){
-    $('.tg-player').not('[data-ready="true"]').each(async function(){
+    $('.tg-player').not('[data-ready="true"]').each(function(){
 
 
         const player = $(this)
@@ -3182,9 +3111,6 @@ function initTelegramAudioPlayers(){
 
 
         let audio = player.find('audio.voice-message')[0]
-        if(!audio){
-            showAlert('X','info')
-        }
         const btn = player.find(".tg-play")  
         const btn_playRate = player.find(".playRate")  
         const loader = player.find(".loader_voice")  
@@ -3202,13 +3128,12 @@ function initTelegramAudioPlayers(){
 
 
         // تنظیم سایز فقط یکبار
-//         canvas.width = canvas.offsetWidth  
-        canvas.height = 100
+        canvas.width = canvas.offsetWidth  
+        canvas.height = 40
 
-        let audioCtx = null;
-        let buffer = null;
+
         let bars = []  
-        const maxBars = isMobileDevice ? 100 : 240
+        const maxBars = 120
         let isDragging = false
         loader.html(`
                 <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
@@ -3223,17 +3148,27 @@ function initTelegramAudioPlayers(){
             if (ds < 10) ds = "0" + ds;
             
             time.text(`${dm}:${ds}`);
-            btn.removeClass("d-none");
-            player.attr("data-ready","true")
-            loader.html("").addClass("d-none");
-            audio.playbackRate = voice_playbackRate
-            audio.currentTime = btn.attr('data-ctime') ?? 0;
 
-            
+            try {
+                // فراخوانی تابع بارگذاری
+                const { buffer, audioCtx } = await loadAudioBuffer();
+
+                // محاسبه ارتفاع نوارها (یک‌بار)
+                bars = computeBars(buffer, audioCtx); // فرض بر این است که computeBars به audioCtx نیاز دارد
+                
+                draw();
+                
+                // مخفی کردن لودر و نمایش دکمه
+                loader.html("").addClass("d-none");
+                btn.removeClass("d-none");
+                player.attr("data-ready","true")
+                audio.playbackRate = voice_playbackRate
+
+            } catch (error) {
+                console.error("خطا در بارگذاری صدا:", error);
+                alert("متأسفانه صدا بارگذاری نشد!");
+            }
         });
-        // فراخوانی تابع بارگذاری
-        
-        
 
         // resume state
         if(btn.attr('data-ctime') != 0 ){
@@ -3253,90 +3188,55 @@ function initTelegramAudioPlayers(){
             $('.tg-player .playRate').text(`X${speed}`).attr('data-playrate',speed)
         })
         // play / pause
-        let convert_on_err;
-        let playTimeout; // متغیر برای ذخیره تایمر
 
-        btn.off("click").on("click", async function () {
+        btn.off("click").on("click",async function () {
             try {
+                
 
-                // پاک کردن تایمر قبلی اگر کاربر سریع کلیک کرد
-                if (playTimeout) {
-                    clearTimeout(playTimeout);
-                }
-                await loadAudioBuffer();
-                console.log(buffer,audioCtx)
-                if(buffer.length>0 && audioCtx.length>0){
-                    // محاسبه ارتفاع نوارها (یک‌بار)
-                    bars = computeBars(buffer, audioCtx); // فرض بر این است که computeBars به audioCtx نیاز دارد
-                    
-                    draw();
-                    
-                    // مخفی کردن لودر و نمایش دکمه
-                }
+                audio.currentTime = btn.attr('data-ctime') ?? 0
 
 
-                // stop others
-                $("audio.voice-message").not(audio).each(function () {
-                    this.pause();
-                    $(this).closest(".tg-player")
-                        .find(".tg-play i")
-                        .attr("class", "bi bi-play-fill");
+                // stop others
+                $("audio.voice-message").not(audio).each(function () {
+                    this.pause()
+                    $(this).closest(".tg-player")
+                        .find(".tg-play i")
+                        .attr("class", "bi bi-play-fill")
 
-                    $(this).closest(".tg-player")
-                        .find(".tg-play");
-                });
 
-                if (audio.paused) {
-                    const dot = player.find("i.bi.bi-dot");
-                    if (dot.length > 0 && sender != currentUser.username) {
-                        socket.emit('voice_heared', { file_id });
+                    $(this).closest(".tg-player")
+                        .find(".tg-play")
+                })
+
+
+                if (audio.paused) {
+                    const dot = player.find("i.bi.bi-dot")  
+                    if(dot.length>0 && sender != currentUser.username){
+                        socket.emit('voice_heared',{file_id})
                     }
-                    let audio_now =audio.currentTime
-                    // شروع پخش
-                    audio.play().then(() => {
-                        // اگر پخش موفق بود، تایمر رو کنسل کن
-                        if (playTimeout) {
-                            clearTimeout(playTimeout);
-                            playTimeout = null;
-                        }
-                        icon.attr("class", "bi bi-pause-fill");
-                    }).catch(error => {
-                        // اگر پخش خطا داد یا بلاک شد، تایمر اجرا میشه
-                        console.log("Play failed or blocked:", error);
-                    });
 
-                    // تنظیم تایمر ۲ ثانیه‌ای
-                    playTimeout = setTimeout(() => {
-                        // چک کن که آیا ویس هنوز پخش نمیشه؟
-                        // اگر ویس پخش نشده بود (paused یا error)، کلاس رو بردار
-                        if (audio.paused || audio.error || audio_now == audio.currentTime) {
-                            audio.removeClass('d-none');
-                        }
-                        playTimeout = null;
-                    }, 2000);
+    //                 audio._audioCtx.resume()
+                    audio.play()
+                    icon.attr("class", "bi bi-pause-fill")
 
-                } else {
-                    audio.pause();
-                    icon.attr("class", "bi bi-play-fill");
-                    // اگر کاربر ویس رو متوقف کرد، تایمر قبلی رو هم پاک کن
-                    if (playTimeout) {
-                        clearTimeout(playTimeout);
-                        playTimeout = null;
-                    }
-                }
+
+                } else {
+
+
+                    audio.pause()
+                    icon.attr("class", "bi bi-play-fill")
+                }
             } catch (error) {
-                time.text(error.message);
+                time.text(error.message)
             }
-        });
+        })
 
 
         // time update
         audio.addEventListener("timeupdate",function(){
             try {
                 
-                   
-                draw()
-
+                
                 let cm = Math.floor(audio.currentTime/60)    
                 let cs = Math.floor(audio.currentTime%60)
                 let dm = Math.floor(audio.duration/60)    
@@ -3370,16 +3270,13 @@ function initTelegramAudioPlayers(){
         }
 
 
-        function seek(e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = getClientX(e) - rect.left;
-            
-            const percent = Math.max(0, Math.min(1, x / rect.width));
-            
-            const timeSeek = percent * audio.duration;
-            audio.currentTime = timeSeek;
-        }
-
+        function seek(e){
+            const rect = canvas.getBoundingClientRect()
+            const x = getClientX(e) - rect.left    
+            const percent = Math.max(0,Math.min(1,x / canvas.width))
+            const timeSeek = percent * audio.duration
+            audio.currentTime = timeSeek
+        }
 
 
         $(canvas).on("mousedown touchstart",function(e){
@@ -3404,58 +3301,19 @@ function initTelegramAudioPlayers(){
 
 
 /* ---------- 1️⃣ بارگذاری و تبدیل به AudioBuffer ---------- */
-
-
-        // تابع آماده‌سازی Context با رعایت قوانین موبایل
-        async function initAudioContext() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            // در iOS و برخی مرورگرهای موبایل، Context در حالت suspended است
-            // باید با تعامل کاربر (کلیک/لمس) فعال شود
-            if (audioCtx.state === 'suspended') {
-                await audioCtx.resume();
-            }
-            return audioCtx;
-        }
-
         async function loadAudioBuffer() {
-            try {
-                const response = await fetch(audio.currentSrc);
-                if (!response.ok) throw new Error("فایل صوتی یافت نشد");
-                
-                const arrayBuf = await response.arrayBuffer();
-                
-                // 1. ابتدا Context را آماده کن (اینجا باید بعد از تعامل کاربر باشد)
-                const ctx = await initAudioContext();
-                
-                // 2. دیکد کردن فایل صوتی
-                buffer = await ctx.decodeAudioData(arrayBuf);
-                
-                // 3. بررسی صحت بارگذاری (به جای .length از properties صحیح استفاده کن)
-                // buffer.length زمان کل فایل بر حسب ثانیه است
-                if (buffer && buffer.length > 0) {
-                    player.attr("data-ready", "true");
-                    
-                    // 4. محاسبه و رسم نوارها
-                    // فرض بر این است که computeBars و draw درست کار می‌کنند
-                    bars = computeBars(buffer, ctx); 
-                    draw();
-                    
-                    // نمایش دکمه پخش
-                    btn.removeClass("d-none");
-                } else {
-                    player.find('audio.voice-message').removeClass('d-none');
-                    throw new Error("فایل صوتی خالی یا نامعتبر است");
-                }
-                
-            } catch (error) {
-                console.error("خطا در بارگذاری صدا:", error);
-                showAlert(error.message);
-            }
+            const response = await fetch(audio.currentSrc);
+            const arrayBuf = await response.arrayBuffer();
+            
+            // ایجاد یا استفاده از Context موجود (اگر قبلاً ساخته شده)
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const buffer = await audioCtx.decodeAudioData(arrayBuf);
+            
+            player.attr("data-ready", "true");
+            
+            return { buffer, audioCtx };
         }
-
-
 
 
         /* ---------- 2️⃣ محاسبهٔ ارتفاع نوارها (یک‌بار) ---------- */
@@ -3478,38 +3336,16 @@ function initTelegramAudioPlayers(){
             return newBars;
         }
         const lightBgColor = getComputedStyle(document.documentElement).getPropertyValue('--user-fg-color').trim();
-        // تابع کمکی برای رسم مستطیل با گوشه‌های گرد
-        function fillRoundedRect(ctx, x, y, width, height, radius) {
-            ctx.beginPath();
-            ctx.moveTo(x + radius, y);
-            ctx.lineTo(x + width - radius, y);
-            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-            ctx.lineTo(x + width, y + height - radius);
-            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-            ctx.lineTo(x + radius, y + height);
-            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-            ctx.lineTo(x, y + radius);
-            ctx.quadraticCurveTo(x, y, x + radius, y);
-            ctx.closePath();
-            ctx.fill();
-        }
-
-       
 
         /* ---------- 3️⃣ تابع رسم ---------- */
         function draw() {
-            
             requestAnimationFrame(draw);
 
-            // اگر آدیو یا بوم آماده نیستند، خارج شو
+            // بررسی وجود آدیو و بوم
             if (!audio || !canvas || !ctx) return;
 
-            // اگر آدیو پخش نمیشه، نیازی به رندر نیست (مگر اینکه بخواهید فریم ثابت بمونه)
-            if (audio.paused || audio.ended) return;
-
-            // جلوگیری از خطای تقسیم بر صفر
-            if (audio.duration === 0) return;
-
+            // جلوگیری از تقسیم بر صفر
+            if (audio.duration === 0 || bars.length === 0) return;
 
             const progress = audio.currentTime / audio.duration;
             const playedBars = Math.floor(progress * bars.length);
@@ -3518,28 +3354,26 @@ function initTelegramAudioPlayers(){
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // رسم نوارهای غیرپخش‌شده (خاکستری)
-            // تنظیمات
-            const centerY = canvas.height / 2; // مرکز عمودی بوم
-
-            // رسم نوارهای پس‌زمینه (خاکستری/روشن)
-            ctx.fillStyle = `rgba(${lightBgColor}, 0.25)`;
+            ctx.fillStyle = `rgb(${lightBgColor},0.25)`;
             for (let i = 0; i < bars.length; i++) {
-                const barHeight = (bars[i] * 3)+4 >= canvas.height ?(canvas.height-4):(bars[i] * 3)+4;
-                const x = i * barWidth;
-                const y = centerY - (barHeight / 2); // محاسبه Y از مرکز
-                
-                fillRoundedRect(ctx, x, y, barWidth - 1, barHeight, 5); // 5 شعاع گوشه‌هاست
+                ctx.fillRect(
+                    i * barWidth,
+                    canvas.height - bars[i],
+                    barWidth - 1,
+                    bars[i]
+                );
             }
 
             // رسم نوارهای پخش‌شده (آبی)
             if (playedBars > 0) {
                 ctx.fillStyle = '#0d6efd';
                 for (let i = 0; i < playedBars; i++) {
-                    const barHeight = (bars[i] * 3)+4 >= canvas.height ?(canvas.height-4):(bars[i] * 3)+4;
-                    const x = i * barWidth;
-                    const y = centerY - (barHeight / 2); // محاسبه Y از مرکز
-                    
-                    fillRoundedRect(ctx, x, y, barWidth - 1, barHeight, 5);
+                    ctx.fillRect(
+                        i * barWidth,
+                        canvas.height - bars[i],
+                        barWidth - 1,
+                        bars[i]
+                    );
                 }
             }
         }
@@ -3741,14 +3575,6 @@ function addStickerReaction(reaction,messageId) {
     // Here, emit the reaction to the server or update the UI accordingly
     socket.emit("addReaction", { username: currentUser.username, messageId: message, reaction:reaction });
     var stickerPicker = document.getElementById(`emoji-${messageId}`);
-    const element = document.querySelector(`.messageRead[data-id="Message-${messageId}"]`);
-    if (element) {
-        element.scrollIntoView({
-            behavior: "smooth",
-            block: "center", // یا "center" بسته به نیاز
-        });
-    }
-
 
     stickerPicker.remove();
 
@@ -3846,7 +3672,7 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
         memberReaction.classList.remove('my-3')
 
     }
-    
+
 });
 // --------------------------------------------
 // read-info panel
@@ -4260,7 +4086,7 @@ function clearReply() {
         replyBox.innerHTML = ""; // Clear innerHTML after 300ms (adjust the time as needed)
     }, 300);  // This delay should match your CSS transition time    
     // replyBox.style.display = 'none';
-    $(replyBox).addClass('d-none')
+
     delete replyBox.dataset.replyId; // Remove the reply id
 }
 function toggleReplyBox(isVisible) {
@@ -4365,7 +4191,7 @@ async function editMessage(messageId) {
         if($el_edit.find('.edit_content').length>0) return
         const text_old = $el_edit.html()
         $messageElement.data('old-content',text_old)
-        Promise.resolve($el_edit.html(`
+        $el_edit.html(`
             <div contenteditable="true" id="message_edit_form_${messageId}" onpaste="handlePaste(event)" class="edit_content form-control">
                 ${text_old}
             </div>
@@ -4375,10 +4201,7 @@ async function editMessage(messageId) {
             <button class="btn btn-sm btn-secondary mt-1 cancel-edit-btn">
                 cancel
             </button>
-        `)).then(()=>{
-            $(`#output #message_edit_form_${messageId}`).focus()
-
-        })
+        `)
     
         $el_edit.find('.cancel-edit-btn').on('click', function () {
             const old = $messageElement.data('old-content');
@@ -4610,7 +4433,7 @@ function messageMenu() {
         $(`#messageMenu #copyMessage-${messageId}`).off().on("click",()=>{
             // Copy the innerHTML to the clipboard
             console.log(element.querySelector('.dataMessage').innerHTML)
-            copyToClipboard(element.querySelector('.dataMessage').textContent);
+            copyToClipboard(element.querySelector('.dataMessage').innerText);
 
             // Optional: Provide user feedback (e.g., show a success message)
             showAlert("Message copied to clipboard!","info");
@@ -4810,6 +4633,7 @@ function flushMessageQueue() {
         socket.emit("chat", item.encrypted, (ack) => {
             if (ack && ack.success) {
                 console.log(`Queued message sent successfully: ${item.id}`);
+                
                 // Update UI to show sent
                 updateMessageStatus(item.id, 'sent');
                 
