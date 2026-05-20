@@ -2154,12 +2154,12 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
 
             // Find user by username AND update socketID if needed
-            const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
+            const currentUser = socket.user;
 
             // پیدا کردن همه اعضای اتاق
                     // دریافت اطلاعات اتاق از دیتابیس
 
-            if (!currentUser ) {
+            if (!currentUser || !currentUser.username) {
                 throw new Error("User not found or not in a room.");
             }
             const check_room_permissions = await authinticate_room(roomID,currentUser.username)
