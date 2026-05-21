@@ -192,6 +192,7 @@ const skippTokenRefreshPaths = [
     "login",
     "logout",
     "js",
+    "img",
    ];
 app.use(async (req, res, next) => {
     // اگر این مسیر قرار نیست توکن ریفرش شود
