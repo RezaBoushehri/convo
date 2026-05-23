@@ -1,14 +1,38 @@
 // SOCKET UNIT
 const crypto = require("crypto");
-env = require("dotenv"),
-
+const jwt = require('jsonwebtoken'),
+        env = require("dotenv")
 env.config();
 
 const socketSecretKey = Buffer.from(process.env.SOCKET_SECRET_KEY, 'hex');
-
+const SSO_SECRET_TOKEN = process.env.SSO_SECRET_TOKEN
 const AES_SECRET_KEY = '56ca69fbace71736c278a4e47137a9be'; // دقیقا 32 بایت
 const AES_IV = crypto.randomBytes(16); // Initialization Vector
 
+function verifySSOToken(token, secretKey=SSO_SECRET_TOKEN) {
+    try {
+        const decoded = jwt.verify(token, secretKey, {
+            issuer: 'sso-service',
+            audience: 'metachat'
+        });
+        console.log(decoded)
+        // بررسی انقضا
+        if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+            throw new Error('Token expired');
+        }
+        
+        return {
+            valid: true,
+            payload: decoded
+        };
+    } catch (error) {
+        console.error('JWT verification error:', error.message);
+        return {
+            valid: false,
+            error: error.message
+        };
+    }
+}
 // رمزنگاری AES-256
 function encryptAES256(text, key = AES_SECRET_KEY) {
     // اگر کلید رشته است، آن را به بافر مناسب تبدیل کنید
@@ -98,4 +122,5 @@ module.exports = {
     encryptAES256_send_notif,
     decryptAES256,
     decrypt,
+    verifySSOToken,
     socketDecrypt};

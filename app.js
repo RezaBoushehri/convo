@@ -39,7 +39,7 @@ const DOMPurify = createDOMPurify(window);
     // cron = require('node-cron'),
     getMessagesUpToYesterday_file_delete = require('./services/getYesterdayMessages'),
     {deleteFile,room_managament,room_delete_messages,delete_OrphanFiles} = require('./services/del_room'),
-    {socketEncrypt,socketDecrypt,encryptAES256,decryptAES256,decrypt} = require('./services/encryption'),
+    {socketEncrypt,socketDecrypt,encryptAES256,decryptAES256,verifySSOToken,decrypt} = require('./services/encryption'),
     { message_encryption,
         message_encryption_map,
         sendBackupToPHP,
@@ -83,6 +83,7 @@ app.use(cors(corsOptions));
 const secretKey = process.env.SECRETKEY;
 const SECRET_KEY_RTSP = process.env.SECRETKEY_RTSP;
 const SECRET_KEY_TOKEN_AUTOLOGIN = process.env.SECRETKEY_LOGIN;
+const SSO_SECRET_TOKEN = process.env.SSO_SECRET_TOKEN
 
 
 function sanitizeMessage(message) {  
@@ -546,7 +547,133 @@ app.post("/login", async (req, res, next) => {
     
 });
 
-
+app.get('/sso/callback', async (req, res) => {
+    try {
+        console.log('=== SSO CALLBACK REQUEST ===');
+        console.log('Query params:', req.query);
+        
+        const token = req.query.token;
+        const redirectPath = req.query.redirect || '/';
+        
+        if (!token) {
+            console.error('No token provided');
+            return res.redirect('/login?error=no_sso_token');
+        }
+        
+        // بررسی توکن
+        const verification = verifySSOToken(token, SSO_SECRET_TOKEN);
+        
+        if (!verification.valid) {
+            console.error('Invalid token:', verification.error);
+            return res.redirect('/login?error=invalid_sso_token');
+        }
+        
+        const payload = verification.payload;
+        console.log('Token payload:', payload);
+        
+        // دریافت uid از payload (که همان _id کاربر در دیتابیس است)
+        const userId = payload.uid;
+        const domain = payload.domain;
+        const redirectPathFromPayload = payload.redirectPath || redirectPath;
+        
+        if (!userId || !domain) {
+            console.error('Missing uid or domain in token');
+            return res.redirect('/login?error=invalid_token_data');
+        }
+        
+        // بررسی دامنه
+        if (domain !== 'metachat') {
+            console.error('Invalid domain:', domain);
+            return res.redirect('/login?error=invalid_domain');
+        }
+        
+        console.log(`Valid token received for User ID: ${userId}`);
+        
+        // پیدا کردن کاربر بر اساس _id
+        const user = await User.findById(userId);
+        
+        if (!user) {
+            console.error(`User not found with ID: ${userId}`);
+            return res.redirect('/login?error=user_not_found');
+        }
+        
+        console.log(`User found: ${user.username} (${user._id})`);
+        
+        // بررسی فعال بودن کاربر
+        if (user.isActive === false) {
+            console.error(`User is inactive: ${user.username}`);
+            return res.redirect('/login?error=account_disabled');
+        }
+        
+        // لاگین کاربر با استفاده از passport
+        req.login(user, async (loginErr) => {
+            if (loginErr) {
+                console.error('Login error:', loginErr);
+                return res.redirect('/login?error=login_failed');
+            }
+            
+            // ذخیره اطلاعات در سشن
+            req.session.username = user.username;
+            req.session.userId = user._id;
+            req.session.sso_logged_in = true;
+            req.session.sso_uid = userId;
+            
+            console.log(`User logged in via SSO: ${user.username}`);
+            
+            // ایجاد توکن autoLogin برای لاگین مجدد
+            try {
+                const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000;
+                const expires = new Date(exp_time);
+                const crypto = require('crypto');
+                const autoLoginToken = crypto.randomBytes(32).toString('hex');
+                
+                // ذخیره توکن در دستگاه‌های کاربر
+                await User.updateOne(
+                    { _id: user._id },
+                    {
+                        $push: {
+                            devices: {
+                                $each: [{
+                                    token: autoLoginToken,
+                                    ip: req.ip,
+                                    domain: 'sso',
+                                    userAgent: req.headers['user-agent'],
+                                    createdAt: new Date(),
+                                    expiresAt: expires
+                                }],
+                                $slice: -5
+                            }
+                        }
+                    }
+                );
+                
+                // ست کردن کوکی autoLogin
+                res.cookie("autoLogin", autoLoginToken, {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: "lax",
+                    path: "/",
+                    expires: expires
+                });
+                
+                console.log(`AutoLogin cookie set for user: ${user.username}`);
+                
+            } catch (err) {
+                console.error('Error setting autoLogin cookie:', err);
+            }
+            
+            // ریدایرکت به صفحه مورد نظر
+            const finalRedirectPath = redirectPathFromPayload === '/' ? '/' : redirectPathFromPayload;
+            console.log(`Redirecting to: ${finalRedirectPath}`);
+            
+            res.redirect(finalRedirectPath);
+        });
+        
+    } catch (error) {
+        console.error('SSO Callback error:', error);
+        res.redirect('/login?error=callback_error');
+    }
+});
 
   
 app.post("/register", (req, res) => {
@@ -1221,7 +1348,96 @@ app.get("/sitemap.xml", function (req, res) {
 //     // res.status(404).render("404");
 // });
 
+app.get('/SSO/admin/import-users', async (req, res) => {
+    try {
+        const clientIP = req.ip || req.connection.remoteAddress;
 
+        // بررسی ادمین بودن
+        const allowedRanges = [
+            "127.0.0.1", 
+            "::1",
+            "172.16.28.0/24",  // existing range
+            "94.74.128.194",   // additional IP
+            "94.74.128.193"    // additional IP
+        ];
+        const ipIsAllowed = allowedRanges.some(range => ipRangeCheck(clientIP, range));
+        
+        if (!ipIsAllowed) {
+            console.log(clientIP)
+            return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
+        }
+        
+        if ((!req.user || req.user.username !== '09173121943') && !ipIsAllowed) {
+            return res.status(403).json({ error: "Access denied" });
+        }
+        
+        // Validate that User model exists
+        if (!User) {
+            throw new Error("User model not defined");
+        }
+        
+        // Fetch all users with username and _id
+        const users = await User.find({}, { _id: 1, username: 1, phone: 1 }).lean();
+        
+        if (!users || users.length === 0) {
+            return res.status(404).json({ error: "No users found" });
+        }
+        
+        // Prepare data for axios post
+        const usersData = users.map(user => ({
+            phone: user.phone || user.username,
+            domains: [{
+                domain: "metachat",
+                uid: user._id
+            }]
+        }));
+        
+        // Make axios post request
+        const axios = require('axios');
+        const phoneFromQuery = req.query.id || req.query.phone;
+        
+        if (!phoneFromQuery) {
+            return res.status(400).json({ error: "Missing phone/id query parameter" });
+        }
+        const response = await axios.post(`https://127.0.0.1:1382/api/admin/import-users?id=${encodeURIComponent(phoneFromQuery)}`, {
+            users: usersData
+        }, {
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            timeout: 30000 // 30 second timeout
+            , httpsAgent: new https.Agent({
+                rejectUnauthorized: false  // This ignores self-signed certificate errors
+            })
+        });
+        
+        // Send success response
+        res.status(200).json({
+            message: "Users imported successfully",
+            importedCount: usersData.length,
+            remoteResponse: response.data
+        });
+        
+    } catch(e) {
+        console.error("Import error:", e.message);
+        if (e.response) {
+            // The request was made and the server responded with a status code outside 2xx
+            console.error("Remote server response:", e.response.data);
+            res.status(500).json({ 
+                error: "Remote server error", 
+                details: e.response.data,
+                status: e.response.status
+            });
+        } else if (e.request) {
+            // The request was made but no response received
+            console.error("No response from remote server");
+            res.status(500).json({ error: "Remote server unreachable" });
+        } else {
+            // Something happened in setting up the request
+            res.status(500).json({ error: "Internal server error", details: e.message });
+        }
+    }
+});
 server.listen(port, '0.0.0.0', () => console.log(`Listening on ${port}`));
 
 
