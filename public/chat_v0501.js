@@ -2883,13 +2883,13 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         return `
         <div class="tg-player border-0 col-12 px-1" style="background-color:transparent;" data-ready="false" data-src="${src}" data-id="${id}" data-sender="${data.sender}">
             <div class="row col-12 m-auto p-0 ">
-                <div class="loader_voice">
+                <div class="d-none loader_voice">
                 </div>
-                <button class="btn btn-primary col-auto m-auto rounded-circle tg-play  mt-3" type="button" data-ctime='0'>
+                <button class="d-none btn btn-primary col-auto m-auto rounded-circle tg-play  mt-3" type="button" data-ctime='0'>
                     <i class="bi bi-play-fill"></i>
                 </button>
                 
-                <div class="col px-2 row m-auto">
+                <div class="d-none col px-2 row m-auto">
                     <div class="flex-grow-1 col-12 overflow-hidden m-auto">
                         <canvas class="tg-canvas brder-bottom col-12" width="1080"></canvas>
                     </div>
@@ -2902,10 +2902,10 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         `}
                     </span>
                 </div>
+                <audio preload="metadata" src="${src}"  crossorigin="anonymous" controls class="d-none col controls voice-message"></audio>
                 <span class="playRate cursor-pointer border border-primary text-primary border-1 small mt-3  px-1 col-auto m-auto rounded" data-playrate='${voice_playbackRate}'>
                     X${voice_playbackRate}
                 </span>
-                <audio preload="metadata" src="${src}"  crossorigin="anonymous" controls class="d-none col-12 voice-message"></audio>
             </div>
         </div>
                 `;
@@ -3181,9 +3181,12 @@ function initTelegramAudioPlayers(){
 
 
 
-        let audio = player.find('audio.voice-message')[0]
+        let audio = player.find('audio.voice-message').first()
         if(!audio){
             showAlert('X','info')
+        }else{
+            audio.removeClass('d-none');
+
         }
         const btn = player.find(".tg-play")  
         const btn_playRate = player.find(".playRate")  
