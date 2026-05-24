@@ -9,7 +9,7 @@ middlewareObj.isLoggedIn = (req, res, next) => {
         if (req.session) {  
             req.session.redirectUrl = req.headers.referer || req.originalUrl || req.url;  
         }  
-        res.redirect('/login');
+        res.redirect('/metachat/login');
     } else {
         next();  
     }  

@@ -197,6 +197,7 @@ const skippTokenRefreshPaths = [
    ];
 app.use(async (req, res, next) => {
     // اگر این مسیر قرار نیست توکن ریفرش شود
+    console.log(req.path)
     const path_splited = req.path.split('/')
     // console.log(req.path)
     const token_update = !(skippTokenRefreshPaths).includes(path_splited[1])
@@ -346,12 +347,12 @@ app.get("/:path", async (req, res, next) => {
     
     // بررسی مسیرهای خاص
     if (path === 'undefined') {
-        return res.redirect('/');
+        return res.redirect('/metachat/');
     }
 
     if (path.includes('profile')) {
         if (!req.user) {
-            return res.redirect('/login');
+            return res.redirect('/metachat/login');
         }
 
         const username = req.user.username;
@@ -364,6 +365,7 @@ app.get("/:path", async (req, res, next) => {
 
 
 app.get("/", middleware.isLoggedIn,async (req, res) => {
+    
     const username = req.user.username?? null; // Assuming username is stored in req.user
     const token = req.cookies.autoLogin ;
 
@@ -388,10 +390,10 @@ app.get("/", middleware.isLoggedIn,async (req, res) => {
         }
     })
     if(username) {
-        res.render("index", { roomID: "" ,rgbToHex, removePx, username: username});
+        return res.render("index", { roomID: "" ,rgbToHex, removePx, username: username});
     }
     else{
-        res.redirect("/login");
+        return res.render("/metachat/login");
     }   
 
 });
@@ -445,7 +447,7 @@ app.post("/login", async (req, res, next) => {
         const user = await User.findByUsername(sanitizedUsername);
         if (!user) {
             // User not found
-            return res.redirect(`/login?error=${encodeURIComponent("Username or Password is wrong")}`);
+            return res.redirect(`/metachat/login?error=${encodeURIComponent("Username or Password is wrong")}`);
         }
     
         // Direct comparison for cleartext password
@@ -455,11 +457,11 @@ app.post("/login", async (req, res, next) => {
         // const valid = await bcrypt.compare(req.body.password, user.password);
 
         // if (!valid) {
-        //     return res.redirect("/login?error=Invalid Password");
+        //     return res.redirect("/metachat/login?error=Invalid Password");
         // }   
         if (req.body.password !== user.password) {
             // Invalid password
-            return res.redirect(`/login?error=${encodeURIComponent("Username or Password is wrong")}`);
+            return res.redirect(`/metachat/login?error=${encodeURIComponent("Username or Password is wrong")}`);
         }
     
         passport.authenticate("local", async (err, authenticatedUser, info) => {
@@ -471,7 +473,7 @@ app.post("/login", async (req, res, next) => {
     
             if (!user) {
                 // Authentication failed
-                return res.redirect(`/login?error=${encodeURIComponent("Authentication Failed")}`);
+                return res.redirect(`/metachat/login?error=${encodeURIComponent("Authentication Failed")}`);
             }
     
             req.logIn(user, async (err) => {
@@ -533,7 +535,7 @@ app.post("/login", async (req, res, next) => {
                 if (req.session.redirectUrl && req.session.redirectUrl.startsWith("/join/")) {
                     res.redirect(req.session.redirectUrl); // Redirect to the URL starting with /join/
                 } else {
-                    res.redirect("/"); // Default redirect after login
+                    res.redirect("/metachat/"); // Default redirect after login
                 }
     
             });
@@ -557,7 +559,7 @@ app.get('/sso/callback', async (req, res) => {
         
         if (!token) {
             console.error('No token provided');
-            return res.redirect('/login?error=no_sso_token');
+            return res.redirect('/metachat/login?error=no_sso_token');
         }
         
         // بررسی توکن
@@ -565,7 +567,7 @@ app.get('/sso/callback', async (req, res) => {
         
         if (!verification.valid) {
             console.error('Invalid token:', verification.error);
-            return res.redirect('/login?error=invalid_sso_token');
+            return res.redirect('/metachat/login?error=invalid_sso_token');
         }
         
         const payload = verification.payload;
@@ -578,13 +580,13 @@ app.get('/sso/callback', async (req, res) => {
         
         if (!userId || !domain) {
             console.error('Missing uid or domain in token');
-            return res.redirect('/login?error=invalid_token_data');
+            return res.redirect('/metachat/login?error=invalid_token_data');
         }
         
         // بررسی دامنه
         if (domain !== 'metachat') {
             console.error('Invalid domain:', domain);
-            return res.redirect('/login?error=invalid_domain');
+            return res.redirect('/metachat/login?error=invalid_domain');
         }
         
         console.log(`Valid token received for User ID: ${userId}`);
@@ -594,7 +596,7 @@ app.get('/sso/callback', async (req, res) => {
         
         if (!user) {
             console.error(`User not found with ID: ${userId}`);
-            return res.redirect('/login?error=user_not_found');
+            return res.redirect('/metachat/login?error=user_not_found');
         }
         
         console.log(`User found: ${user.username} (${user._id})`);
@@ -602,14 +604,14 @@ app.get('/sso/callback', async (req, res) => {
         // بررسی فعال بودن کاربر
         if (user.isActive === false) {
             console.error(`User is inactive: ${user.username}`);
-            return res.redirect('/login?error=account_disabled');
+            return res.redirect('/metachat/login?error=account_disabled');
         }
         
         // لاگین کاربر با استفاده از passport
         req.login(user, async (loginErr) => {
             if (loginErr) {
                 console.error('Login error:', loginErr);
-                return res.redirect('/login?error=login_failed');
+                return res.redirect('/metachat/login?error=login_failed');
             }
             
             // ذخیره اطلاعات در سشن
@@ -663,7 +665,7 @@ app.get('/sso/callback', async (req, res) => {
             }
             
             // ریدایرکت به صفحه مورد نظر
-            const finalRedirectPath = redirectPathFromPayload === '/' ? '/' : redirectPathFromPayload;
+            const finalRedirectPath = redirectPathFromPayload === '/' ? '/metachat/' : redirectPathFromPayload;
             console.log(`Redirecting to: ${finalRedirectPath}`);
             
             res.redirect(finalRedirectPath);
@@ -671,7 +673,7 @@ app.get('/sso/callback', async (req, res) => {
         
     } catch (error) {
         console.error('SSO Callback error:', error);
-        res.redirect('/login?error=callback_error');
+        res.redirect('/metachat/login?error=callback_error');
     }
 });
 
@@ -680,7 +682,7 @@ app.post("/register", (req, res) => {
     const clientIP = req.ip || req.connection.remoteAddress;
     if(!req?.user?.username) return res.status(404);  
     const username = req.user.username; // Assuming username is stored in req.user
-    if(username !== '09173121943')res.redirect("/login?error=Access Denied.");
+    if(username !== '09173121943')res.redirect("/metachat/login?error=Access Denied.");
     const allowedRanges = [
         "172.16.28.0/24",  // existing range
         "94.74.128.194",   // additional IP
@@ -706,10 +708,10 @@ app.post("/register", (req, res) => {
     User.register(newUser, req.body.password, (error, user) => {
         if (error) {
             console.log(error.message);
-            return res.redirect("/");
+            return res.redirect("/metachat/");
         }
         passport.authenticate("local")(req, res, function () {
-            res.redirect("/");
+            res.redirect("/metachat/");
         });
     });
 });
@@ -1329,7 +1331,7 @@ path: "/",
 
 
 // 5) Respond
-res.redirect("/login");
+res.redirect("/metachat/login");
 });
 });
 } catch (e) {
