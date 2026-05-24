@@ -24,7 +24,7 @@ function refToast(data, toastContainerId = 'toastContainer') {
             onclick="
                     ${link_action()}
                 "
-            ${typeof join ==='undefined'? `href="/join/${data?.roomID}"`:''}
+            ${typeof join ==='undefined'? `href="/metachat/join/${data?.roomID}"`:''}
             >
             <i class="bi bi-link-45deg">دیدن</i>
         </a>
@@ -81,7 +81,7 @@ function showBrowserNotification(sender,messageContent,roomID) {
     
                     // بررسی همه تب‌های باز برای پیدا کردن تب چت
                     for (let i = 0; i < window.length; i++) {
-                        if (window[i].location.href.includes(`/join/${roomID}`)) {
+                        if (window[i].location.href.includes(`/metachat/join/${roomID}`)) {
                             chatTab = window[i];
                             break;
                         }
@@ -91,7 +91,7 @@ function showBrowserNotification(sender,messageContent,roomID) {
                     if (chatTab) {
                         chatTab.focus();
                     } else {
-                        window.open(`${href}/join/${roomID}`, "_blank");
+                        window.open(`${href}/metachat/join/${roomID}`, "_blank");
                     }
                 };
             }

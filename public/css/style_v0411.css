@@ -1320,7 +1320,7 @@ img{
 }
 
 .backgroundImg[data-bs-theme=light] {
-    background-image: url('/img/social-media-doodle_light.png'); /* Replace with your image path */
+    background-image: url('https://mc.farahoosh.ir/metachat/img/social-media-doodle_light.png'); /* Replace with your image path */
     /* Background image like WhatsApp or Telegram */
     background-repeat: repeat;
     background-position: center;
@@ -1337,7 +1337,7 @@ img{
 }
 
 .backgroundImg[data-bs-theme=dark] {
-    background-image: url('/img/social-media-doodle_light.png'); /* Replace with your image path */
+    background-image: url('https://mc.farahoosh.ir/metachat/img/social-media-doodle_light.png'); /* Replace with your image path */
     /* Background image like WhatsApp or Telegram */
     background-repeat: repeat;
     background-position: center;

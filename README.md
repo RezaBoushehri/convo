@@ -76,6 +76,6 @@ pm2 stop app.js
     "secure": true,
     "username": "root",
     "password": "Farah00sh@.ir",
-    "remotePath": "/usr/Projects/Reza/metaChat/",
+    "remotePath": "/usr/Projects/Rezahttps://mc.farahoosh.ir/metachat/",
     "uploadOnSave": true
 }

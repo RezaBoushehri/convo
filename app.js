@@ -55,7 +55,7 @@ const DOMPurify = createDOMPurify(window);
      
     io = socket(server, {
         cors: {
-            origin: "https://localhost:4000", // Replace with your client URL
+            origin: ["https://localhost:4000","https://mc.farahoosh.ir"], // Replace with your client URL
             methods: ["GET", "POST"],
             credentials: true,
         },
@@ -73,7 +73,7 @@ env.config();
 // Set up CORS (if needed for front-end)
 const corsOptions = {
     
-    origin:  ['https://mc.farahoosh.ir'], // replace with your front-end domain
+    origin:  ['https://mc.farahoosh.ir' , 'https://mc.farahoosh.ir:4000'], // replace with your front-end domain
     methods: ['GET', 'POST'],
     credentials: true
 };

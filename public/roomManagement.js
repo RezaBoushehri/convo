@@ -84,7 +84,7 @@ const joinRoom = () => {
     // Show loading animation if applicable
     $loadingElement.removeClass('d-none').addClass('show')
     // Redirect to the new URL with roomID
-    window.location.href = `/join/${roomID}`;
+    window.location.href = `/metachat/join/${roomID}`;
 };
 
 
@@ -157,7 +157,7 @@ socket.on("leftRoom", ({ roomID }) => {
 
     roomID = ''
 
-    const newUrl = `/${side_cantact_hide ? `?side=${side_cantact_hide}` : ''}`;
+    const newUrl = `/metachat/${side_cantact_hide ? `?side=${side_cantact_hide}` : ''}`;
     $loadingElement.addClass('d-none').removeClass('show')
 
     // 3. Update the URL without reloading the page
@@ -166,12 +166,12 @@ socket.on("leftRoom", ({ roomID }) => {
     // Refresh the page after leaving the room
     // window.location.reload(); // This will refresh the page and reset the UI
     // window.location.href = `/`;
+    localStorage.removeItem('last_room_joined_MC')
 });
    // Notify other users when someone leaves
 socket.on("userLeft", ({ name, roomID }) => {
     // console.log(`${username} has left the room: ${roomID}`);
     // Update the UI to reflect the user's departure
-    localStorage.removeItem('last_room_joined_MC')
     showAlert(`${name} left the chat.`,'info')
 });
 

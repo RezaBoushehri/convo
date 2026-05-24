@@ -1621,7 +1621,7 @@ socket.on("joined", (data) => {
     $('.modal-backdrop').remove();
 
     // 2. Construct the new URL with the existing 'side' parameter
-    const newUrl = `/join/${data.room.roomID}${side_cantact_hide ? `?side=${side_cantact_hide}` : ''}`;
+    const newUrl = `/metachat/join/${data.room.roomID}${side_cantact_hide ? `?side=${side_cantact_hide}` : ''}`;
 
     // 3. Update the URL without reloading the page
     history.pushState({}, '', newUrl);
