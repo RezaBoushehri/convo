@@ -1,12 +1,16 @@
 :root,[data-bs-theme=dark]{
   --primary-bg: #272727;
-  --rev-primary-bg: #f4f4f4;
+  --rev-primary-bg: #ffff;
   --light-bg: #52565a;
   --primary-text: #ffffff;
   --footer-btn-color: "255, 255, 255"
   --secondary-text: #8e9da5;
   /* --accent: #3498db; */
   --accent: #9a13d5;
+  --accent-1: #b024ec;
+  --accent-2: #bb69de;
+  --accent-3: #c063e7;
+  --accent-fade: #9a13d5;
   --bg-header: #1d2125;
   --border-radius: 12px;
   --user-theme-bg: none;
@@ -15,7 +19,7 @@
   --bs-secondary-color: var(--light-bg)
 }
 :root,[data-bs-theme=light]{
-  --primary-bg: #f4f4f4;
+  --primary-bg: #ffff;
   --rev-primary-bg: #272727;
   --light-bg: #cfd5dbac;
   --primary-text: #000000;
@@ -23,6 +27,10 @@
   --secondary-text: #8e9da5;
   /* --accent: #3498db; */
   --accent: #9a13d5;
+  --accent-1: #b024ec;
+  --accent-2: #bb69de;
+  --accent-3: #c063e7;
+  --accent-fade: #9b13d51e;
   --bg-header: #ffffff;
   --border-radius: 12px;
   --user-theme-bg: none;
@@ -49,7 +57,7 @@ html, body {
 
 /* Main container pinned under the header */
 #mainWrapper {
-    height: calc(100vh - 74px);
+    height: calc(100vh - 68px);
 }
 
 /* Sidebar (contact list) */
@@ -217,16 +225,119 @@ html, body {
     --bs-btn-disabled-border-color: var(--rev-primary-bg);
     --bs-gradient: none;
 }
+.btn-primary {
+    /* تنظیم رنگ متن */
+    --bs-btn-color: #0a306a;
+    
+    /* تعریف گرادیانت متحرک */
+    --bs-btn-bg: linear-gradient(
+        50deg, 
+        rgb(79, 160, 255) 0%, 
+        rgb(52, 107, 241) 35%, 
+        rgb(104, 164, 247) 70%, 
+        rgb(52, 107, 241) 100%
+    );
+    /* 50deg, rgb(52, 107, 241) 33.06%, rgb(49, 134, 255) 48.67%, rgb(79, 160, 255) 65.69%); */
+
+    /* اعمال گرادیانت به عنوان پس‌زمینه */
+    background-image: var(--bs-btn-bg);
+    background-size: 200% 200%; /* مهم: بزرگ‌تر کردن بوم برای حرکت */
+    animation: oceanWave 8s ease infinite; /* انیمیشن */
+    
+    --bs-btn-border-color: #0d6efd;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    
+    /* حالت فعال */
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #0d6efd;
+    --bs-btn-active-border-color: #0d6efd;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    
+    /* حالت غیرفعال */
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: linear-gradient(45deg, #9edbff, #5398ff);
+    --bs-btn-disabled-border-color: linear-gradient(45deg, #9edbff, #5398ff);
+}
+
+/* تعریف انیمیشن موج اقیانوس */
+@keyframes oceanWave {
+    0% {
+        background-position: 0% 50%;
+    }
+    5% {
+        background-position: 50% 50%;
+    }
+    30% {
+        background-position: 50% 100%;
+    }
+    60% {
+        background-position: 100% 100%;
+    }
+    75% {
+        background-position: 100% 50%;
+    }
+    85% {
+        background-position: 50% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* نکته: اگر بوت‌سترپ روی دکمه background-image ست می‌کنه، 
+   ممکنه نیاز باشه !important بذاری یا اولویت CSS رو چک کنی */
+.btn-primary,.btn-primary:hover {
+    background-image: var(--bs-btn-bg) !important;
+}
+.bg-primary,.btn-outline-primary:hover {
+    --bs-btn-bg: linear-gradient(
+        50deg, 
+        rgb(79, 160, 255) 0%, 
+        rgb(52, 107, 241) 35%, 
+        rgb(104, 164, 247) 70%, 
+        rgb(52, 107, 241) 100%
+    );
+    background-image: var(--bs-btn-bg);
+    background-size: 200% 200%; /* مهم: بزرگ‌تر کردن بوم برای حرکت */
+
+    animation: oceanWave 8s ease infinite; /* انیمیشن */
+
+}
+.btn-meta {
+    background-image: var(--bs-btn-bg) !important;
+    background-size: 200% 200%; /* مهم: بزرگ‌تر کردن بوم برای حرکت */
+    animation: oceanWave 8s ease infinite; /* انیمیشن */
+    
+}
+
+.btn-primary:hover {
+    --bs-btn-bg: linear-gradient(
+        50deg, 
+        rgb(169, 189, 212) 0%, 
+        rgb(52, 107, 241) 35%, 
+        rgb(69, 143, 247) 70%, 
+        rgb(52, 107, 241) 100%
+    );
+    --bs-btn-border-color: var(--rev-primary-bg);
+}
+
 .btn-meta{
-    --bs-btn-color: #fff;
-    --bs-btn-bg: var(--accent);
+    --bs-btn-color: #5d147c;
+    --bs-btn-bg: linear-gradient(
+        50deg, 
+        var(--accent) 0%, 
+        var(--accent-1) 35%, 
+        var(--accent-2) 70%, 
+        var(--accent-3) 100%
+    );
+    /* --bs-btn-bg: var(--accent); */
     --bs-btn-border-color: var(--accent);
     --bs-btn-hover-color: #fff;
     --bs-btn-hover-bg: var(--accent);
-    --bs-btn-hover-border-color: #840db7;
+    --bs-btn-hover-border-color: var(--accent-3);
     --bs-btn-focus-shadow-rgb: 49, 132, 253;
     --bs-btn-active-color: #fff;
-    --bs-btn-active-bg: #840db7;
+    --bs-btn-active-bg: var(--accent-3);
     --bs-btn-active-border-color: #72139a;
     --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
     --bs-btn-disabled-color: #fff;
@@ -267,7 +378,6 @@ html, body {
 }
 .messageInputDiv{
     position: relative;
-    bottom: 10px;
     align-items: center;
     display: flex;
     align-items: baseline;
@@ -325,36 +435,6 @@ body{
 }
 
 
-.button-container {
-    /* right: 0; */
-    /* top: -1px; */
-    justify-content: center;
-    display: flex;
-    color: rgb(var(--user-chat-fg-color)) ;
-    /* width: 93px; */
-    /* width: 100px; */
-}
-.button-container button{
-
-    color: rgb(var(--user-chat-fg-color)) ;
-
-}
-.button-container button:hover{
-
-    color: rgb(var(--user-bg-color)) ;
-
-}
-.button-container button:focus {
-    /* border: none !important; */
-    outline: none; /* Removes focus outline */
-    /* border: none; Ensures border stays removed on focus */
-    box-shadow: none; /* Removes Bootstrap's default focus shadow */
-}
-.button-container i:hover{
-
-    color: rgb(var(--user-bg-color)) ;
-
-}
 .button-container .input-label{
 
     color: rgb(var(--user-chat-fg-color)) ;
@@ -761,7 +841,6 @@ width: max-content;
     background-color: rgb(var(--user-bg-color));
     color: rgb(var(--user-fg-color));
     border: none;
-    padding: 10px 15px;
     border-radius: var(--user-border-radius);
     cursor: pointer;
     display: none; /* Hidden by default */
@@ -772,7 +851,6 @@ width: max-content;
     background-color: transparent;
     border: 2px solid rgb(var(--user-bg-color));
     color: rgb(var(--user-bg-color));
-    padding: 8px 13px;
     
 }
 .read-toggle{
@@ -798,7 +876,7 @@ width: max-content;
 
 #replyBox.show {
     position: absolute;
-    top: -85px;
+    top: -56px;
     max-height: 75px; /* Set a max-height when visible */
     opacity: 1;
     transform: translateY(0); /* Reset vertical position */
@@ -870,27 +948,23 @@ width: max-content;
     transform: translateY(1px); /* جابجایی 1 پیکسل به سمت پایین */
     transition: all 0.1s ease; /* Smooth transition for hover effect */
 }
+#editable-message-text:empty::before {
+    content: attr(aria-placeholder);
+    color: #999; /* رنگ متن placeholder */
+    pointer-events: none; /* کلیک روی placeholder کار نکند */
+    display: block; /* برای اطمینان از نمایش صحیح */
+}
+
 /* Apply margin-left and margin-right for large screens */
 @media (min-width: 1200px) {
     #editable-message-text{
         max-width: 50vw;
     }
-    /* .form-inline {
-        margin-left: 30vw !important;
-        margin-right: 30vw !important;
-        max-width: 40vw;
+    
+    .message{
+        max-width: 66.66666667%;
     }
-    #replyBox{
-        margin-left: 30vw !important;
-        margin-right: 30vw !important;
-        max-width: 40vw;
-
-    }
-        */
-    /* html,body{
-     overflow-y: hidden; 
-     height: 100%;
-        }  */
+    
 }
 
 /* Reset margins for mobile devices */
@@ -1253,7 +1327,7 @@ img{
     background-size:  500px; /*Adjust size as needed*/
     background-origin: content-box;
     background-clip: content-box;
-    opacity: 0.5;
+    opacity: 0.2;
     position: absolute;
     height: 100vh;
     width: 100%;
@@ -1422,7 +1496,7 @@ label[for=file-input] i.bi-paperclip::before{
   -ms-overflow-style: none; /* IE and Edge */
 }
 .messageElm{
-    display:flex;margin:6px 0;
+    display:flex;margin:0px 1px;
 }
 .messageElm.own{
     justify-content:flex-end;
@@ -1496,12 +1570,12 @@ label[for=file-input] i.bi-paperclip::before{
 #theme_btn.btn {
     transition: all 0.5s ;
 }
-.message video{
-    max-width: 320px;
+.message {
+    video,iframe,img{
+        max-height: 320px;
+    }
 }
-.message img{
-    max-width: 320px;
-}
+
 
 
 .x-small {
@@ -1511,4 +1585,10 @@ label[for=file-input] i.bi-paperclip::before{
 .bg-theme{
   background-color: var(--primary-bg) !important;
   color: var(--primary-text) !important;
+}
+#roomList_ul li{
+    height: 5rem;
+}
+.tg-canvas{
+    height: 6dvh;
 }

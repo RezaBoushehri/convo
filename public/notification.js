@@ -52,6 +52,8 @@ function refToast(data, toastContainerId = 'toastContainer') {
     const toastInstance = new bootstrap.Toast(toast);
     toastInstance.show();
 }
+const audio_notification_sound = document.getElementById('notification_sound');
+audio_notification_sound.volume = 0.5; // 0.5 یعنی ۵۰ درصد صدا. عدد بین 0 تا 1 رو می‌تونی بذاری.
 
 function playNotificationSound(sound_id="message_sound") {
         const sound = document.getElementById(sound_id);

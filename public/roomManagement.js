@@ -22,7 +22,51 @@ const createRoom = () => {
         roomMembers : roomMembers  
     });
 };
+function formatDate(date) {
+  if (!date) return '';
 
+  const now = new Date();
+  date = new Date(date);
+  
+  // محاسبه اختلاف به میلی‌ثانیه
+  const diffMs = now - date;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+  const diffWeek = Math.floor(diffDay / 7);
+  const diffYear = now.getFullYear() - date.getFullYear();
+
+  // فرمت‌دهی بر اساس شرایط
+  if (diffHour < 24) {
+    // کمتر از 1 ساعت: فقط ساعت و دقیقه
+    return new Intl.DateTimeFormat('fa-IR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  } 
+  else if (diffDay < 7) {
+    // کمتر از 1 هفته: "روز پیش" (مثلاً 2 روز پیش)
+    // اگر می‌خواهی ساعت هم باشد، می‌توانی hour/minute را اضافه کنی
+    // اما طبق درخواست شما "only day ago" یعنی فقط تعداد روز
+    return `${diffDay} روز پیش`;
+  } 
+  else if (diffYear < 1) {
+    // کمتر از 1 سال: ماه و روز
+    return new Intl.DateTimeFormat('fa-IR', {
+      month: 'long',
+      day: '2-digit'
+    }).format(date);
+  } 
+  else {
+    // یک سال یا بیشتر: سال، ماه و روز
+    return new Intl.DateTimeFormat('fa-IR', {
+      year: 'numeric',
+      month: 'long',
+      day: '2-digit'
+    }).format(date);
+  }
+}
 const joinRoom = () => {
     const roomID = document.getElementById('joinRoomName').value.trim(); // Ensure this matches the actual input field ID
     
@@ -94,6 +138,7 @@ const leaveRoom = () => {
     if(NEED_TO_RELOAD_ROOM_UI){
         init_page(false)
     }
+    $('#roomList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0')
 
     $("#roomInfo").addClass('d-none');
     $("#chat-window").addClass('d-none');
@@ -173,7 +218,8 @@ socket.on('roomList_newMessages', async (data) => {
             .html(data.last_content)        
         // update last update timestamp    
         // const now = Date.now();    
-        room.attr('data-last-update', data.room.lastUpdated);
+        $(`#roomList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
+        $(`#roomList_ul li#${data.room.roomID} .position-absolute .jdate `).text(formatDate(data.room.lastUpdated));
         if(roomList_data) roomList_data.room.filter(rm=> rm == data.room.roomID).map(rm=> rm={...rm, newMessage: data.count})
     } catch (error) {
         showAlert(error.message,'danger')
@@ -217,28 +263,36 @@ async function room_list_genration(data,clear=true){
         const user = data.users.filter(user=> user.username === room?.lastMessage?.sender)[0]
         const name_sender = !user ? room?.lastMessage?.sender :`${user?.first_name?? ''} ${user?.last_name?? ''}`
         $li=(`
-            <li class="list-group-item cursor-pointer row m-auto col-12" onclick="join('${room.roomID}')" role="presentation">
-                <a class="nav-link"  data-last_update="${room.lastUpdated ?? room.createdAt}" data-id="${room.roomID}">
-                    <div class="row col-auto">
-                        <span class="fs-5 col-auto">
+            <li id="${room.roomID}" data-last-update="${(room.lastUpdated ?? room.createdAt)}"  class="btn btn-outline-primary border-0 list-group-item cursor-pointer row m-auto col-12" onclick="join('${room.roomID}')" role="presentation">
+                <a class="nav-link"  data-id="${room.roomID}">
+                    <div class="row col-12">
+                        <span class="fs-5 col-auto text-truncate">
                             ${room.roomName}
                         </span>
-                        <span class="message col text-muted d-inline-block">
+                        <span class="row col-12   ">
                             
-                            <div class="col overflow-hidden text-truncate" style="height:2rem;">
-                                ${room?.lastMessage?.message.split(['<br>']).join(' ') ?? ''}
+                            <div class="col-auto ms-0 overflow-hidden text-truncate text-muted" style="height:2rem;">
+                                ${room?.lastMessage?.message.replace(/<[^>]*>/g, '').replace(/\n/g, '') ?? ''}
                             </div>
                         </span>
                     </div>
-                    <span class="badge bg-danger col-auto position-absolute top-0 end-0 rounded-pill mt-2 me-1 counter_message d-none">
-                        ${room.newMessage}
-                    </span>
+                    <div class="row col-auto position-absolute top-0 end-0 me-1">
+                        <span class="jdate col" dir="auto">${formatDate(room?.lastUpdated)}</span>
+                        <span class="badge bg-danger  rounded-pill mt-2 me-1 counter_message d-none col-auto">
+                            ${room.newMessage}
+                        </span>
+                    </div>
                 </a>
             </li>
 
             `)
         $roomList_ul.append($li)
     });
+    Promise
+        .resolve(
+            $('#roomList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0'))
+        .then(
+            $(`#roomList_ul li#${localStorage.getItem('last_room_joined_MC')}`).addClass('bg-primary').removeClass('border-0'))
     if(clear){
         document.getElementById('roomList_ul').scrollTo({
             top: 0,                        // Scroll to the top
@@ -261,14 +315,16 @@ $(`#search_roomList`).on("focus input",(e)=>{
 })
 function sortRooms() {
     const $roomList_ul = $('#roomList_ul');
-    // $roomList_ul.empty()
-    const rooms = $roomList_ul.children('a').get();
+
+    const rooms = $roomList_ul.children('li').get();
     rooms.sort((a, b) => {        
         const dateA = new Date($(a).attr('data-last-update'));        
         const dateB = new Date($(b).attr('data-last-update'));
         return dateB - dateA; // newest first    
     });
-    $.each(rooms, function(index, room) {        
+    $roomList_ul.empty()
+
+    $.each(rooms, function(index, room) {    
         $roomList_ul.append(room);   
     });
 }

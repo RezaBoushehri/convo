@@ -53,7 +53,61 @@
 
                 <p id="error-message" class="badge col-md-12 badge-danger py-2 my-3"></p>
                 <button type="submit" id="sendSMSlogin" class="col-md-12 btn btn-meta">Log in</button>
+                <div class="sso-section">
+                    <div class="separator">
+                        <span>OR</span>
+                    </div>
+                    <a href="https://mc.farahoosh.ir:1382/login?domain=metachat" class="sso-login-btn">
+                        <img src="https://mc.farahoosh.ir:1382/svg/logo.svg" class="col-auto" height="40px" />
+                        Login with PORTAL
+                    </a>
 
+                        <style>
+                        .separator {
+                            display: flex;
+                            align-items: center;
+                            text-align: center;
+                            margin: 20px 0;
+                        }
+
+                        .separator::before,
+                        .separator::after {
+                            content: '';
+                            flex: 1;
+                            border-bottom: 1px solid #ddd;
+                        }
+
+                        .separator span {
+                            padding: 0 10px;
+                            color: #999;
+                            font-size: 14px;
+                        }
+
+                        .sso-login-btn {
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 10px;
+                            width: 100%;
+                            padding: 12px;
+                            background: #fff;
+                            color: #5a67d8;
+                            border: 2px solid #5a67d8;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            text-decoration: none;
+                            transition: all 0.3s ease;
+                        }
+
+                        .sso-login-btn:hover {
+                            background: #5a67d8;
+                            color: white;
+                            transform: translateY(-2px);
+                            box-shadow: 0 4px 12px rgba(90, 103, 216, 0.3);
+                        }
+                    </style>
             </form>
         </div>
         <%}else{%>
