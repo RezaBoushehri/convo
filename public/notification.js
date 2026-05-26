@@ -24,7 +24,7 @@ function refToast(data, toastContainerId = 'toastContainer') {
             onclick="
                     ${link_action()}
                 "
-            ${typeof join ==='undefined'? `href="/metachat/join/${data?.roomID}"`:''}
+            ${typeof join ==='undefined'? `href="/join/${data?.roomID}"`:''}
             >
             <i class="bi bi-link-45deg">دیدن</i>
         </a>
@@ -38,7 +38,7 @@ function refToast(data, toastContainerId = 'toastContainer') {
 
     toast.innerHTML = `
         <div class="toast-header  text-meta d-flex gap-2">
-            <img src="/svg/logo.svg" height="15px" width="15px" class="rounded col-auto" alt="...">
+            <img src="https://mc.farahoosh.ir/metachat/svg/logo.svg" height="15px" width="15px" class="rounded col-auto" alt="...">
             <strong class=" col" dir="auto">${data.title}</strong>
         <button type="button" class="btn-close col-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
@@ -72,7 +72,7 @@ function showBrowserNotification(sender,messageContent,roomID) {
             if (permission === "granted") {
                 const notification = new Notification(`${sender}:`, {
                     body: messageContent,
-                    icon: "/svg/logo.svg"  // آیکون نوتیفیکیشن
+                    icon: "https://mc.farahoosh.ir/metachat/svg/logo.svg"  // آیکون نوتیفیکیشن
                 });
         
                 // اضافه کردن قابلیت باز کردن لینک هنگام کلیک
@@ -81,7 +81,7 @@ function showBrowserNotification(sender,messageContent,roomID) {
     
                     // بررسی همه تب‌های باز برای پیدا کردن تب چت
                     for (let i = 0; i < window.length; i++) {
-                        if (window[i].location.href.includes(`/metachat/join/${roomID}`)) {
+                        if (window[i].location.href.includes(`/join/${roomID}`)) {
                             chatTab = window[i];
                             break;
                         }
@@ -91,7 +91,7 @@ function showBrowserNotification(sender,messageContent,roomID) {
                     if (chatTab) {
                         chatTab.focus();
                     } else {
-                        window.open(`${href}/metachat/join/${roomID}`, "_blank");
+                        window.open(`${href}/join/${roomID}`, "_blank");
                     }
                 };
             }

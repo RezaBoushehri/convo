@@ -288,6 +288,7 @@ html, body {
    ممکنه نیاز باشه !important بذاری یا اولویت CSS رو چک کنی */
 .btn-primary,.btn-primary:hover {
     background-image: var(--bs-btn-bg) !important;
+    color: white !important;
 }
 .bg-primary,.btn-outline-primary:hover {
     --bs-btn-bg: linear-gradient(

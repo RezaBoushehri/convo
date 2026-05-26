@@ -1,8 +1,8 @@
-let socket;
+
 
   $('#pvChatBtn').attr('disabled', 'true')
-  const href = "https://mc.farahoosh.ir/metachat/";
-  const ioUrl = "https://mc.farahoosh.ir";
+  const href = "/";
+  const ioUrl = "https://mc.farahoosh.ir/";
 
 // // تابع برای رمزگذاری
 // function encryptMessage(message) {
@@ -28,7 +28,7 @@ const currentUser = {
     }
   socket = io.connect(ioUrl, {
     transports: ['polling', 'websocket'], // Allows both WebSocket and Polling
-    path: `/metachat/socket.io/`,
+    path:'/metachat/socket.io',
     secure: false, // Ensures that the connection uses HTTPS
     withCredentials: true, // Ensure cookies are not sent with requests (set to true if needed)
     rejectUnauthorized: true, // Bypass SSL verification for self-signed certificates (use with caution)
@@ -42,7 +42,7 @@ const currentUser = {
 
   socket.on("connect", () => {
     console.log("Connected to metaChat via Socket.IO 🎯");
-
+    $('#output').empty()
     // Emit userLoggedIn event with current user data
     // 💬 ارسال اطلاعات کاربر
     socket.emit("userLoggedIn", {

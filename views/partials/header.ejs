@@ -8,9 +8,9 @@
     <meta name="description" content="Chatting web app for different people to get along with one another. Chat are deleted after single use">
     <meta name="keywords" content="Convoo, Convo, Chat, Chatting, HerkouApp, heroku app ">
     <meta name="author" content="Sparsh Jain">
-    <link rel="icon" href="svg/logo.svg" type='icon/svg'>
+    <link rel="icon" href="https://mc.farahoosh.ir/metachat/svg/logo.svg" type='icon/svg'>
     <title>Meta Chat</title>
-    <script src="https://mc.farahoosh.ir:4000/socket.io/socket.io.js"></script>
+    <script src="https://mc.farahoosh.ir/metachat/js/socket.io.js"></script>
     <script src="https://mc.farahoosh.ir/metachat/js/DOMPurify-main/DOMPurify-main/dist/purify.min.js"></script>
 
     <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
@@ -42,7 +42,7 @@
     <script src="https://mc.farahoosh.ir/metachat/js/jquery-4.0.0.min.js"></script>
     <script src="https://mc.farahoosh.ir/metachat/js/sweetAlert.js"></script>
     <script src="https://mc.farahoosh.ir/metachat/js/side.js"></script>
-    <script src='https://mc.farahoosh.ir/metachat/js/timeFormated.js' defer></script>
+    <script src="https://mc.farahoosh.ir/metachat/js/timeFormated.js" defer></script>
     <link href="https://mc.farahoosh.ir/metachat/vendor/animate/animate.min.css" rel="stylesheet">
     <link rel="stylesheet" type='text/css' href="https://mc.farahoosh.ir/metachat/css/style_v0411.css">
 
@@ -57,14 +57,14 @@
         
 
         <nav class="backdrop-blur-chat-bg navbar px-1 position-relative">
-            <a class="navbar-brand" href='https://mc.farahoosh.ir/metachat'><img class='img-fluid col-2' src='https://mc.farahoosh.ir/metachat/svg/logo.svg' width='25px'><span class='my-auto'>&nbspMETA CHAT</span></a>
+            <a class="navbar-brand" href="https://mc.farahoosh.ir/metachat"><img class='img-fluid col-2' src='https://mc.farahoosh.ir/metachat/svg/logo.svg' width='25px'><span class='my-auto'>&nbspMETA CHAT</span></a>
             <div class="d-flex col-auto gap-2 position-absolute end-0 me-2">
                 <div id="theme_btn" class="col-auto overflow-hidden">
                     <button data-theme="light" class="btn btn-white animate__animated rounded-circle col-auto shadow-sm hover" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-original-title="حالت شب"><i class="bi bi-sun-fill animate__animated animate__bounceIn text-warning"></i></button>
                     <button data-theme="dark" class="btn btn-dark animate__animated rounded-circle col-auto shadow-sm hover" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-original-title="حالت روز"><i class="bi bi-moon-fill animate__animated animate__bounceIn text-primary"></i></button>
                 </div>
                 <% if(!currentUser){ %>
-                    <a class="btn btn-primary btn align-right text-white" href='https://mc.farahoosh.ir/metachat/login'>login <i class='fa fa-user'></i></a>
+                    <a class="btn btn-primary btn align-right text-white" href="https://mc.farahoosh.ir/metachat/login">login <i class='fa fa-user'></i></a>
                 <% } else { %>
                 <div class="dropdown">
                    
