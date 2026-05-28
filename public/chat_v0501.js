@@ -927,7 +927,7 @@ button.addEventListener("click", async () => {
     })
     const xhr = new XMLHttpRequest();
     xhr.withCredentials= true
-    xhr.open("POST", "https://mc.farahoosh.ir:4000/upload", true);
+    xhr.open("POST", "https://mc.farahoosh.ir/metachat/upload", true);
 
     // ── Progress events ──
     xhr.upload.onprogress = (e) => {
@@ -997,7 +997,7 @@ async function voice_upload(text,quote,blob){
     const xhr = new XMLHttpRequest();
             xhr.withCredentials= true
             
-            xhr.open("POST", "https://mc.farahoosh.ir:4000/upload", true);
+            xhr.open("POST", "https://mc.farahoosh.ir/metachat/upload", true);
 
             const formData = new FormData();
             formData.append("files", blob,`${currentUser.room}_${currentUser.username}.webm`);
@@ -2602,7 +2602,7 @@ function renderReply(reply){
 // function renderFiles(files){
 //     if(!files) return ""
 //     return files.map(file=>{
-//         const url = `https://mc.farahoosh.ir:4000${file.file}`
+//         const url = `https://mc.farahoosh.ir/metachat${file.file}`
 //         if(file.fileType.startsWith("image/")){return `<img src="${url}" class="chatImage">`}
 //         if(file.fileType.startsWith("video/")){return `<video controls src="${url}" class="chatVideo"></video>`}
 //         if(file.fileType.startsWith("audio/")){return telegramAudio(url)}
@@ -2947,22 +2947,22 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     <div id="file_${file._id}" class="position-relative col-auto p-0">
                         ${file.fileType.startsWith("image/") ? `
                             <div  class="col-md-6 position-relative" >
-                                <a href="https://mc.farahoosh.ir:4000${file.file}" target="_blank">
+                                <a href="https://mc.farahoosh.ir/metachat${file.file}" target="_blank">
                                 <img class="img-fluid col-auto rounded" 
-                                    src="https://mc.farahoosh.ir:4000${file.file}" 
+                                    src="https://mc.farahoosh.ir/metachat${file.file}" 
                                     style="border-radius: ${borderRadiusFalse()};" 
                                     loading="lazy" 
                                     alt="Image" 
-                                    href="https://mc.farahoosh.ir:4000${file.file}" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')">
+                                    href="https://mc.farahoosh.ir/metachat${file.file}" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')">
                                 </a>
                                 
                             </div>
                             
                         ` : file.fileType === "application/pdf" ? `
                             <div  class="row gap-2 col position-relative p-3" >
-                                <iframe class=" rounded pdf-frame" src="https://mc.farahoosh.ir:4000${file.file}" frameborder="0" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')" loading="lazy"></iframe>
+                                <iframe class=" rounded pdf-frame" src="https://mc.farahoosh.ir/metachat${file.file}" frameborder="0" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')" loading="lazy"></iframe>
                                 <a 
-                                    href="https://mc.farahoosh.ir:4000${file.file}"
+                                    href="https://mc.farahoosh.ir/metachat${file.file}"
                                     class="btn  m-auto btn-outline-primary">
                                     <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
                                     ${file.fileName || 'Unknown File'} <i class="bi bi-box-arrow-up-right"></i>
@@ -2973,17 +2973,17 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             <div  class="col-12 position-relative" >
 
                                 <video class=" video-preview col-12 P-0 rounded" controls>
-                                    <source src="https://mc.farahoosh.ir:4000${file.file}" type="${file.fileType}" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')">
+                                    <source src="https://mc.farahoosh.ir/metachat${file.file}" type="${file.fileType}" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')">
                                     Your browser does not support the video tag.
                                 </video>
                                 
                             </div>
 
                         ` : file.fileType.startsWith("audio/") ? `
-                            ${file.fileType.split('/')[1] == 'webm'? telegramAudio(`https://mc.farahoosh.ir:4000${file.file}`,`${file._id}`):`
+                            ${file.fileType.split('/')[1] == 'webm'? telegramAudio(`https://mc.farahoosh.ir/metachat${file.file}`,`${file._id}`):`
                             <div  class="col position-relative" >
 
-                                <audio class="control blurBackDark rounded-5 shadow" controls crossorigin="anonymous" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')" src="https://mc.farahoosh.ir:4000${file.file}"></audio>
+                                <audio class="control blurBackDark rounded-5 shadow" controls crossorigin="anonymous" onerror="$('#file_${file._id} .file-actions').removeClass('d-none')" src="https://mc.farahoosh.ir/metachat${file.file}"></audio>
                                
                             </div>
 
@@ -2992,7 +2992,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             : `
                             <div class="file-actions col-12">
                                 <a 
-                                    onclick="triggerDownload('https://mc.farahoosh.ir:4000${file.file}','${file.fileName}')"
+                                    onclick="triggerDownload('https://mc.farahoosh.ir/metachat${file.file}','${file.fileName}')"
                                     class="btn  col-auto m-auto btn-outline-primary">
                                     <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
                                     ${file.fileName || 'Unknown File'} <i class="bi bi-download"></i>
@@ -3001,7 +3001,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             `}
                             <div class="file-actions col-12 d-none">
                                 <a 
-                                    onclick="triggerDownload('https://mc.farahoosh.ir:4000${file.file}','${file.fileName}')"
+                                    onclick="triggerDownload('https://mc.farahoosh.ir/metachat${file.file}','${file.fileName}')"
                                     class="btn  col-auto m-auto btn-outline-primary">
                                     <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
                                     ${file.fileName || 'Unknown File'} <i class="bi bi-download"></i>
@@ -3598,7 +3598,7 @@ function menu_file(id,isOwner){
                 </button>
                 ` : ''}
                 <a 
-                    onclick="triggerDownload('https://mc.farahoosh.ir:4000${file}','${fileName}')"
+                    onclick="triggerDownload('https://mc.farahoosh.ir/metachat${file}','${fileName}')"
                     class="dropdown-item my-1 d-flex justify-content-between rounded-3 text-start col-12 btn text-primary">
                     <i class="bi fileIcon bi-filetype-${(fileName).split('.')[1]}"></i>
                     <span class="m-auto">Download</span> <i class="bi m-auto bi-download"></i>
@@ -4586,7 +4586,7 @@ function messageMenu() {
             <i class="bi bi-emoji-smile"></i>
         </button>
         `
-        // <img class="col-auto" src="https://mc.farahoosh.ir:4000/svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
+        // <img class="col-auto" src="https://mc.farahoosh.ir/metachat/svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
         body.innerHTML=`
          <button dir="auto" id="reply-${messageId}" class="d-flex list-group-item justify-content-between  btn visible col-12" >
             پاسخ
