@@ -1,5 +1,6 @@
-// services/getYesterdayMessages.js
 const Message = require('../models/message');
+const User = require('../models/room')
+const Room = require('../models/room')
 const {processMessage,sendBackupToPHP,count_new_msg_room} = require('./messages_func'),
     {socketEncrypt,socketDecrypt} = require('./encryption')
 
@@ -38,7 +39,7 @@ async function Log_message(message,files=[],roomID='npmDtEwjElmn74vqmu') {
         ...newMessage.toObject(),
     };
     let encryptedMessage = await processMessage(enrichedMessage)  
-    io.in(roomID).emit("chat",await encryptedMessage,{ success: true });
+    // io.in(roomID).emit("chat",await encryptedMessage,{ success: true });
     const room = await Room.findOneAndUpdate({ roomID : roomID},{$set:{lastUpdated:timestamp , 
         last_content: message ? socketEncrypt(`${username}: ${message}`) : socketEncrypt(`${username}: فایل ارسال کرده است`) 
     }});

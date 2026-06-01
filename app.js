@@ -1,12 +1,12 @@
-const createDOMPurify = require('dompurify');
-const { JSDOM } = require('jsdom');
-const crypto = require('crypto');
-const ipRangeCheck = require("ip-range-check");
-const express = require("express");
-const multer = require("multer");
-// const jwt = require('jsonwebtoken');
-const window = new JSDOM('').window;
-const DOMPurify = createDOMPurify(window);
+const createDOMPurify = require('dompurify'),
+ { JSDOM } = require('jsdom'),
+ crypto = require('crypto'),
+ ipRangeCheck = require("ip-range-check"),
+ express = require("express"),
+ multer = require("multer"),
+// jwt = require('jsonwebtoken'),
+ window = new JSDOM('').window,
+ DOMPurify = createDOMPurify(window),
     fs = require('fs'),
     https = require('https'),
     app = express(),
@@ -23,15 +23,20 @@ const DOMPurify = createDOMPurify(window);
          
         
     },
+    cookieParser = require('cookie-parser'),
+    session = require("express-session"),
+    Log_message = require('./services/log'),
+    MemoryStore = require("memorystore")(session),
+    security = require('./utils/security'),
     cors = require("cors"),
     socket = require("socket.io"),
     path = require("path"),
     mongoose = require("mongoose"),
     env = require("dotenv"),
     bodyParser = require("body-parser"),
+    User = require("./models/user"),
     passportLocalStrategy = require("passport-local"),
     passport = require("passport"),
-    User = require("./models/user"),
     Room = require("./models/room"),
     middleware = require("./middleware/index"), // Import the middleware
     { v4: uuidv4 } = require('uuid'),
@@ -62,12 +67,6 @@ const DOMPurify = createDOMPurify(window);
     });
 
 // const { timeStamp, error } = require("console");
-var session = require("express-session");
-const Log_message = require('./services/log');
-const room = require('./models/room');
-// const { settings } = require('cluster');
-// const { now } = require('mongoose');
-var MemoryStore = require("memorystore")(session);
 
 env.config();
 // Set up CORS (if needed for front-end)
@@ -84,7 +83,6 @@ const secretKey = process.env.SECRETKEY;
 const SECRET_KEY_RTSP = process.env.SECRETKEY_RTSP;
 const SECRET_KEY_TOKEN_AUTOLOGIN = process.env.SECRETKEY_LOGIN;
 const SSO_SECRET_TOKEN = process.env.SSO_SECRET_TOKEN
-
 
 function sanitizeMessage(message) {  
     const withBreaks = message.replace(/\n/g, '<br>');
@@ -107,8 +105,50 @@ function sanitizeMessage(message) {
     }
   return withBreaks;
 }
+const MONGO_URI = process.env.MONGO_URI;
+const DB_USERNAME = process.env.DB_USERNAME;
+const DB_PASSWORD = process.env.DB_PASSWORD;
+const encodedPassword = encodeURIComponent(DB_PASSWORD); // تبدیل خودکار @ به %40
+const sessionMiddleware = session({
+    store: new MemoryStore({
+        checkPeriod: 86400000
+    }),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // Set to true in production
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 3 * 30 * 24 * 60 * 60 * 1000
+    }
+});
+
+app.use(sessionMiddleware);
+app.use(cookieParser());
+
+// THEN initialize passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+
+app.use(security.helmet);
+
+app.use(security.xssProtection);
+
+
+app.use(security.trackConnections);
+app.use(security.securityLogger);
+// Apply rate limiters to specific route groups
+app.use('/api/', security.standardLimiter);
+app.use('/login', security.authLimiter);
+app.use('/login', security.loginSlowDown);
+app.use('/register', security.authLimiter);
+app.use('/api/admin/', security.extremeLimiter);
+app.use('/api/sso/sync-users', security.extremeLimiter);
+app.use('/api/admin/import-users', security.extremeLimiter);
 // const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
-const mongoURI = "mongodb://adminChat:XMUZWqR4CnOwf@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
+const mongoURI = `mongodb://${DB_USERNAME}:${encodedPassword}@${MONGO_URI}/chatRoom?authSource=chatRoom`;
 mongoose
     .connect(mongoURI, {})
     .then(() => console.log("MongoDB connected"))
@@ -122,8 +162,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Passport Configuration
-app.use(passport.initialize());
-app.use(passport.session());
 passport.use(new passportLocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(async (username, done) => {
@@ -136,25 +174,8 @@ passport.deserializeUser(async (username, done) => {
 });
   
 
-const sessionMiddleware = session({
-    store: new MemoryStore({
-        checkPeriod: 86400000
-    }),
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: false,
-        httpOnly: true,
-        sameSite: "lax",
-        maxAge: 3 * 30 * 24 * 60 * 60 * 1000
-    }
-});
 
 
-
-app.use(sessionMiddleware);
-// app.use(cookieParser())
 
 io.use((socket, next) => {  
     sessionMiddleware(socket.request, {}, async (err) => {      
@@ -194,6 +215,7 @@ const skippTokenRefreshPaths = [
     "logout",
     "js",
     "img",
+    "api",
    ];
 app.use(async (req, res, next) => {
     // اگر این مسیر قرار نیست توکن ریفرش شود
@@ -208,19 +230,7 @@ app.use(async (req, res, next) => {
     if (req.isAuthenticated && req.isAuthenticated()){ 
         return next();
     }
-    // TODO: set cookie-parser later
-    const cookieHeader = req.headers.cookie;
-    req.cookies ={}
-    if (!cookieHeader){
-        return next()
-    }
-    const cookies = cookieHeader.split(';')
-    for(const cookie of cookies) {
-        const parts = cookie.split('=')
-        const key = parts[0].trim()
-        const value = parts.slice(1).join('=')
-        req.cookies[key] = decodeURIComponent(value)
-    }
+
     if (!req.cookies?.autoLogin) return next();
     const token = req.cookies.autoLogin ;
     if (!token) return next();
@@ -401,6 +411,7 @@ app.get("/", middleware.isLoggedIn,async (req, res) => {
 app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
     const roomID = DOMPurify.sanitize(req.params.id);
     const username = req.user.username; // Assuming username is stored in req.user
+    const uid = req.user._id; // Assuming username is stored in req.user
 
     try {
         const room = await Room.findOne({ roomID: roomID });
@@ -408,7 +419,7 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
         if (room) {
             if (room.setting[0].Joinable_url === "private") {
                 // Private room: Only allow members
-                if (room.members.includes(username) || username == '09173121943') {
+                if (room.members.includes(uid) || username == '09173121943') {
                 // if (room.members.includes(username) ) {
                     res.render("index", { roomID: roomID, rgbToHex, removePx, room ,username: username });
                 } else {
@@ -451,18 +462,18 @@ app.post("/login", async (req, res, next) => {
         }
     
         // Direct comparison for cleartext password
-        // TODO : set bypass passwords on login
-        // const bcrypt = require("bcrypt");
+        const bcrypt = require("bcrypt");
 
-        // const valid = await bcrypt.compare(req.body.password, user.password);
+        const valid = await bcrypt.compare(req.body.password, user.password);
 
-        // if (!valid) {
-        //     return res.redirect("/metachat/login?error=Invalid Password");
-        // }   
-        if (req.body.password !== user.password) {
-            // Invalid password
+        if (!valid) {
+            // return res.redirect("/metachat/login?error=Invalid Password");
             return res.redirect(`/metachat/login?error=${encodeURIComponent("Username or Password is wrong")}`);
-        }
+        }   
+        // if (req.body.password !== user.password) {
+        //     // Invalid password
+        //     return res.redirect(`/metachat/login?error=${encodeURIComponent("Username or Password is wrong")}`);
+        // }
     
         passport.authenticate("local", async (err, authenticatedUser, info) => {
             if (err) {
@@ -617,6 +628,7 @@ app.get('/sso/callback', async (req, res) => {
             // ذخیره اطلاعات در سشن
             req.session.username = user.username;
             req.session.userId = user._id;
+            req.session.user = user;
             req.session.sso_logged_in = true;
             req.session.sso_uid = userId;
             
@@ -678,7 +690,7 @@ app.get('/sso/callback', async (req, res) => {
 });
 
   
-app.post("/register", (req, res) => {
+app.post("/register",middleware.isLoggedIn, (req, res) => {
     const clientIP = req.ip || req.connection.remoteAddress;
     if(!req?.user?.username) return res.status(404);  
     const username = req.user.username; // Assuming username is stored in req.user
@@ -716,7 +728,120 @@ app.post("/register", (req, res) => {
     });
 });
 
+const bcrypt = require('bcrypt');
 
+// Bulk registration endpoint
+app.post('/api/users/bulk-register', async (req, res) => {
+    try {
+        const clientIP = req.ip || req.connection.remoteAddress;
+
+        const allowedRanges = [
+                "127.0.0.1", 
+                "::1",
+                "172.16.28.0/24",  // existing range
+                "94.74.128.194",   // additional IP
+                "94.74.128.193"    // additional IP
+            ];
+            
+            const ipIsAllowed = allowedRanges.some(range => ipRangeCheck(clientIP, range));
+            
+            if (!ipIsAllowed) {
+                return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
+            }
+        const { users } = req.body;
+
+        // Validate input
+        if (!users || !Array.isArray(users) || users.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide an array of users to register'
+            });
+        }
+
+        // Limit batch size (optional, prevent abuse)
+        if (users.length > 100) {
+            return res.status(400).json({
+                success: false,
+                message: 'Maximum 100 users can be registered at once'
+            });
+        }
+
+        const results = {
+            successful: [],
+            failed: []
+        };
+
+        // Process each user
+        for (const userData of users) {
+            try {
+                const { username, first_name, last_name, password } = userData;
+
+                // Validate required fields
+                if (!username || !first_name || !last_name || !password) {
+                    results.failed.push({
+                        username: username || 'unknown',
+                        reason: 'Missing required fields (username, first_name, last_name, password)'
+                    });
+                    continue;
+                }
+
+                // Check if username already exists
+                const existingUser = await User.findOne({ username });
+                if (existingUser) {
+                    results.failed.push({
+                        username,
+                        reason: 'Username already exists'
+                    });
+                    continue;
+                }
+
+                // Hash the password
+                const saltRounds = 10;
+                const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+                // Create new user with default settings
+                const newUser = new User({
+                    username,
+                    first_name,
+                    last_name,
+                    password: hashedPassword,
+                    settings: init_settings
+                });
+
+                // Save user
+                await newUser.save();
+
+                // Return user without sensitive data
+                const userResponse = newUser.toObject();
+                delete userResponse.password;
+                delete userResponse.devices;
+
+                results.successful.push(userResponse);
+
+            } catch (error) {
+                results.failed.push({
+                    username: userData.username || 'unknown',
+                    reason: error.message
+                });
+            }
+        }
+
+        // Return results
+        res.status(201).json({
+            success: true,
+            message: `Successfully registered ${results.successful.length} out of ${users.length} users`,
+            data: results
+        });
+
+    } catch (error) {
+        console.error('Bulk registration error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+});
 
 const uploadDir = path.join(__dirname, "uploads");
 
@@ -731,10 +856,10 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        if(!req?.session?.username) return cb(new Error ("No username detected."));  
-        const username = req.session.username; // Assuming username is stored in req.user
+        if(!req?.session?.user) return cb(new Error ("No username detected."));  
+        const uid = req.session.user._id; // Assuming username is stored in req.user
         const safeFileName = Buffer.from(file.originalname, "latin1").toString("utf8"); // Ensure UTF-8
-        cb(null, username + "_"+ Date.now() + "_" + safeFileName.replace(/\s+/g, "_")); // Avoid spaces
+        cb(null, uid + "_"+ Date.now() + "_" + safeFileName.replace(/\s+/g, "_")); // Avoid spaces
     },
 });
 
@@ -804,7 +929,7 @@ app.post("/upload_rtsp",async (req, res) => {
 })
 
 // Handle file upload (existing code)
-app.post("/upload", (req, res) => {
+app.post("/upload",middleware.isLoggedIn, (req, res) => {
     upload(req, res,async (err) => {
         if(!req?.files || req?.files?.length == 0 ){
             return res.status(400).json({error:"No files uploaded"})
@@ -814,11 +939,11 @@ app.post("/upload", (req, res) => {
         }
 
         try {
-            if(!req?.session?.username){
+            if(!req?.session?.user._id){
 
                 return res.status(401).end()
             } else{
-                const user_auth =  await User.findOne({username: req.session.username}).then(user=>{
+                const user_auth =  await User.findOne({username: req.session.user._id}).then(user=>{
 
                     if(!user){
                        return false;
@@ -861,19 +986,19 @@ app.post("/upload", (req, res) => {
 });
 
 // Serve the files from the 'uploads' 
-app.get("/uploads/:file", async (req, res) => {  
+app.get("/uploads/:file",middleware.isLoggedIn, async (req, res) => {  
     try {
         const fileName = path.basename(req.params.file); // جلوگیری از path traversal
-        if (!req?.session?.username) {      
+        if (!req?.session?.user._id) {      
             return res.status(401).end();    
         }
-        const username = req.session.username;    
-        console.log(`${fileName}--------> ${username}`)
+        const uid = req.session.user._id;    
+        console.log(`${fileName}--------> ${uid}`)
         const filePath = path.join(uploadDir, fileName);
     if (!fs.existsSync(filePath)) {      
             return res.status(404).end();    
         }
-    const access = await file_access(`/uploads/${fileName}`, username);
+    const access = await file_access(`/uploads/${fileName}`, uid);
     if (!access.success) {      
             return res.status(403).json(access);    
         }
@@ -883,11 +1008,11 @@ app.get("/uploads/:file", async (req, res) => {
         return res.status(500).end();  
     }
 });
-async function authinticate_room(roomID,username){
+async function authinticate_room(roomID,uid){
     const resault = await Room.findOne({ roomID }).then(room=>{
         if (!room) return false;
         if(!room?.setting[0]?.Joinable_url) return true
-        if (room.setting[0].Joinable_url === "private" && !room.members.includes(username)) {
+        if (room.setting[0].Joinable_url === "private" && !room.members.includes(uid)) {
             return false;
         }else{
             // socket.join(roomID);
@@ -896,12 +1021,12 @@ async function authinticate_room(roomID,username){
     })
     return resault
 }
-async function file_access(file,username){
+async function file_access(file,uid){
 
-    if(!file|| !username) return {success:false , message:'File not found.'}
+    if(!file|| !uid) return {success:false , message:'File not found.'}
     const message = await Message.findOne({"file.file":file}).select("read roomID")
     if(message?.length == 0 ) return {success:false , message:'File not found.'}
-    const check_room_permissions = await authinticate_room(message?.roomID,username)
+    const check_room_permissions = await authinticate_room(message?.roomID,uid)
     // TODO: fix read files in chat later
     // const read = await message?.read.filter((r) => r.username === username);
         // if(read.length > 0 && check_room_permissions){
@@ -1445,14 +1570,14 @@ server.listen(port, '0.0.0.0', () => console.log(`Listening on ${port}`));
 
 
 // Function to add the user to the room (this should be added to your user management logic)
-const addUserToRoom = async (username, roomID) => {
+const addUserToRoom = async (uid, roomID) => {
     try {
         // Find the user from the in-memory user list or database
-        const user = await User.findByUsername(username);        
+        const user = await User.findById(uid);        
         if (user) {
             // Update the user's roomID in the database
             await User.findOneAndUpdate(
-                { username: username },   // Filter by socketID
+                { _id: uid },   // Filter by socketID
                 { $set: { roomID: roomID } },  // Set the roomID
                 { new: true }              // Return the updated document
             );
@@ -1460,7 +1585,7 @@ const addUserToRoom = async (username, roomID) => {
             // Update the room's members array in the database
             await Room.findOneAndUpdate(
                 { roomID: roomID },       // Find the room by its name
-                { $addToSet: { members: username } }, // Add the username to the members array (avoid duplicates)
+                { $addToSet: { members: uid } }, // Add the username to the members array (avoid duplicates)
                 { new: true }                // Return the updated room document
             );
 
@@ -1579,9 +1704,9 @@ setInterval(() => {
     // }, (12*60*60*1000));
 setInterval(() => {
     getMessagesUpToYesterday_file_delete('npmDtEwjElmn74vqmu',30,false) // log room clear
-    delete_OrphanFiles()
+    // delete_OrphanFiles()
 }, (7*24*60*60*1000));
-delete_OrphanFiles()
+// delete_OrphanFiles()
 getMessagesUpToYesterday_file_delete('npmDtEwjElmn74vqmu',30,false) // log room clear
 getMessagesUpToYesterday_file_delete('8x12wLE6irmn714ker',14) // RTSP rooms
 getMessagesUpToYesterday_file_delete('MYL0V3')
@@ -1800,7 +1925,7 @@ io.on("connection", async (socket) => {
             } 
             roomMembers = result;
         }
-        const User_members =  await User.find({ username: { $in: roomMembers } }).select('username')
+        const User_members =  await User.find({ username: { $in: roomMembers } }).select('username _id')
         roomMembers.forEach(member=>{
             if(User_members.filter(user=> user == member.username)[0]){
                 socket.emit("error", { message: `${member} not Found.`})
@@ -1811,8 +1936,8 @@ io.on("connection", async (socket) => {
         const room = new Room({
             roomID : uniqueRoomID,
             roomName : roomName,
-            admin: currentUser.username,
-            members: roomMembers, // Initialize the members array
+            admin: currentUser._id,
+            members: User_members.map(mem=> mem._id), // Initialize the members array
             setting:[{Joinable_url: Joinable_url ??"private"}]
         });
     
@@ -1834,7 +1959,7 @@ io.on("connection", async (socket) => {
                 }
             });
             // Add the user to the room
-        addUserToRoom(currentUser.username, uniqueRoomID);
+        addUserToRoom(currentUser._id, uniqueRoomID);
 
         socket.emit("joined", data_to_join); // Notify the user of successful join
         socket.broadcast.to(room.roomID).emit("newconnection", data_to_join); // Broadcast to other users
@@ -1887,12 +2012,12 @@ io.on("connection", async (socket) => {
             }
 
             // Check if target room exists
-            const check_room_permissions = await authinticate_room(roomID,username)
+            const check_room_permissions = await authinticate_room(roomID,currentUser._id)
 
             // Join the new room
             if(check_room_permissions){
                 socket.join(roomID)
-                await addUserToRoom(username, roomID);
+                await addUserToRoom(currentUser._id, roomID);
 
                 // Update user's roomID
                 // await User.findOneAndUpdate({ username }, { roomID });
@@ -1946,7 +2071,7 @@ io.on("connection", async (socket) => {
                         );
                         
                         const lastUnreadIndex = processedMessages.findLastIndex(
-                            msg => !msg.read.some(r => r.username === currentUser.username)
+                            msg => !msg.read.some(r => r.uid === currentUser._id)
                         );
 
                         if (lastUnreadIndex !== -1) {
@@ -1991,7 +2116,7 @@ io.on("connection", async (socket) => {
         
         let room = currentUser.username =='09173121943'|| status == 'kick'?
             await Room.findOne({roomID: Device_room})
-            :await Room.findOne({roomID: Device_room, admin: currentUser.username})
+            :await Room.findOne({roomID: Device_room, admin: currentUser._id})
         let message,
             access = false;
         if(!room){
@@ -2007,7 +2132,7 @@ io.on("connection", async (socket) => {
             case 'admin':
                 if(user_data.username != room.admin){
                     room = await Room.findOneAndUpdate({roomID:room.roomID},{
-                       admin: user_data.username
+                       admin: user_data._id
                     },{new:true})
                     message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} ادمین شد.`
                 }else{
@@ -2017,11 +2142,11 @@ io.on("connection", async (socket) => {
                 break;
         
             case 'add':
-                if(!room.members.includes(user_data.username)){
+                if(!room.members.includes(user_data._id)){
                    room = await Room.findOneAndUpdate({roomID:room.roomID},{
                         $push:
                         {
-                            members: user_data.username
+                            members: user_data._id
                         }
                     },{new:true})
                     message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} به اتاق افزوده شد.`
@@ -2032,8 +2157,8 @@ io.on("connection", async (socket) => {
                 }
                 break;
             case 'kick':
-                if(room.members.includes(user_data.username)){
-                    if(user_data.username == room.admin){
+                if(room.members.includes(user_data._id)){
+                    if(user_data._id == room.admin){
                         access = false
                         message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} ادمین است، اول این سمت را انتقال دهید`
                     }else{
@@ -2041,10 +2166,10 @@ io.on("connection", async (socket) => {
                         room = await Room.findOneAndUpdate({roomID:room.roomID},{
                             $pull:
                             {
-                                members: user_data.username
+                                members: user_data._id
                             }
                         },{new:true})
-                        if(user_data.username == currentUser.username){
+                        if(user_data._id == currentUser._id){
                             
                             message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} اتاق را ترک کرد`
                         }else{
@@ -2064,7 +2189,7 @@ io.on("connection", async (socket) => {
                 break;
         }
         if(access){
-            const member_users = await User.find({ username : {$in: room.members} }).select("username first_name last_name lastActive status").lean();
+            const member_users = await User.find({ _id : {$in: room.members} }).select("username first_name last_name lastActive status").lean();
             Log_message(message,null,room.roomID)
             io.in(Device_room).emit("member_update",{room_admin:room?.admin,member_data:room?.member_data, members:member_users})
         }
@@ -2084,7 +2209,7 @@ io.on("connection", async (socket) => {
                 socket.emit("error", { message: "Failed to load older messages." });
                 throw new Error("User not found or not in a room.");
             }
-            const check_room_permissions = await authinticate_room(roomID,currentUser.username)
+            const check_room_permissions = await authinticate_room(roomID,currentUser._id)
 
             if(!check_room_permissions){
                 socket.emit("error", { message: "Failed to Load (no access)." });
@@ -2324,7 +2449,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             return
         }
 
-        const check_room_permissions = await authinticate_room(roomID,currentUser.username)
+        const check_room_permissions = await authinticate_room(roomID,currentUser._id)
         socket.join(roomID)
         if(!check_room_permissions){
             socket.leave(roomID);
@@ -2378,10 +2503,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // پیدا کردن همه اعضای اتاق
                     // دریافت اطلاعات اتاق از دیتابیس
 
-            if (!currentUser || !currentUser.username) {
+            if (!currentUser || !currentUser._id) {
                 throw new Error("User not found or not in a room.");
             }
-            const check_room_permissions = await authinticate_room(roomID,currentUser.username)
+            const check_room_permissions = await authinticate_room(roomID,currentUser._id)
 
             if(!check_room_permissions){
                 socket.leave(roomID);
@@ -2447,12 +2572,12 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             const newMessage = new Message({
                 id: id,  // ID format: roomID-auto-increment number
                 roomID: roomID,
-                sender: username,
+                sender: currentUser._id,
                 quote: quote ? `${roomID}-${quote}`:null,
                 message: clean ? socketEncrypt(clean) : '',
                 file: fileDetails, // Map over the uploaded file to structure them correctly
-                read: [{ username, time: timestamp }], // <- Mark as read by sender
-                members: [username],
+                read: [{ username:currentUser._id, time: timestamp }], // <- Mark as read by sender
+                members: [currentUser._id],
                 encrypt: true,
                 timestamp,
             });
@@ -2480,12 +2605,12 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             const roomMembers = room.members; // لیست اعضای اتاق
             
             // گرفتن Socket ID کاربران از دیتابیس
-            const onlineUsers = await User.find({ username: { $in: roomMembers } });
+            const onlineUsers = await User.find({ _id: { $in: roomMembers } });
 
             let tempMessage;
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach(async (user) => {
-                if (user.username != username) {
+                if (user._id != currentUser._id) {
 
                     if (user.username) {
                         const taskMatch = room.roomName.match(/\(#(\d+)\)/);
@@ -2556,7 +2681,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
             const user_name = currentUser?.first_name && currentUser?.last_name ? `${currentUser?.first_name} ${currentUser?.last_name}` : username
 
-            username = user.username
+            uid = user._id
             if (!messageId || typeof messageId !== "string" && !new_message) {
                 throw new Error("Invalid or missing messageId.");
             }
@@ -2580,7 +2705,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== username && username != '09173121943') {
+            if (message.sender !== uid && uid != '09173121943') {
                 throw new Error("You can only edit your own messages.");
             }
 
@@ -2604,11 +2729,11 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // Optional: Send notification to others that a message was deleted
             const room = await Room.findOneAndUpdate({ roomID: Device_room }, { $set: { lastUpdated: new Date()  , last_content: socketEncrypt(`${user_name}: پیامی ویرایش شده است`) } });
             if (room) {
-                const onlineUsers = await User.find({ username: { $in: room.members } });
+                const onlineUsers = await User.find({ _id: { $in: room.members } });
                 
                 onlineUsers.forEach((user) => {
                     user?.devices.forEach(device=>{
-                        if (user.username !== username && user.socketID) {
+                        if (user.username !== currentUser.username && user.socketID) {
                             io.to(device.socketID).emit("notification", {
                                 sender: currentUser.username,
                                 title: `Message edited (MetaChat): ${room.roomName}`,
@@ -2667,7 +2792,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== username && username != '09173121943') {
+            if (message.sender !== currentUser._id && currentUser._id != '09173121943') {
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -2705,10 +2830,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // Optional: Send notification to others that a message was deleted
             const room = await Room.findOne({ roomID: Device_room });
             if (room) {
-                const onlineUsers = await User.find({ username: { $in: room.members } });
+                const onlineUsers = await User.find({ _id: { $in: room.members } });
 
                 onlineUsers.forEach((user) => {
-                    if (user.username !== username && user.socketID) {
+                    if (user._id !== currentUser._id && user.socketID) {
                         user?.devices.forEach(device=>{
                             io.to(device.socketID).emit("notification", {
                                 sender: currentUser.username,
@@ -2765,7 +2890,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== username && username != '09173121943') {
+            if (message.sender !== currentUser._id && currentUser._id != '09173121943') {
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -2791,7 +2916,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // Optional: Send notification to others that a message was deleted
             const room = await Room.findOne({ roomID: Device_room });
             if (room) {
-                const onlineUsers = await User.find({ username: { $in: room.members } });
+                const onlineUsers = await User.find({ _id: { $in: room.members } });
 
                 onlineUsers.forEach((user) => {
                     if (user.username !== username && user.socketID) {
@@ -2864,7 +2989,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             } else {
                 // If the user doesn't have a reaction, add a new entry to the `read` array
                 message.read.push({
-                    username: username,
+                    username: currentUser._id,
                     reaction: reaction
                 });
             }
@@ -2880,7 +3005,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             const roomMembers = room.members; // لیست اعضای اتاق
             
             // گرفتن Socket ID کاربران از دیتابیس
-            const onlineUsers = await User.find({ username: { $in: roomMembers } });
+            const onlineUsers = await User.find({ _id: { $in: roomMembers } });
             
             const selfSender = await User.findOne({ username });
 
@@ -2888,7 +3013,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach(async (user) => {
-                if (user.username != username && user.username == message.sender) {
+                if (user._id != currentUser._id && user._id == message.sender) {
 
                     if (user.username) {
                         const taskMatch = room.roomName.match(/\(#(\d+)\)/);
@@ -3048,8 +3173,8 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             const isMember = room.members?.some(m =>
                 typeof m === 'string'
-                    ? m === currentUser.username
-                    : m.username === currentUser.username
+                    ? m === currentUser._id
+                    : m.username === currentUser._id
             );
 
             if (!isMember) {
@@ -3061,7 +3186,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 await Message.findOneAndUpdate(
                     {   roomID,
                         "file._id":file_id,
-                        "read.username":  username 
+                        "read.username":  currentUser._id 
                     },
                     {
                         $set: 
@@ -3099,8 +3224,8 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             const isMember = room.members?.some(m =>
                 typeof m === 'string'
-                    ? m === currentUser.username
-                    : m.username === currentUser.username
+                    ? m === currentUser._id
+                    : m.username === currentUser._id
             );
 
             if (!isMember) {
@@ -3117,7 +3242,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                         {
                             id: { $lte: messageId },
                             roomID,
-                            "read.username": { $ne: username }
+                            "read.username": { $ne: _id }
                         },
                         {
                             $addToSet: { read: { username, time: timestamp } }
@@ -3183,7 +3308,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             // match داینامیک
             const matchStage = {
-                members: currentUser.username
+                members: currentUser._id
             };
 
 
@@ -3236,7 +3361,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
 
             const users = await User.find({
-                username: { $in: users_name }
+                _id: { $in: users_name }
             })
             .select("username first_name last_name lastActive status")
             .lean();
@@ -3326,7 +3451,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
         Message.find({ roomID: roomID }) // Get all messages in the room
             .then(messages => {
                 let newMessageCount = messages.filter(msg =>
-                    !msg.read.some(r => r.username === currentUser.username) // Check if the user has NOT read it
+                    !msg.read.some(r => r.username === currentUser._id) // Check if the user has NOT read it
                 ).length;
     
                 // Send back the count
@@ -3383,7 +3508,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Optional: Check if user is a member (for logging/debugging only)
-            if (!room.members.includes(username)) {
+            if (!room.members.includes(currentUser._id)) {
                 console.warn(`User "${username}" is leaving room "${roomID}" but not listed as a member.`);
             }
 
