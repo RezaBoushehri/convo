@@ -22,6 +22,7 @@ const createRoom = () => {
         roomMembers : roomMembers  
     });
 };
+
 function formatDate(date) {
   if (!date) return '';
 
@@ -87,7 +88,8 @@ const joinRoom = () => {
     window.location.href = `/metachat/join/${roomID}`;
 };
 
-
+$('#joinRoom btn.submitBtn').click(joinRoom)
+$('#createRoom btn.submitBtn').click(createRoom)
 
 const leaveRoom = () => {
     // const roomID = document.querySelector("#roomID").textContent.trim()
@@ -175,7 +177,9 @@ socket.on("userLeft", ({ name, roomID }) => {
     showAlert(`${name} left the chat.`,'info')
 });
 
-
+window.GlobalLeaveRoom = function() {
+    leaveRoom(); // Your existing joinRoom function
+}
 
 
 let roomList_data ;

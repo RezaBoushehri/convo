@@ -28,7 +28,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick='joinRoom()'>پیوستن</button>
+                        <button type="button" class="btn btn-primary submitBtn" data-bs-dismiss="modal" >پیوستن</button>
                     </div>
                 </div>
             </div>
@@ -62,7 +62,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick='createRoom()'>ساختن</button>
+                        <button type="button" class="btn btn-primary submitBtn" data-bs-dismiss="modal">ساختن</button>
                     </div>
                 </div>
             </div>
@@ -128,7 +128,7 @@
                     <div class="col-12 row gap-1 mx-auto">
                         <div class="col-sm-12 col-md-auto m-auto">
             
-                            <button id="down" class="btn rounded-circle animate__animated animate__zoomIn" style="display: none;" onclick="scrollDown()">
+                            <button id="down" class="btn rounded-circle animate__animated animate__zoomIn" style="display: none;">
                                 <strong><i class="bi bi-arrow-down"></i></strong>
                                 <span id="notifCount" class="btn btn-danger">0</span>
                             </button>
@@ -198,10 +198,10 @@
     </div>
 
 
-    <script  src='https://mc.farahoosh.ir/metachat/socket_conn.js'></script>
-    <script  src='https://mc.farahoosh.ir/metachat/chat_v0501.js'></script>
-    <script src='https://mc.farahoosh.ir/metachat/roomManagement.js' ></script>
-    <script src="https://mc.farahoosh.ir/metachat/setting.js" ></script>
+    <script   nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/socket_conn.js'></script>
+    <script   nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/chat_v0501.js'></script>
+    <script  nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/roomManagement.js' ></script>
+    <script  nonce="<%= nonce %>" src="https://mc.farahoosh.ir/metachat/setting.js" ></script>
 
     <%-include('partials/footer.ejs')%>
         </body>

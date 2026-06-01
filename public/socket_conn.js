@@ -1,53 +1,75 @@
-
-
-  $('#pvChatBtn').attr('disabled', 'true')
-  const href = "/";
-  const ioUrl = "https://mc.farahoosh.ir/";
-
-// // تابع برای رمزگذاری
-// function encryptMessage(message) {
-//     const iv = CryptoJS.lib.WordArray.random(16); // تولید IV تصادفی
-//     const encrypted = CryptoJS.AES.encrypt(message, secretKey, { iv: iv });
-//     return iv.toString(CryptoJS.enc.Hex) + ':' + encrypted.ciphertext.toString(CryptoJS.enc.Hex); // ترکیب IV و متن رمزنگاری‌شده
-// }
-
-// // تابع برای رمزگشایی
-// function decryptMessage(encryptedMessage) {
-//     return encryptedMessage
-//     const [ivHex, encryptedHex] = encryptedMessage.split(':');
-//     if(typeof ivHex =='undefined'|| typeof encryptedHex =='undefined') return encryptedMessage
-//     const iv = CryptoJS.enc.Hex.parse(ivHex);
-//     const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-//     const decrypted = CryptoJS.AES.decrypt({ ciphertext: ciphertext }, secretKey, { iv: iv });
-//     console.log(encryptedMessage)
-//     return decrypted.toString(CryptoJS.enc.Utf8);
-// }
+// Fixed client code
+$('#pvChatBtn').attr('disabled', 'true');
+const href = "/";
+const ioUrl = "https://mc.farahoosh.ir/";
 
 const currentUser = {
-        username: $('#username').text().trim()
-    }
-  socket = io.connect(ioUrl, {
-    transports: ['polling', 'websocket'], // Allows both WebSocket and Polling
-    path:'/metachat/socket.io',
-    secure: false, // Ensures that the connection uses HTTPS
-    withCredentials: true, // Ensure cookies are not sent with requests (set to true if needed)
-    rejectUnauthorized: true, // Bypass SSL verification for self-signed certificates (use with caution)
+    username: $('#username').text().trim()
+};
+
+// Initialize Socket.IO with better configuration
+const socket = io(ioUrl, {
+    transports: ['websocket', 'polling'], // WebSocket first for better performance
+    path: '/metachat/socket.io',
+    secure: true,
+    withCredentials: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 2000,
     reconnectionDelayMax: 5000,
-  })
-  // Initialize Socket.IO connection
-  console.log("Initializing Socket.IO connection...");
+    timeout: 20000,
+    autoConnect: true
+});
 
-  socket.on("connect", () => {
+console.log("Initializing Socket.IO connection...");
+
+// Connection event handlers
+socket.on("connect", () => {
     console.log("Connected to metaChat via Socket.IO 🎯");
-    $('#output').empty()
-    // Emit userLoggedIn event with current user data
-    // 💬 ارسال اطلاعات کاربر
-    socket.emit("userLoggedIn", {
-      username: currentUser.username
-    });
-
+    console.log("Socket ID:", socket.id);
+    $('#output').empty();
     
-  })
+    // Emit userLoggedIn event with current user data
+    socket.emit("userLoggedIn", {
+        username: currentUser.username,
+        socketId: socket.id,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Handle connection errors
+socket.on("connect_error", (error) => {
+    console.error("Connection error:", error.message);
+    console.log("Attempting to reconnect...");
+});
+
+socket.on("disconnect", (reason) => {
+    console.log("Disconnected from server:", reason);
+    if (reason === "io server disconnect") {
+        // Reconnect manually if server disconnected
+        socket.connect();
+    }
+});
+
+socket.on("reconnect", (attemptNumber) => {
+    console.log("Reconnected successfully after", attemptNumber, "attempts");
+    // Re-emit user info after reconnection
+    socket.emit("userLoggedIn", {
+        username: currentUser.username,
+        socketId: socket.id,
+        reconnected: true
+    });
+});
+
+socket.on("reconnect_attempt", (attemptNumber) => {
+    console.log("Reconnection attempt:", attemptNumber);
+});
+
+socket.on("reconnect_error", (error) => {
+    console.error("Reconnection error:", error);
+});
+
+socket.on("reconnect_failed", () => {
+    console.error("Reconnection failed");
+    // Handle failed reconnection (e.g., show user notification)
+});

@@ -244,7 +244,46 @@ function init_page(join_Logic=true){
 
 }
 
+window.G_addStickerReaction = function(sticker,id) {
+    addStickerReaction(sticker,id); // Your existing joinRoom function
+}
 
+window.G_toggleEmojiContainer = function(id) {
+    toggleEmojiContainer(id); // Your existing joinRoom function
+}
+window.G_member_manage = function(status,user) {
+    member_manage(status,user); // Your existing joinRoom function
+}
+
+window.G_closeInput = function(id) {
+    $('#file-input_res').addClass('d-none');
+    $('#file-input').val('');
+    fileData=null; // Your existing joinRoom function
+}
+window.G_copyToClipboard = function(text) {
+    copyToClipboard(text)
+}
+window.G_triggerDownload = function(src,fileName) {
+    triggerDownload(src,fileName)
+}
+window.G_Delete_file_id = function(id) {
+    Delete_file_id(id)
+}
+window.G_loadfirstButton = function() {
+    loadfirstButton()
+}
+window.G_menu_file = function(id,onwer) {
+    menu_file(id,onwer)
+}
+window.G_openReadedMessage = function(id) {
+    openReadedMessage(id)
+}
+window.G_clearReply = function() {
+    clearReply()
+}
+window.G_toggleStickerPicker = function(id,x,y) {
+    toggleStickerPicker(id,x,y)
+}
 function emoji(messageId) {
     if (document.querySelectorAll('.stickerPicker')) {
         document.querySelectorAll('.stickerPicker').forEach(el => el.remove());
@@ -254,67 +293,67 @@ function emoji(messageId) {
     <div id="emojiGrid">
         <div id="emojiContainer" >
                 <!-- Emoji spans that will be rendered by Twemoji -->
-                <span onclick="addStickerReaction('😂', ${messageId})" class="emoji">😂</span>
-                <span onclick="addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
-                <span onclick="addStickerReaction('👎', ${messageId})" class="emoji">👎</span>
-                <span onclick="addStickerReaction('❤️', ${messageId})" class="emoji">\u2764\uFE0F</span>
-                <span onclick="addStickerReaction('🐈‍⬛', ${messageId})" class="emoji">🐈‍⬛</span>
-                <span onclick="addStickerReaction('😊', ${messageId})" class="emoji">😊</span>
-                <span onclick="addStickerReaction('👌', ${messageId})" class="emoji">👌</span>
-                <span onclick="addStickerReaction('🗿', ${messageId})" class="emoji">🗿</span>
-                <span onclick="addStickerReaction('🎉', ${messageId})" class="emoji">🎉</span>
-                <span onclick="addStickerReaction('🔥', ${messageId})" class="emoji">🔥</span>
-                <span onclick="addStickerReaction('🎈', ${messageId})" class="emoji">🎈</span>
-                <span onclick="addStickerReaction('💯', ${messageId})" class="emoji">💯</span>
-                <span onclick="addStickerReaction('😎', ${messageId})" class="emoji">😎</span>
-                <span onclick="addStickerReaction('😍', ${messageId})" class="emoji">😍</span>
-                <span onclick="addStickerReaction('😭', ${messageId})" class="emoji">😭</span>
-                <span onclick="addStickerReaction('😢', ${messageId})" class="emoji">😢</span>
-                <span onclick="addStickerReaction('😜', ${messageId})" class="emoji">😜</span>
-                <span onclick="addStickerReaction('💀', ${messageId})" class="emoji">💀</span>
-                <span onclick="addStickerReaction('🤔', ${messageId})" class="emoji">🤔</span>
-                <span onclick="addStickerReaction('👀', ${messageId})" class="emoji">👀</span>
-                <span onclick="addStickerReaction('🤩', ${messageId})" class="emoji">🤩</span>
-                <span onclick="addStickerReaction('😎', ${messageId})" class="emoji">😎</span>
-                <span onclick="addStickerReaction('🤗', ${messageId})" class="emoji">🤗</span>
-                <span onclick="addStickerReaction('🥺', ${messageId})" class="emoji">🥺</span>
-                <span onclick="addStickerReaction('😱', ${messageId})" class="emoji">😱</span>
-                <span onclick="addStickerReaction('👏', ${messageId})" class="emoji">👏</span>
-                <span onclick="addStickerReaction('😒', ${messageId})" class="emoji">😒</span>
-                <span onclick="addStickerReaction('😤', ${messageId})" class="emoji">😤</span>
-                <span onclick="addStickerReaction('😪', ${messageId})" class="emoji">😪</span>
-                <span onclick="addStickerReaction('🥳', ${messageId})" class="emoji">🥳</span>
-                <span onclick="addStickerReaction('🤨', ${messageId})" class="emoji">🤨</span>
-                <span onclick="addStickerReaction('🤐', ${messageId})" class="emoji">🤐</span>
-                <span onclick="addStickerReaction('😮', ${messageId})" class="emoji">😮</span>
-                <span onclick="addStickerReaction('🥱', ${messageId})" class="emoji">🥱</span>
-                <span onclick="addStickerReaction('🤯', ${messageId})" class="emoji">🤯</span>
-                <span onclick="addStickerReaction('😋', ${messageId})" class="emoji">😋</span>
-                <span onclick="addStickerReaction('😇', ${messageId})" class="emoji">😇</span>
-                <span onclick="addStickerReaction('👆', ${messageId})" class="emoji">👆</span>
-                <span onclick="addStickerReaction('✌', ${messageId})" class="emoji">✌</span>
-                <span onclick="addStickerReaction('🙏', ${messageId})" class="emoji">🙏</span>
-                <span onclick="addStickerReaction('💅', ${messageId})" class="emoji">💅</span>
-                <span onclick="addStickerReaction('💪', ${messageId})" class="emoji">💪</span>
-                <span onclick="addStickerReaction('🖐', ${messageId})" class="emoji">🖐</span>
-                <span onclick="addStickerReaction('🤝', ${messageId})" class="emoji">🤝</span>
-                <span onclick="addStickerReaction('✍', ${messageId})" class="emoji">✍</span>
-                <span onclick="addStickerReaction('🤡', ${messageId})" class="emoji">🤡</span>
-                <span onclick="addStickerReaction('😡', ${messageId})" class="emoji">😡</span>
-                <span onclick="addStickerReaction('😰', ${messageId})" class="emoji">😰</span>
-                <span onclick="addStickerReaction('🥶', ${messageId})" class="emoji">🥶</span>
-                <span onclick="addStickerReaction('🥵', ${messageId})" class="emoji">🥵</span>
-                <span onclick="addStickerReaction('👑', ${messageId})" class="emoji">👑</span>
-                <span onclick="addStickerReaction('🧨', ${messageId})" class="emoji">🧨</span>
-                <span onclick="addStickerReaction('🤍', ${messageId})" class="emoji">🤍</span>
-                <span onclick="addStickerReaction('🧡', ${messageId})" class="emoji">🧡</span>
-                <span onclick="addStickerReaction('💙', ${messageId})" class="emoji">💙</span>
-                <span onclick="addStickerReaction('🤷‍♂️', ${messageId})" class="emoji">🤷‍♂️</span>
-                <span onclick="addStickerReaction('⚡', ${messageId})" class="emoji">⚡</span>
-                <span onclick="addStickerReaction('❌', ${messageId})" class="emoji">❌</span>
-                <span onclick="addStickerReaction('✅', ${messageId})" class="emoji">✅</span>
+                <span onclick="window.G_addStickerReaction('😂', ${messageId})" class="emoji">😂</span>
+                <span onclick="window.G_addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
+                <span onclick="window.G_addStickerReaction('👎', ${messageId})" class="emoji">👎</span>
+                <span onclick="window.G_addStickerReaction('❤️', ${messageId})" class="emoji">\u2764\uFE0F</span>
+                <span onclick="window.G_addStickerReaction('🐈‍⬛', ${messageId})" class="emoji">🐈‍⬛</span>
+                <span onclick="window.G_addStickerReaction('😊', ${messageId})" class="emoji">😊</span>
+                <span onclick="window.G_addStickerReaction('👌', ${messageId})" class="emoji">👌</span>
+                <span onclick="window.G_addStickerReaction('🗿', ${messageId})" class="emoji">🗿</span>
+                <span onclick="window.G_addStickerReaction('🎉', ${messageId})" class="emoji">🎉</span>
+                <span onclick="window.G_addStickerReaction('🔥', ${messageId})" class="emoji">🔥</span>
+                <span onclick="window.G_addStickerReaction('🎈', ${messageId})" class="emoji">🎈</span>
+                <span onclick="window.G_addStickerReaction('💯', ${messageId})" class="emoji">💯</span>
+                <span onclick="window.G_addStickerReaction('😎', ${messageId})" class="emoji">😎</span>
+                <span onclick="window.G_addStickerReaction('😍', ${messageId})" class="emoji">😍</span>
+                <span onclick="window.G_addStickerReaction('😭', ${messageId})" class="emoji">😭</span>
+                <span onclick="window.G_addStickerReaction('😢', ${messageId})" class="emoji">😢</span>
+                <span onclick="window.G_addStickerReaction('😜', ${messageId})" class="emoji">😜</span>
+                <span onclick="window.G_addStickerReaction('💀', ${messageId})" class="emoji">💀</span>
+                <span onclick="window.G_addStickerReaction('🤔', ${messageId})" class="emoji">🤔</span>
+                <span onclick="window.G_addStickerReaction('👀', ${messageId})" class="emoji">👀</span>
+                <span onclick="window.G_addStickerReaction('🤩', ${messageId})" class="emoji">🤩</span>
+                <span onclick="window.G_addStickerReaction('😎', ${messageId})" class="emoji">😎</span>
+                <span onclick="window.G_addStickerReaction('🤗', ${messageId})" class="emoji">🤗</span>
+                <span onclick="window.G_addStickerReaction('🥺', ${messageId})" class="emoji">🥺</span>
+                <span onclick="window.G_addStickerReaction('😱', ${messageId})" class="emoji">😱</span>
+                <span onclick="window.G_addStickerReaction('👏', ${messageId})" class="emoji">👏</span>
+                <span onclick="window.G_addStickerReaction('😒', ${messageId})" class="emoji">😒</span>
+                <span onclick="window.G_addStickerReaction('😤', ${messageId})" class="emoji">😤</span>
+                <span onclick="window.G_addStickerReaction('😪', ${messageId})" class="emoji">😪</span>
+                <span onclick="window.G_addStickerReaction('🥳', ${messageId})" class="emoji">🥳</span>
+                <span onclick="window.G_addStickerReaction('🤨', ${messageId})" class="emoji">🤨</span>
+                <span onclick="window.G_addStickerReaction('🤐', ${messageId})" class="emoji">🤐</span>
+                <span onclick="window.G_addStickerReaction('😮', ${messageId})" class="emoji">😮</span>
+                <span onclick="window.G_addStickerReaction('🥱', ${messageId})" class="emoji">🥱</span>
+                <span onclick="window.G_addStickerReaction('🤯', ${messageId})" class="emoji">🤯</span>
+                <span onclick="window.G_addStickerReaction('😋', ${messageId})" class="emoji">😋</span>
+                <span onclick="window.G_addStickerReaction('😇', ${messageId})" class="emoji">😇</span>
+                <span onclick="window.G_addStickerReaction('👆', ${messageId})" class="emoji">👆</span>
+                <span onclick="window.G_addStickerReaction('✌', ${messageId})" class="emoji">✌</span>
+                <span onclick="window.G_addStickerReaction('🙏', ${messageId})" class="emoji">🙏</span>
+                <span onclick="window.G_addStickerReaction('💅', ${messageId})" class="emoji">💅</span>
+                <span onclick="window.G_addStickerReaction('💪', ${messageId})" class="emoji">💪</span>
+                <span onclick="window.G_addStickerReaction('🖐', ${messageId})" class="emoji">🖐</span>
+                <span onclick="window.G_addStickerReaction('🤝', ${messageId})" class="emoji">🤝</span>
+                <span onclick="window.G_addStickerReaction('✍', ${messageId})" class="emoji">✍</span>
+                <span onclick="window.G_addStickerReaction('🤡', ${messageId})" class="emoji">🤡</span>
+                <span onclick="window.G_addStickerReaction('😡', ${messageId})" class="emoji">😡</span>
+                <span onclick="window.G_addStickerReaction('😰', ${messageId})" class="emoji">😰</span>
+                <span onclick="window.G_addStickerReaction('🥶', ${messageId})" class="emoji">🥶</span>
+                <span onclick="window.G_addStickerReaction('🥵', ${messageId})" class="emoji">🥵</span>
+                <span onclick="window.G_addStickerReaction('👑', ${messageId})" class="emoji">👑</span>
+                <span onclick="window.G_addStickerReaction('🧨', ${messageId})" class="emoji">🧨</span>
+                <span onclick="window.G_addStickerReaction('🤍', ${messageId})" class="emoji">🤍</span>
+                <span onclick="window.G_addStickerReaction('🧡', ${messageId})" class="emoji">🧡</span>
+                <span onclick="window.G_addStickerReaction('💙', ${messageId})" class="emoji">💙</span>
+                <span onclick="window.G_addStickerReaction('🤷‍♂️', ${messageId})" class="emoji">🤷‍♂️</span>
+                <span onclick="window.G_addStickerReaction('⚡', ${messageId})" class="emoji">⚡</span>
+                <span onclick="window.G_addStickerReaction('❌', ${messageId})" class="emoji">❌</span>
+                <span onclick="window.G_addStickerReaction('✅', ${messageId})" class="emoji">✅</span>
                 </div>
-                <div class="show-all-icon btn" onclick="toggleEmojiContainer('${messageId}')">
+                <div class="show-all-icon btn" onclick="window.G_toggleEmojiContainer('${messageId}')">
                     <i class="bi bi-arrow-down-circle"></i>
                 </div>
         </div>
@@ -806,7 +845,7 @@ function prepareFileDetails(fileData) {
            $('#file-input_res').append(`
                
                    <div class="col-auto rounded-1 badge px-3 gap-1 d-flex bg-primary shadow">
-                       <button class="btn btn-sm btn-close col-auto m-auto" onclick="$('#file-input_res').addClass('d-none');$('#file-input').val('');fileData=null"></button>
+                       <button class="btn btn-sm btn-close col-auto m-auto" onclick="window.G_closeInput()"></button>
                        <img class="rounded-1" src="${fileURL}" width="auto" height="50" onerror="$(this).remove();$('#${index}_ICON').removeClass('d-none')" loading="lazy"  >
                        <div class="m-auto col-auto row">
                            <i id="${index}_ICON" class="bi fs-5 m-auto d-none col-auto fileIcon bi-filetype-${(file.name).split('.')[1]}"></i> 
@@ -1490,12 +1529,12 @@ function update_member_room_info_modal(member_data,members){
             const managing = () =>{
                 if(is_User_admin){
                     return`
-                    <span class="dropdown-item my-1 d-flex gap-2 rounded-3" onclick="member_manage('admin','${mem.username}')"><i class="bi bi-star text-warning"></i> ترفیع به مدیر</span>
-                    <span class="dropdown-item my-1 d-flex gap-2 rounded-3 text-danger" onclick="member_manage('kick','${mem.username}')"><i class="bi bi-x"></i> اخراج</span>
+                    <span class="dropdown-item my-1 d-flex gap-2 rounded-3" onclick="window.G_member_manage('admin','${mem.username}')"><i class="bi bi-star text-warning"></i> ترفیع به مدیر</span>
+                    <span class="dropdown-item my-1 d-flex gap-2 rounded-3 text-danger" onclick="window.G_member_manage('kick','${mem.username}')"><i class="bi bi-x"></i> اخراج</span>
                     `
                 }else if(is_self){
                     return`
-                     <span class="dropdown-item my-1 d-flex gap-2 rounded-3 text-danger" onclick="member_manage('kick','${mem.username}')"><i class="bi bi-x"></i>ترک اتاق</span>
+                     <span class="dropdown-item my-1 d-flex gap-2 rounded-3 text-danger" onclick="window.G_member_manage('kick','${mem.username}')"><i class="bi bi-x"></i>ترک اتاق</span>
                     `
                 }
             }
@@ -1531,7 +1570,7 @@ function update_member_room_info_modal(member_data,members){
                                     <span>
                                         ${mem.first_name} ${mem.last_name}      
                                     </span>
-                                    <span class="jdate" onclick="copyToClipboard('${mem.username}')">
+                                    <span class="jdate" onclick="window.G_copyToClipboard('${mem.username}')">
                                         <i class="bi bi-copy"></i> ${mem.username}              
                                     </span>
                                     
@@ -1638,7 +1677,7 @@ socket.on("joined", (data) => {
                 <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-1 mt-1">
                 
                     <button type='button'  
-                        class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary' onclick='leaveRoom()'>
+                        class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary' onclick='window.GlobalLeaveRoom()'>
                         <i class='bi fs-bold bi-arrow-left'></i>
                     </button>    
                 <!-- Toggle button for mobile -->
@@ -1669,7 +1708,7 @@ socket.on("joined", (data) => {
                                     </label>
                                     <div class="input-group">       
                                         <input type="text" dir="auto" class="form-control col" name="roomID" value="${data.room.roomID}" readonly> 
-                                        <button class="btn btn-outline-secondary col-auto" type="button" onclick="copyToClipboard('${data.room.roomID}')">
+                                        <button class="btn btn-outline-secondary col-auto" type="button" onclick="window.G_copyToClipboard('${data.room.roomID}')">
                                         <i class="bi bi-copy"> رونوشت</i> 
                                         </button> 
                                         <a href="whatsapp://send?text=${href}/join/${data.room.roomID}" data-action="share/whatsapp/share" 
@@ -1785,7 +1824,7 @@ socket.on("joined", (data) => {
         })
         if($modal_body.find('.kick_myself').length == 0){
             $modal_body.append(`
-                <span class="kick_myself my-1 gap-2 col-auto rounded-3 cursor-pointer btn btn-outline-danger" onclick="member_manage('kick','${currentUser.username}')"><i class="bi bi-person-fill-x"></i> ترک اتاق</span>
+                <span class="kick_myself my-1 gap-2 col-auto rounded-3 cursor-pointer btn btn-outline-danger" onclick="window.G_member_manage('kick','${currentUser.username}')"><i class="bi bi-person-fill-x"></i> ترک اتاق</span>
                             `)
         }
     })
@@ -2606,7 +2645,7 @@ function renderReply(reply){
 //         if(file.fileType.startsWith("image/")){return `<img src="${url}" class="chatImage">`}
 //         if(file.fileType.startsWith("video/")){return `<video controls src="${url}" class="chatVideo"></video>`}
 //         if(file.fileType.startsWith("audio/")){return telegramAudio(url)}
-//         return `<a class="fileDownload"onclick="triggerDownload('${url}','${file.fileName}')">${file.fileName}</a>`
+//         return `<a class="fileDownload"onclick="window.G_triggerDownload('${url}','${file.fileName}')">${file.fileName}</a>`
 //     }).join("")
 // }
 // function renderStatus(data){
@@ -2765,7 +2804,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 readStatus = 'read'
             }
           return r.reaction
-            ? `<span class='animate__animated animate__zoomIn   ${r.username == currentUser.username ? `ownReaction `:``} reactionMemEmoji ' ${r.username == currentUser.username ? `onClick="addStickerReaction('',${messageId})"`:''} user-id="${r.username}">${r.reaction}</span>`
+            ? `<span class='animate__animated animate__zoomIn   ${r.username == currentUser.username ? `ownReaction `:``} reactionMemEmoji ' ${r.username == currentUser.username ? `onclick="window.G_addStickerReaction('',${messageId})"`:''} user-id="${r.username}">${r.reaction}</span>`
             : "";
         })
         .join("")
@@ -2797,7 +2836,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
     : "";
     const voice_heared_users = data?.readUsers?.filter(r => r.voice_heared && r.username != data.sender ) 
     const Is_voice_heared = voice_heared_users?.length > 0 ? true : false
-    // <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="toggleStickerPicker(${messageId})">
+    // <button id="reactBtn-${messageId}" class="btn reactBtn" onclick="window.G_toggleStickerPicker(${messageId})">
     // <img src="../svg/emojiAdd.svg" alt="emoji add" width="20" height="20" />
     // </button>
     // sender name
@@ -2992,7 +3031,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             : `
                             <div class="file-actions col-12">
                                 <a 
-                                    onclick="triggerDownload('https://mc.farahoosh.ir/metachat${file.file}','${file.fileName}')"
+                                    onclick="window.G_triggerDownload('https://mc.farahoosh.ir/metachat${file.file}','${file.fileName}')"
                                     class="btn  col-auto m-auto btn-outline-primary">
                                     <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
                                     ${file.fileName || 'Unknown File'} <i class="bi bi-download"></i>
@@ -3001,7 +3040,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             `}
                             <div class="file-actions col-12 d-none">
                                 <a 
-                                    onclick="triggerDownload('https://mc.farahoosh.ir/metachat${file.file}','${file.fileName}')"
+                                    onclick="window.G_triggerDownload('https://mc.farahoosh.ir/metachat${file.file}','${file.fileName}')"
                                     class="btn  col-auto m-auto btn-outline-primary">
                                     <i class="bi fileIcon bi-filetype-${(file.fileName).split('.')[1]}"></i>
                                     ${file.fileName || 'Unknown File'} <i class="bi bi-download"></i>
@@ -3010,7 +3049,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         <div class="dropdown d-inline  position-absolute top-0 end-0 m-1 me-2" id="file_menu_${file._id}"
                                 data-fileName="${file.fileName}"
                                 data-file="${file.file}">
-                            <button class="btn btn-sm  mt-1 p-0 rounded-3 shadow btn-outline-white backdrop-blur-chat-fg" data-bs-toggle="dropdown" aria-expanded="false" onclick="menu_file('${file._id}',${ownMessage || currentUser.username == '09173121943'})">
+                            <button class="btn btn-sm  mt-1 p-0 rounded-3 shadow btn-outline-white backdrop-blur-chat-fg" data-bs-toggle="dropdown" aria-expanded="false" onclick="window.G_menu_file('${file._id}',${ownMessage || currentUser.username == '09173121943'})">
                                 <i class="bi fs-5 fw-semibold bi-three-dots-vertical"></i>
                             </button>
                             
@@ -3033,7 +3072,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         <button class="read-toggle"
                             read-data-id="${data.id}"
                             title="Seen member info"
-                            onclick="openReadedMessage('${data.id}')"
+                            onclick="window.G_openReadedMessage('${data.id}')"
                             style="bottom: -3px; position: relative; cursor:pointer; text-align:right; color:var(--user-fg-color); border:none; background:none;">
                         <strong class="status">${status_check()}</strong>
 
@@ -3070,13 +3109,13 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
 
     let firstMessage = `
     <div data-id="Message-${messageId}" data-date="${messageDate}" class="firstMessage">
-            <button class="btn btn-outline-secondary my-3 " style="border-radius:50% !important; border: 2px solid;"  onclick="loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
+            <button class="btn btn-outline-secondary my-3 " style="border-radius:50% !important; border: 2px solid;"  onclick="window.G_loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
 
     </div>
     `;
     // `
     // <div data-id="Message-${messageId}" class="firstMessage">
-    //         <button class="btn btn-outline-secondary my-3 " style="border-radius:50%; border: 2px solid;"  onclick="loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
+    //         <button class="btn btn-outline-secondary my-3 " style="border-radius:50%; border: 2px solid;"  onclick="window.G_loadfirstButton()"><strong><i class="bi bi-arrow-up"></i></strong></button>
 
     // </div>
     // `;
@@ -3593,12 +3632,12 @@ function menu_file(id,isOwner){
                 
                 ${isOwner == true  ? `
                 <button class="dropdown-item my-1 d-flex justify-content-between rounded-3 text-start col-12 btn text-danger"
-                    onclick="Delete_file_id('${id}')">
+                    onclick="window.G_Delete_file_id('${id}')">
                     <i class="col-auto bi text-danger bi-trash me-2 my-auto"></i> <span class="col m-auto">Delete</span>
                 </button>
                 ` : ''}
                 <a 
-                    onclick="triggerDownload('https://mc.farahoosh.ir/metachat${file}','${fileName}')"
+                    onclick="window.G_triggerDownload('https://mc.farahoosh.ir/metachat${file}','${fileName}')"
                     class="dropdown-item my-1 d-flex justify-content-between rounded-3 text-start col-12 btn text-primary">
                     <i class="bi fileIcon bi-filetype-${(fileName).split('.')[1]}"></i>
                     <span class="m-auto">Download</span> <i class="bi m-auto bi-download"></i>
@@ -3828,7 +3867,7 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
             // userRect.innerHTML = `<span class='${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji mx-1' user-id="${username}">${reaction}</span>`;
 
             // Create a new reaction element
-          memberReaction.innerHTML += `<span class='animate__animated animate__zoomIn   ${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji ' ${username == currentUser.username ? `onClick="addStickerReaction('',${spiltedId})"`:''} user-id="${username}">${reaction}</span>`
+          memberReaction.innerHTML += `<span class='animate__animated animate__zoomIn   ${username == currentUser.username ? `ownReaction `:``} reactionMemEmoji ' ${username == currentUser.username ? `onclick="window.G_addStickerReaction('',${spiltedId})"`:''} user-id="${username}">${reaction}</span>`
     
             // Debug: Log the newly created element
             // console.log(`New reaction created for username: ${username}`);
@@ -4226,7 +4265,7 @@ function replyMessage(messageId) {
             </div>
 
             <button 
-                onclick="clearReply()" 
+                onclick="window.G_clearReply()" 
                 class="btn btn-danger btn-sm btn-close replyClose"
                 type="button"
             ></button>
@@ -4568,11 +4607,11 @@ function messageMenu() {
         let emojiLess = `
             <div class="my-2" id="emojiGrid">
                 <div id="emojiContainer" >
-                    <span onclick="addStickerReaction('😂', ${messageId})" class="emoji">😂</span>
-                    <span onclick="addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
-                    <span onclick="addStickerReaction('👎', ${messageId})" class="emoji">👎</span>
-                    <span onclick="addStickerReaction('❤️', ${messageId})" class="emoji">\u2764\uFE0F</span>
-                    <span onclick="addStickerReaction('🙏', ${messageId})" class="emoji">🙏</span>
+                    <span onclick="window.G_addStickerReaction('😂', ${messageId})" class="emoji">😂</span>
+                    <span onclick="window.G_addStickerReaction('👍', ${messageId})" class="emoji">👍</span>
+                    <span onclick="window.G_addStickerReaction('👎', ${messageId})" class="emoji">👎</span>
+                    <span onclick="window.G_addStickerReaction('❤️', ${messageId})" class="emoji">\u2764\uFE0F</span>
+                    <span onclick="window.G_addStickerReaction('🙏', ${messageId})" class="emoji">🙏</span>
                 </div>
             </div>
         `
@@ -4581,7 +4620,7 @@ function messageMenu() {
         // menu.insertAdjacentHTML("afterend",emoji(messageId))
         let emojiDiv = `
         
-        <button dir="auto" id="reactBtn-${messageId}" class="d-flex list-group-item justify-content-between  btn reactBtn visible col-12" onclick="toggleStickerPicker(${messageId},${event.pageX} , ${event.pageY })">
+        <button dir="auto" id="reactBtn-${messageId}" class="d-flex list-group-item justify-content-between  btn reactBtn visible col-12" onclick="window.G_toggleStickerPicker(${messageId},${event.pageX} , ${event.pageY })">
             شکلک
             <i class="bi bi-emoji-smile"></i>
         </button>

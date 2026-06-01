@@ -63,7 +63,15 @@ const createDOMPurify = require('dompurify'),
             origin: ["https://localhost:4000","https://mc.farahoosh.ir"], // Replace with your client URL
             methods: ["GET", "POST"],
             credentials: true,
+            credentials: true,
+            allowedHeaders: ["Content-Type", "Authorization"],
+            exposedHeaders: ["Content-Length"]
         },
+        allowEIO3: true, // Allow Engine.IO v3 clients if needed
+        transports: ['websocket', 'polling'],
+        pingTimeout: 60000,
+        pingInterval: 25000,
+        upgradeTimeout: 10000
     });
 
 // const { timeStamp, error } = require("console");
@@ -172,7 +180,30 @@ passport.deserializeUser(async (username, done) => {
       done(err);
     }
 });
-  
+passport.use(new passportLocalStrategy(
+    {
+        usernameField: 'username',
+        passwordField: 'password'
+    },
+    async (username, password, done) => {
+        try {
+            const user = await User.findOne({ username: username });
+            if (!user) {
+                return done(null, false, { message: 'Incorrect username.' });
+            }
+            
+            // Use the model's authenticate method if available
+            const isValid = await user.authenticate(password);
+            if (!isValid) {
+                return done(null, false, { message: 'Incorrect password.' });
+            }
+            
+            return done(null, user);
+        } catch (err) {
+            return done(err);
+        }
+    }
+));
 
 
 
@@ -180,28 +211,36 @@ passport.deserializeUser(async (username, done) => {
 io.use((socket, next) => {  
     sessionMiddleware(socket.request, {}, async (err) => {      
         try {
-             if (err) {
-            throw new Error(err);
-            };
+            if (err) {
+                console.error('Session middleware error:', err);
+                return next(new Error("Session error"));
+            }
+            console.log(socket.request.cookies)                
             const session = socket.request.session;
             if (!session || !session.passport || !session.passport.user) {  
-                throw new Error("unauthorized");     
+                console.error('No session or passport user');
+                return next(new Error("unauthorized"));     
             }
+            
             const user = await User.findByUsername(session.passport.user);
             if (!user) {  
-                throw new Error("unauthorized User");    
+                console.error('User not found:', session.passport.user);
+                return next(new Error("unauthorized User"));    
             }
-            if (!user?.device_login) {  
-                throw new Error("unauthorized Device");    
+            
+            // Check device login more safely
+            if (!user.device_login && !user.devices?.length) {  
+                console.error('No device login for user:', user.username);
+                return next(new Error("unauthorized Device"));    
             }
             socket.user = user;
-            socket.token = session.token;
+            socket.user._id = user._id;
+            socket.token = socket.request.cookies?.autoLogin || user.device_login;
             return next();      
         } catch (error) {
-            console.error(`IO connection: `,error.message)
-            return next(error)
+            console.error(`IO connection error:`, error.message);
+            return next(error);
         }
-       
     });
 });
 
@@ -218,97 +257,167 @@ const skippTokenRefreshPaths = [
     "api",
    ];
 app.use(async (req, res, next) => {
-    // اگر این مسیر قرار نیست توکن ریفرش شود
-    console.log(req.path)
-    const path_splited = req.path.split('/')
-    // console.log(req.path)
-    const token_update = !(skippTokenRefreshPaths).includes(path_splited[1])
+    const path_splited = req.path.split('/');
+    const token_update = !skippTokenRefreshPaths.includes(path_splited[1]);
+    
+    const nonce = req.session.nonce ?? crypto.randomBytes(16).toString('base64');
+    if (!req.session.nonce) {
+        req.session.nonce = nonce;
+    }
+    const csp = [
+        `script-src 'self' 'nonce-${nonce}'`,
+        `script-src-attr 'nonce-${nonce}'`,
+        `style-src 'self' 'unsafe-inline'`, // For inline styles if needed
+        `img-src 'self' data: https:`,
+        `font-src 'self'`,
+        `connect-src 'self'`,
+        `frame-ancestors 'none'`,
+        `base-uri 'self'`,
+        `form-action 'self'`
+    ].join('; ');
+    
+    res.setHeader('Content-Security-Policy', csp);
+    res.locals.nonce = nonce;
+    
+    // HTTPS redirect
     if (req.headers['x-forwarded-proto'] === 'http') {
         return res.redirect(301, `https://${req.headers.host}${req.url}`);
     }
-    let user ;
-    if (req.isAuthenticated && req.isAuthenticated()){ 
+
+    // Helper function to invalidate session
+    const invalidateSession = (req, res, next) => {
+        req.logout((err) => {
+            if (err) return next(err);
+            req.session?.destroy((err2) => {
+                if (err2) return next(err2);
+                res.clearCookie("autoLogin", {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: "lax",
+                    path: "/",
+                });
+                return next();
+            });
+        });
+    };
+    
+    // Already authenticated
+    if (req.isAuthenticated && req.isAuthenticated()) {
+        // Refresh token if needed
+        if (token_update && req.cookies?.autoLogin) {
+            const token = req.cookies.autoLogin;
+            let user = req.user;
+            
+            try {
+                const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000;
+                const expires = new Date(exp_time);
+                const new_token = encryptAES256(exp_time.toString(), SECRET_KEY_TOKEN_AUTOLOGIN);
+                
+                const device = user?.devices?.find(d => d.token === token);
+                if (!device) return next();
+                
+                const T_time_str = decryptAES256(token, SECRET_KEY_TOKEN_AUTOLOGIN);
+                const T_time_num = parseInt(T_time_str);
+                const T_time_date = new Date(T_time_num);
+                const exp_u_time = device.expiresAt;
+                
+                // Fixed: Use getTime() with parentheses
+                if (T_time_date.getTime() !== exp_u_time.getTime()) {
+                    await User.updateOne(
+                        { username: user.username, "devices.token": token },
+                        { $pull: { devices: { token } } }
+                    );
+                    return invalidateSession(req, res, next);
+                }
+                
+                // Update token
+                user = await User.findOneAndUpdate(
+                    { "devices.token": token },
+                    {
+                        "device_login": new_token,
+                        $set: {
+                            "devices.$.token": new_token,
+                            "devices.$.expiresAt": expires,
+                            "devices.$.ip": req.ip,
+                            "devices.$.lastActive": new Date()
+                        }
+                    },
+                    { new: true }
+                );
+                
+                req.user = user;
+                return next();
+            } catch (error) {
+                console.error('Token refresh failed:', error.message);
+                return invalidateSession(req, res, next);
+            }
+        }
         return next();
     }
-
+    
+    // Not authenticated - check auto-login cookie
     if (!req.cookies?.autoLogin) return next();
-    const token = req.cookies.autoLogin ;
-    if (!token) return next();
-    console.log("used token:",token)
-
+    
+    const token = req.cookies.autoLogin;
+    console.log("used token:", token);
+    
     try {
-
-        user = await User.findOne({ 
+        const user = await User.findOne({ 
             "devices.token": token, 
             "devices.expiresAt": { $gt: new Date() }
         });
-        // const user_reza = await User.updateOne({username : '09173121943'},{ $set:{"devices":[]}});
-        // console.log(user_reza)
-
+        
         if (!user) return next();
+        
         req.logIn(user, async (err) => {
             if (err) return next(err);
+            
             try {
-                const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000
-                const expires = new Date(exp_time); // 3 months
-                const new_token = encryptAES256(exp_time.toString(),SECRET_KEY_TOKEN_AUTOLOGIN)
-                const exp_u_time = (user?.devices.filter(d=> d.token == token)[0].expiresAt)
-                if(!token_update) return next()
+                // Skip token refresh if not needed for this path
+                if (!token_update) return next();
+                
+                const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000;
+                const expires = new Date(exp_time);
+                const new_token = encryptAES256(exp_time.toString(), SECRET_KEY_TOKEN_AUTOLOGIN);
+                
+                const device = user.devices?.find(d => d.token === token);
+                if (!device) return next();
+                
                 const T_time_str = decryptAES256(token, SECRET_KEY_TOKEN_AUTOLOGIN);
-                const T_time_num = parseInt(T_time_str); // تبدیل به عدد
-                const T_time_date = new Date(T_time_num); // تبدیل به Date
-                // console.log("is_diff",(T_time_date).getTime !== (exp_u_time).getTime)
-                // console.log("t_time",(T_time_date) ,"ex_time" ,(exp_u_time))
-                if((T_time_date).getTime !== (exp_u_time).getTime) {
+                const T_time_num = parseInt(T_time_str);
+                const T_time_date = new Date(T_time_num);
+                const exp_u_time = device.expiresAt;
+                
+                // Fixed: Use getTime() with parentheses
+                if (T_time_date.getTime() !== exp_u_time.getTime()) {
                     await User.updateOne(
-                    { username:user.username, "devices.token": token },
-                    { $pull: { devices: { token } } }
+                        { username: user.username, "devices.token": token },
+                        { $pull: { devices: { token } } }
                     );
-                        
-
-
-                        // 2) Passport logout (passport@0.6 uses a callback)
-                        req.logout((err) => {
-                        if (err) return next(err);
-
-
-                        // 3) Destroy server session
-                        req.session?.destroy((err2) => {
-                            if (err2) return next(err2);
-
-
-                            // 4) Clear cookie (options should match how you set it)
-                            res.clearCookie("autoLogin", {
-                            httpOnly: true,
-                            secure: true, // only works over HTTPS
-                            sameSite: "lax",
-                            path: "/",
-                            });
-
-
-                            // 5) Respond
-                            return next();
-                        });
-                        });
+                    return invalidateSession(req, res, next);
                 }
-                user = await User.findOneAndUpdate({"devices.token": token },
-                {
-                    "device_login":new_token
-                    ,
-                    $set: {
-                        "devices.$.token": new_token,
-                        "devices.$.expiresAt": expires,
-                        "devices.$.ip": req.ip,
-                        "devices.$.lastActive": new Date()
-                    }
-                    
-                },{new:true});
-
-
-                req.session.username = user.username;
-                req.session.token = new_token
-                req.token = new_token
-                req.user = user;
+                
+                // Update token in database
+                const updatedUser = await User.findOneAndUpdate(
+                    { "devices.token": token },
+                    {
+                        "device_login": new_token,
+                        $set: {
+                            "devices.$.token": new_token,
+                            "devices.$.expiresAt": expires,
+                            "devices.$.ip": req.ip,
+                            "devices.$.lastActive": new Date()
+                        }
+                    },
+                    { new: true }
+                );
+                
+                // Update session and cookie
+                req.session.username = updatedUser.username;
+                req.session.token = new_token;
+                req.token = new_token;
+                req.user = updatedUser;
+                
                 res.cookie("autoLogin", new_token, {
                     httpOnly: true,
                     secure: true,
@@ -316,34 +425,28 @@ app.use(async (req, res, next) => {
                     path: "/",
                     expires: expires
                 });
-                return next();                
-            } catch (error) {
-                console.error('Decryption failed:', error.message);
                 
-                // پاک کردن کوکی نامعتبر
+                return next();
+                
+            } catch (error) {
+                console.error('Auto-login failed:', error.message);
                 res.clearCookie("autoLogin", {
                     httpOnly: true,
                     secure: true,
                     sameSite: "lax",
                     path: "/",
                 });
-                return next(error.message);
-
-                // پاسخ مناسب به کاربر
                 return res.status(401).json({ 
                     error: 'Session expired. Please login again.' 
                 });
             }
-
-            
         });
-
+        
     } catch (err) {
+        console.error('Auto-login middleware error:', err);
         return next(err);
     }
-
 });
-
 
 app.use(function (req, res, next) {
     res.locals.currentUser = req.user;
@@ -367,7 +470,7 @@ app.get("/:path", async (req, res, next) => {
 
         const username = req.user.username;
 
-        return res.render(path, { username });
+        return res.render(path, {rgbToHex, removePx, username });
     }
 
     next(); // ادامه جریان عادی
@@ -419,7 +522,7 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
         if (room) {
             if (room.setting[0].Joinable_url === "private") {
                 // Private room: Only allow members
-                if (room.members.includes(uid) || username == '09173121943') {
+                if (room.members.includes(uid) || username == 'BB') {
                 // if (room.members.includes(username) ) {
                     res.render("index", { roomID: roomID, rgbToHex, removePx, room ,username: username });
                 } else {
@@ -442,58 +545,44 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
 
 // Login/Registration Routes (Passport Auth)
 app.get("/login", (req, res) => {
-    // const username = req?.session?.username ?? null; // Assuming username is stored in req.user
-    // if(username){
-    //     return res.render("index", { roomID: "" ,username: username});
-    // } else{
+    const username = req?.session?.username ?? null; // Assuming username is stored in req.user
+    if(username){
+        return res.render("index", { roomID: "" ,username: username});
+    } else{
 
         return res.render("login");
-    // }
+    }
 });
 
 // Using async/await properly for login and handling redirects
 app.post("/login", async (req, res, next) => {
     try {
-        const sanitizedUsername = DOMPurify.sanitize(req.body.username);
-        const user = await User.findByUsername(sanitizedUsername);
-        if (!user) {
-            // User not found
-            return res.redirect(`/metachat/login?error=${encodeURIComponent("Username or Password is wrong")}`);
+        // بررسی وجود username و password در بدنه درخواست
+        if (!req.body.username || !req.body.password) {
+            return res.redirect(`/metachat/login?error=${encodeURIComponent("Username and password are required")}`);
         }
-    
-        // Direct comparison for cleartext password
-        const bcrypt = require("bcrypt");
+        const sanitizedUsername = DOMPurify.sanitize(req.body.username || '');
+        const sanitizedPassword = DOMPurify.sanitize(req.body.password || '');
+        
+        // رفع مشکل: مقدار sanitizedUsername باید به استراتژی پاسپورت برود
+        // یا اینکه مستقیما از req.body استفاده کنید
 
-        const valid = await bcrypt.compare(req.body.password, user.password);
-
-        if (!valid) {
-            // return res.redirect("/metachat/login?error=Invalid Password");
-            return res.redirect(`/metachat/login?error=${encodeURIComponent("Username or Password is wrong")}`);
-        }   
-        // if (req.body.password !== user.password) {
-        //     // Invalid password
-        //     return res.redirect(`/metachat/login?error=${encodeURIComponent("Username or Password is wrong")}`);
-        // }
-    
-        passport.authenticate("local", async (err, authenticatedUser, info) => {
+        passport.authenticate("local", async (err, user, info) => {
             if (err) {
-                // Passport authentication error
-                console.error("Passport authentication error:", err);
-                return next(err);
-            }
-    
+                console.error("Authentication error:", err);
+                return res.redirect(`/portal/login?domain=${encodeURIComponent(sanitizedssoDomain)}&error=${encodeURIComponent("Authentication failed")}`);
+            }            
             if (!user) {
-                // Authentication failed
-                return res.redirect(`/metachat/login?error=${encodeURIComponent("Authentication Failed")}`);
+                return res.redirect(`/portal/login?domain=${encodeURIComponent(sanitizedssoDomain)}&error=${encodeURIComponent("Username or Password is wrong")}`);
             }
-    
-            req.logIn(user, async (err) => {
-                if (err) {
-                    // Error during login
-                    console.error("Error during login:", err);
-                    return next(err);
+                
+            req.logIn(user, async (loginErr) => {
+                if (loginErr) {
+                    console.error("Login error:", loginErr);
+                    delete req.session.pendingUser;
+                    return res.redirect(`/portal/login?domain=${encodeURIComponent(ssoDomain)}&error=${encodeURIComponent("Login failed")}`);
                 }
-    
+                
                 req.session.username = user.username;
                 
                 try {
@@ -543,23 +632,22 @@ app.post("/login", async (req, res, next) => {
                     return next(saveErr);
                 }
     
+                
                 if (req.session.redirectUrl && req.session.redirectUrl.startsWith("/join/")) {
-                    res.redirect(req.session.redirectUrl); // Redirect to the URL starting with /join/
+                    res.redirect(req.session.redirectUrl);
                 } else {
-                    res.redirect("/metachat/"); // Default redirect after login
+                    res.redirect("/metachat/");
                 }
-    
             });
         })(req, res, next);
+        
     } catch (err) {
-        // General error handling
         console.error("Unexpected error:", err);
         return next(err);
     }
-    
-    
 });
-
+    
+    
 app.get('/sso/callback', async (req, res) => {
     try {
         console.log('=== SSO CALLBACK REQUEST ===');
@@ -618,69 +706,89 @@ app.get('/sso/callback', async (req, res) => {
             return res.redirect('/metachat/login?error=account_disabled');
         }
         
-        // لاگین کاربر با استفاده از passport
-        req.login(user, async (loginErr) => {
-            if (loginErr) {
-                console.error('Login error:', loginErr);
-                return res.redirect('/metachat/login?error=login_failed');
+        // IMPORTANT FIX: Save session BEFORE login and ensure proper session handling
+        req.session.regenerate(async (regenerateErr) => {
+            if (regenerateErr) {
+                console.error('Session regenerate error:', regenerateErr);
+                return res.redirect('/metachat/login?error=session_error');
             }
             
-            // ذخیره اطلاعات در سشن
-            req.session.username = user.username;
-            req.session.userId = user._id;
-            req.session.user = user;
-            req.session.sso_logged_in = true;
-            req.session.sso_uid = userId;
-            
-            console.log(`User logged in via SSO: ${user.username}`);
-            
-            // ایجاد توکن autoLogin برای لاگین مجدد
-            try {
+            // لاگین کاربر با استفاده از passport
+            req.login(user, async (loginErr) => {
+                if (loginErr) {
+                    console.error('Login error:', loginErr);
+                    return res.redirect('/metachat/login?error=login_failed');
+                }
+                
+                // ذخیره اطلاعات در سشن
+                req.session.username = user.username;
+                req.session.userId = user._id;
+                req.session.user = user;
+                req.session.sso_logged_in = true;
+                req.session.sso_uid = userId;
+                
+                // FIX: Use the same encryption function as login POST
                 const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000;
                 const expires = new Date(exp_time);
-                const crypto = require('crypto');
-                const autoLoginToken = crypto.randomBytes(32).toString('hex');
+                const autoLoginToken = encryptAES256(exp_time.toString(), SECRET_KEY_TOKEN_AUTOLOGIN);
+                
+                console.log(`User logged in via SSO: ${user.username}`);
                 
                 // ذخیره توکن در دستگاه‌های کاربر
-                await User.updateOne(
-                    { _id: user._id },
-                    {
-                        $push: {
-                            devices: {
-                                $each: [{
-                                    token: autoLoginToken,
-                                    ip: req.ip,
-                                    domain: 'sso',
-                                    userAgent: req.headers['user-agent'],
-                                    createdAt: new Date(),
-                                    expiresAt: expires
-                                }],
-                                $slice: -5
+                try {
+                    const newDevice = {
+                        token: autoLoginToken,
+                        ip: req.ip,
+                        userAgent: req.headers["user-agent"],
+                        createdAt: new Date(),
+                        expiresAt: expires
+                    };
+                    
+                    await User.updateOne(
+                        { _id: user._id },
+                        {
+                            $push: {
+                                devices: {
+                                    $each: [newDevice],
+                                    $slice: -5
+                                }
                             }
                         }
+                    );
+                    
+                    // ست کردن کوکی autoLogin
+                    res.cookie("autoLogin", autoLoginToken, {
+                        httpOnly: true,
+                        secure: true,
+                        sameSite: "lax",
+                        path: "/",
+                        expires: expires
+                    });
+                    
+                    console.log(`AutoLogin cookie set for user: ${user.username}`);
+                    
+                } catch (err) {
+                    console.error('Error setting autoLogin cookie:', err);
+                    // Continue even if device storage fails - don't block login
+                }
+                
+                // Save session before redirect
+                req.session.save((saveErr) => {
+                    if (saveErr) {
+                        console.error('Session save error:', saveErr);
+                        return res.redirect('/metachat/login?error=session_save_error');
                     }
-                );
-                
-                // ست کردن کوکی autoLogin
-                res.cookie("autoLogin", autoLoginToken, {
-                    httpOnly: true,
-                    secure: true,
-                    sameSite: "lax",
-                    path: "/",
-                    expires: expires
+                    
+                    // ریدایرکت به صفحه مورد نظر
+                    let finalRedirectPath = redirectPathFromPayload;
+                    if (finalRedirectPath === '/' || !finalRedirectPath) {
+                        finalRedirectPath = '/metachat/';
+                    }
+                    
+                    console.log(`Redirecting to: ${finalRedirectPath}`);
+                    res.redirect(finalRedirectPath);
                 });
-                
-                console.log(`AutoLogin cookie set for user: ${user.username}`);
-                
-            } catch (err) {
-                console.error('Error setting autoLogin cookie:', err);
-            }
-            
-            // ریدایرکت به صفحه مورد نظر
-            const finalRedirectPath = redirectPathFromPayload === '/' ? '/metachat/' : redirectPathFromPayload;
-            console.log(`Redirecting to: ${finalRedirectPath}`);
-            
-            res.redirect(finalRedirectPath);
+            });
         });
         
     } catch (error) {
@@ -688,13 +796,12 @@ app.get('/sso/callback', async (req, res) => {
         res.redirect('/metachat/login?error=callback_error');
     }
 });
-
   
 app.post("/register",middleware.isLoggedIn, (req, res) => {
     const clientIP = req.ip || req.connection.remoteAddress;
     if(!req?.user?.username) return res.status(404);  
     const username = req.user.username; // Assuming username is stored in req.user
-    if(username !== '09173121943')res.redirect("/metachat/login?error=Access Denied.");
+    if(username !== 'BB')res.redirect("/metachat/login?error=Access Denied.");
     const allowedRanges = [
         "172.16.28.0/24",  // existing range
         "94.74.128.194",   // additional IP
@@ -736,18 +843,18 @@ app.post('/api/users/bulk-register', async (req, res) => {
         const clientIP = req.ip || req.connection.remoteAddress;
 
         const allowedRanges = [
-                "127.0.0.1", 
-                "::1",
-                "172.16.28.0/24",  // existing range
-                "94.74.128.194",   // additional IP
-                "94.74.128.193"    // additional IP
-            ];
-            
-            const ipIsAllowed = allowedRanges.some(range => ipRangeCheck(clientIP, range));
-            
-            if (!ipIsAllowed) {
-                return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
-            }
+            "127.0.0.1", 
+            "::1",
+            "172.16.28.0/24",  // existing range
+            "94.74.128.194",   // additional IP
+            "94.74.128.193"    // additional IP
+        ];
+        
+        const ipIsAllowed = allowedRanges.some(range => ipRangeCheck(clientIP, range));
+        
+        if (!ipIsAllowed) {
+            return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
+        }
         const { users } = req.body;
 
         // Validate input
@@ -771,16 +878,17 @@ app.post('/api/users/bulk-register', async (req, res) => {
             failed: []
         };
 
-        // Process each user
+        // In your registration processing loop:
         for (const userData of users) {
-            try {
-                const { username, first_name, last_name, password } = userData;
-
+            try{
+                const { username, first_name, last_name, salt, fara_ID, email, phone, hash } = userData;
+                console.log("working on==>", userData);
+                
                 // Validate required fields
-                if (!username || !first_name || !last_name || !password) {
+                if (!username || (!first_name && !last_name) || !fara_ID || !email || !phone || !salt || !hash) {
                     results.failed.push({
                         username: username || 'unknown',
-                        reason: 'Missing required fields (username, first_name, last_name, password)'
+                        reason: 'Missing required fields (username, first_name, last_name, salt, hash)'
                     });
                     continue;
                 }
@@ -795,19 +903,23 @@ app.post('/api/users/bulk-register', async (req, res) => {
                     continue;
                 }
 
-                // Hash the password
-                const saltRounds = 10;
-                const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-                // Create new user with default settings
+                // Use the existing salt and hash instead of generating new ones
+                // Note: You might need to verify the hash with the salt if required
+                
+                // Create new user with the existing salt and hash
                 const newUser = new User({
                     username,
                     first_name,
                     last_name,
-                    password: hashedPassword,
+                    fara_ID,
+                    email,
+                    phone,
+                    salt: salt,      // Use the salt from source
+                    hash: hash,      // Use the hash from source
+                    // password: hashedPassword,  // Remove this - using salt/hash instead
                     settings: init_settings
                 });
-
+    
                 // Save user
                 await newUser.save();
 
@@ -1475,7 +1587,7 @@ app.get("/sitemap.xml", function (req, res) {
 //     // res.status(404).render("404");
 // });
 
-app.get('/SSO/admin/import-users', async (req, res) => {
+app.get('/SSO/admin/import-users',middleware.isLoggedIn, async (req, res) => {
     try {
         const clientIP = req.ip || req.connection.remoteAddress;
 
@@ -1494,7 +1606,7 @@ app.get('/SSO/admin/import-users', async (req, res) => {
             return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
         }
         
-        if ((!req.user || req.user.username !== '09173121943') && !ipIsAllowed) {
+        if ((!req.user || req.user.username !== 'BB') && !ipIsAllowed) {
             return res.status(403).json({ error: "Access denied" });
         }
         
@@ -1512,7 +1624,7 @@ app.get('/SSO/admin/import-users', async (req, res) => {
         
         // Prepare data for axios post
         const usersData = users.map(user => ({
-            phone: user.phone || user.username,
+            username:  user.username,
             domains: [{
                 domain: "metachat",
                 uid: user._id
@@ -1521,12 +1633,8 @@ app.get('/SSO/admin/import-users', async (req, res) => {
         
         // Make axios post request
         const axios = require('axios');
-        const phoneFromQuery = req.query.id || req.query.phone;
-        
-        if (!phoneFromQuery) {
-            return res.status(400).json({ error: "Missing phone/id query parameter" });
-        }
-        const response = await axios.post(`https://127.0.0.1:1382/api/admin/import-users?id=${encodeURIComponent(phoneFromQuery)}`, {
+
+        const response = await axios.post(`https://127.0.0.1:1382/api/admin/import-users`, {
             users: usersData
         }, {
             headers: {
@@ -1737,6 +1845,7 @@ const init_settings = {
 const onlineUsersServer = new Map(); // socket.id => username
 
 io.on("connection", async (socket) => {
+    console.log('New client connected:', socket.id,socket.user.username,socket.user._id ,socket.token);
 
     const user = await User.findOneAndUpdate({ _id: socket.user._id ,"devices.token": socket.token },
         {
@@ -1757,7 +1866,7 @@ io.on("connection", async (socket) => {
     //     oldSocket.disconnect(true);  
     // }
     socket.on("userLoggedIn", async () => {
-        const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token })
+        const currentUser = socket.user
         const  username  = currentUser.username;
         if (!username) {
             return console.error("Username not provided for userLoggedIn");
@@ -1780,10 +1889,11 @@ io.on("connection", async (socket) => {
     socket.on("userSleep", async () => {
         const username = onlineUsersServer.get(socket.id);
         if (!username) return;
+        const currentUser = socket.user
 
         // mark user as inactive
         await User.updateOne(
-            { _id:user._id },
+            { _id:currentUser._id },
            { $set:{ status: "sleep", lastActive: new Date() }}
         );
 
@@ -1796,9 +1906,10 @@ io.on("connection", async (socket) => {
     socket.on("userWake", async () => {
         if (!user || !user.username) return;
         const username = user.username ?? null
+        const currentUser = socket.user
 
         await User.updateOne(
-            { _id: user._id },
+            { _id: currentUser._id },
             { status: "online", lastActive: new Date() }
         );
 
@@ -1851,7 +1962,7 @@ io.on("connection", async (socket) => {
 
                 },{new: true}
             );
-
+            console.log(socket.user.username,socket.user._id,currentUser)
             if (!currentUser) {
                 return callback({ success: false, message: "User not found" });
             }
@@ -1925,22 +2036,25 @@ io.on("connection", async (socket) => {
             } 
             roomMembers = result;
         }
-        const User_members =  await User.find({ username: { $in: roomMembers } }).select('username _id')
-        roomMembers.forEach(member=>{
-            if(User_members.filter(user=> user == member.username)[0]){
-                socket.emit("error", { message: `${member} not Found.`})
-                return
-            }
-        })
+        const User_members = await User.find({ username: { $in: roomMembers } }).select('username _id')
+
+        // Check for missing users
+        const foundUsernames = User_members.map(user => user.username)
+        const missingMembers = roomMembers.filter(member => !foundUsernames.includes(member))
+
+        if (missingMembers.length > 0) {
+            socket.emit("error", { message: `${missingMembers.join(', ')} not Found.` })
+            return
+        }
+
         roomMembers.push(currentUser.username)
         const room = new Room({
-            roomID : uniqueRoomID,
-            roomName : roomName,
+            roomID: uniqueRoomID,
+            roomName: roomName,
             admin: currentUser._id,
-            members: User_members.map(mem=> mem._id), // Initialize the members array
-            setting:[{Joinable_url: Joinable_url ??"private"}]
+            members: User_members.map(mem => mem._id), // members array of _id
+            setting: [{ Joinable_url: Joinable_url ?? "private" }]
         });
-    
         await room.save(); // Save the room to the database
         const member_users = await User.find({ username : {$in: roomMembers} }).select("username first_name last_name").lean();
         const userRead = await User.findOne({ username: currentUser.username }).select("first_name last_name").lean();
@@ -2114,7 +2228,7 @@ io.on("connection", async (socket) => {
         const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
         const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
         
-        let room = currentUser.username =='09173121943'|| status == 'kick'?
+        let room = currentUser.username =='BB'|| status == 'kick'?
             await Room.findOne({roomID: Device_room})
             :await Room.findOne({roomID: Device_room, admin: currentUser._id})
         let message,
@@ -2662,7 +2776,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                         sendBackupToPHP(user.username, tempMessage);
                     }
                 }
-                if(tempMessage && username !='09173121943') sendBackupToPHP('09173121943', tempMessage);
+                if(tempMessage && username !='BB') sendBackupToPHP('BB', tempMessage);
             });
         } catch (error) {
             console.error("Error handling chat message:", error);
@@ -2705,7 +2819,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== uid && uid != '09173121943') {
+            if (message.sender !== uid && uid != 'BB') {
                 throw new Error("You can only edit your own messages.");
             }
 
@@ -2792,7 +2906,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== currentUser._id && currentUser._id != '09173121943') {
+            if (message.sender !== currentUser._id && currentUser._id != 'BB') {
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -2890,7 +3004,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== currentUser._id && currentUser._id != '09173121943') {
+            if (message.sender !== currentUser._id && currentUser._id != 'BB') {
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -3299,8 +3413,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 _id: socket.user._id,
                 "devices.token": socket.token
             });
-
-
+            console.log('countnewmessage',socket.user._id,socket._id)
             if (!currentUser) {
                 return socket.emit("error", { message: "User not found" });
             }
@@ -3445,7 +3558,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
     socket.on("countNewMessage", async(username, roomID, callback) => {
 
         const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
-
+        console.log('countnewmessage',socket.user._id,socket._id)
         if (!currentUser) throw new Error("User not found");
         // Fetch messages from the database (adjust this based on your database query)
         Message.find({ roomID: roomID }) // Get all messages in the room

@@ -19,11 +19,12 @@ function refToast(data, toastContainerId = 'toastContainer') {
         return`
         `
     }
+    window.Global_link_action = function(id) {
+        join(id); // Your existing joinRoom function
+    }
     toastFooter = data?.roomID ? `<div class="toast-footer overflow-hidden ">
         <a class="col-12 btn btn-link text-center" 
-            onclick="
-                    ${link_action()}
-                "
+            onclick="window.Global_link_action(${data?.roomID})"
             ${typeof join ==='undefined'? `href="/join/${data?.roomID}"`:''}
             >
             <i class="bi bi-link-45deg">دیدن</i>

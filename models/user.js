@@ -18,10 +18,22 @@ const userSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-    password: {
+    fara_ID: {
         type: String,
-        required: true,
+        trim: true,
+        unique: true,
+        lowercase: true,
     },
+    email: {
+        type: String,
+        trim: true,
+        lowercase: true,
+        sparse: true // اجازه چند کاربر با ایمیل خالی
+    },
+    phone: {
+            type: String,
+            default: null
+        },
     devices:[
         {
             token: { type: String },
