@@ -2,8 +2,43 @@
 const Message = require('../models/message'),
     Room = require('../models/room'),
     axios = require('axios'),
-    {socketDecrypt,socketEncrypt,encryptAES256_send_notif} = require('./encryption')
+    express = require("express"),
+    env = require("dotenv"),
+    fs = require('fs'),
 
+    {socketDecrypt,socketEncrypt,encryptAES256_send_notif} = require('./encryption')
+const socket = require("socket.io"),
+    app = express(),
+    port = process.env.PORT || 4000,
+    // SSL certificate and key options
+    options = {
+        // key: fs.readFileSync('private-key.pem', 'utf8'),
+        // cert: fs.readFileSync('certificate.pem', 'utf8'),
+        // ca_cert: fs.readFileSync('ca-certificate.pem', 'utf8'),
+        // ca_key: fs.readFileSync('ca-key.pem', 'utf8'),
+        // passphrase: 'farahoosh'
+        key: fs.readFileSync('/etc/letsencrypt/live/mc.farahoosh.ir/privkey.pem', 'utf8'),
+        cert: fs.readFileSync('/etc/letsencrypt/live/mc.farahoosh.ir/fullchain.pem', 'utf8'),
+         
+        
+    },
+    https = require('https'),
+    server = https.createServer(options, app),
+    io = socket(server, {
+            cors: {
+                origin: ["https://localhost:4000","https://mc.farahoosh.ir"], // Replace with your client URL
+                methods: ["GET", "POST"],
+                credentials: true,
+                credentials: true,
+                allowedHeaders: ["Content-Type", "Authorization"],
+                exposedHeaders: ["Content-Length"]
+            },
+            allowEIO3: true, // Allow Engine.IO v3 clients if needed
+            transports: ['websocket', 'polling'],
+            pingTimeout: 60000,
+            pingInterval: 25000,
+            upgradeTimeout: 10000
+        });
 
 async function message_encryption(){
         const message_encryption = await Message.find({}).lean()
@@ -140,7 +175,6 @@ async function getUnreadMessages(roomID = null, currentUser) {
 
             const memberData = room?.member_data?.find(mem => mem.id === currentUser._id)??[];
             const timeToFilter = memberData ? (memberData.leaved_at ?? memberData.joined_at) : null;
-
             // ساخت شرط کوئری
             const filterCondition = timeToFilter 
                 ? { roomID: currentRoomID, timestamp: { $lte: new Date(timeToFilter) } } 
@@ -155,9 +189,8 @@ async function getUnreadMessages(roomID = null, currentUser) {
             // فیلتر کردن پیام‌های خوانده نشده
             const unread = messages.filter(msg => {
                 if (!msg.read) return true;
-                return !msg.read.some(r => r.username === currentUser.username);
+                return !msg.read.some(r => r.username === currentUser._id.toString());
             });
-
             // اضافه کردن به لیست نهایی (تا سقف 20)
             const remainingSlots = totalLimit - allUnreadMessages.length;
             allUnreadMessages = allUnreadMessages.concat(unread.slice(0, remainingSlots));
@@ -165,7 +198,7 @@ async function getUnreadMessages(roomID = null, currentUser) {
     } else {
         // اگر roomID مشخص نیست، تمام اتاق‌های کاربر بررسی شود
         // فرض: کاربر در یک آرایه از roomIDها در دیتابیس یا متغیر دیگری ذخیره شده است
-        // اگر لیست اتاق‌ها را ندارید، باید از یک کوئری مثل Room.find({ 'member_data.id': currentUser._id }) استفاده کنید
+        // اگر لیست اتاق‌ها را ندارید، باید از یک کوئری مثل Room.find({ 'member_data.id': currentUser._id.toString() }) استفاده کنید
             const userRooms = await Room.aggregate([{  
                 $match: { members: currentUser.username } }, 
                 {  
@@ -176,7 +209,7 @@ async function getUnreadMessages(roomID = null, currentUser) {
         for (const room of userRooms) {
             if (allUnreadMessages.length >= totalLimit) break;
 
-            const memberData = room?.member_data?.find(mem => mem.id === currentUser._id)??[];
+            const memberData = room?.member_data?.find(mem => mem.id === currentUser._id.toString())??[];
             const timeToFilter = memberData ? (memberData.leaved_at ?? memberData.joined_at) : null;
 
             const filterCondition = timeToFilter 

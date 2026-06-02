@@ -1,6 +1,8 @@
 const createDOMPurify = require('dompurify'),
  { JSDOM } = require('jsdom'),
  crypto = require('crypto'),
+ { ObjectId } = require('mongodb'), // or mongoose.Types.ObjectId
+ bcrypt = require('bcrypt'),
  ipRangeCheck = require("ip-range-check"),
  express = require("express"),
  multer = require("multer"),
@@ -128,7 +130,7 @@ const sessionMiddleware = session({
         secure: process.env.NODE_ENV === 'production', // Set to true in production
         httpOnly: true,
         sameSite: "lax",
-        maxAge: 3 * 30 * 24 * 60 * 60 * 1000
+        maxAge: 24 * 60 * 60 * 1000
     }
 });
 
@@ -148,13 +150,10 @@ app.use(security.xssProtection);
 app.use(security.trackConnections);
 app.use(security.securityLogger);
 // Apply rate limiters to specific route groups
-app.use('/api/', security.standardLimiter);
+app.use('/api/', security.extremeLimiter);
 app.use('/login', security.authLimiter);
 app.use('/login', security.loginSlowDown);
 app.use('/register', security.authLimiter);
-app.use('/api/admin/', security.extremeLimiter);
-app.use('/api/sso/sync-users', security.extremeLimiter);
-app.use('/api/admin/import-users', security.extremeLimiter);
 // const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 const mongoURI = `mongodb://${DB_USERNAME}:${encodedPassword}@${MONGO_URI}/chatRoom?authSource=chatRoom`;
 mongoose
@@ -266,16 +265,16 @@ app.use(async (req, res, next) => {
     }
     const csp = [
         `script-src 'self' 'nonce-${nonce}'`,
-        `script-src-attr 'nonce-${nonce}'`,
-        `style-src 'self' 'unsafe-inline'`, // For inline styles if needed
-        `img-src 'self' data: https:`,
+        `script-src-attr 'unsafe-inline'`,
+        `style-src 'self' 'unsafe-inline'`,
+        `img-src 'self' data: https: blob:`,     // ✅ blob: رو اضافه کردم
         `font-src 'self'`,
-        `connect-src 'self'`,
+        `connect-src 'self' https:`,              // ✅ برای ارسال فایل به سرور
         `frame-ancestors 'none'`,
         `base-uri 'self'`,
         `form-action 'self'`
     ].join('; ');
-    
+        
     res.setHeader('Content-Security-Policy', csp);
     res.locals.nonce = nonce;
     
@@ -300,67 +299,93 @@ app.use(async (req, res, next) => {
             });
         });
     };
-    
-    // Already authenticated
-    if (req.isAuthenticated && req.isAuthenticated()) {
-        // Refresh token if needed
-        if (token_update && req.cookies?.autoLogin) {
-            const token = req.cookies.autoLogin;
-            let user = req.user;
-            
-            try {
-                const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000;
-                const expires = new Date(exp_time);
-                const new_token = encryptAES256(exp_time.toString(), SECRET_KEY_TOKEN_AUTOLOGIN);
-                
-                const device = user?.devices?.find(d => d.token === token);
-                if (!device) return next();
-                
-                const T_time_str = decryptAES256(token, SECRET_KEY_TOKEN_AUTOLOGIN);
-                const T_time_num = parseInt(T_time_str);
-                const T_time_date = new Date(T_time_num);
-                const exp_u_time = device.expiresAt;
-                
-                // Fixed: Use getTime() with parentheses
-                if (T_time_date.getTime() !== exp_u_time.getTime()) {
-                    await User.updateOne(
-                        { username: user.username, "devices.token": token },
-                        { $pull: { devices: { token } } }
-                    );
-                    return invalidateSession(req, res, next);
-                }
-                
-                // Update token
-                user = await User.findOneAndUpdate(
-                    { "devices.token": token },
-                    {
-                        "device_login": new_token,
-                        $set: {
-                            "devices.$.token": new_token,
-                            "devices.$.expiresAt": expires,
-                            "devices.$.ip": req.ip,
-                            "devices.$.lastActive": new Date()
-                        }
-                    },
-                    { new: true }
-                );
-                
-                req.user = user;
-                return next();
-            } catch (error) {
-                console.error('Token refresh failed:', error.message);
-                return invalidateSession(req, res, next);
-            }
-        }
-        return next();
-    }
-    
-    // Not authenticated - check auto-login cookie
+        // Not authenticated - check auto-login cookie
     if (!req.cookies?.autoLogin) return next();
     
     const token = req.cookies.autoLogin;
     console.log("used token:", token);
     
+    // Already authenticated
+    if (req.isAuthenticated && req.isAuthenticated()) {       
+        try {
+            // Skip token refresh if not needed for this path
+            if (!token_update) return next();
+            const user = await User.findOne({ 
+                "devices.token": token, 
+                "devices.expiresAt": { $gt: new Date() }
+            });
+            const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000;
+            const expires = new Date(exp_time);
+            const new_token = encryptAES256(exp_time.toString(), SECRET_KEY_TOKEN_AUTOLOGIN);
+            if (!user) {
+                return res.redirect('/metachat/logout')
+
+            }
+            const device = user.devices?.find(d => d.token === token);
+            if (!device) return next();
+            
+            const T_time_str = decryptAES256(token, SECRET_KEY_TOKEN_AUTOLOGIN);
+            const T_time_num = parseInt(T_time_str);
+            const T_time_date = new Date(T_time_num);
+            const exp_u_time = device.expiresAt;
+            
+            // Fixed: Use getTime() with parentheses
+            if (T_time_date.getTime() !== exp_u_time.getTime()) {
+                await User.updateOne(
+                    { username: user.username, "devices.token": token },
+                    { $pull: { devices: { token } } }
+                );
+                return invalidateSession(req, res, next);
+            }
+            
+            // Update token in database
+            const updatedUser = await User.findOneAndUpdate(
+                { "devices.token": token },
+                {
+                    "device_login": new_token,
+                    $set: {
+                        "devices.$.token": new_token,
+                        "devices.$.expiresAt": expires,
+                        "devices.$.ip": req.ip,
+                        "devices.$.lastActive": new Date()
+                    }
+                },
+                { new: true }
+            );
+            
+            // Update session and cookie
+            req.session.username = updatedUser.username;
+            req.session.token = new_token;
+            req.token = new_token;
+            req.user = updatedUser;
+            
+            res.cookie("autoLogin", new_token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: "lax",
+                path: "/",
+                expires: expires
+            });
+            
+            return next();
+            
+        } catch (error) {
+            console.error('Auto-login failed:', error.message);
+            res.clearCookie("autoLogin", {
+                httpOnly: true,
+                secure: true,
+                sameSite: "lax",
+                path: "/",
+            });
+             return res.redirect('/metachat/logout')
+            return res.status(401).json({ 
+                error: 'Session expired. Please login again.' 
+            });
+        }
+        return next();
+    }
+    
+
     try {
         const user = await User.findOne({ 
             "devices.token": token, 
@@ -436,6 +461,7 @@ app.use(async (req, res, next) => {
                     sameSite: "lax",
                     path: "/",
                 });
+                return res.redirect('/metachat/logout')
                 return res.status(401).json({ 
                     error: 'Session expired. Please login again.' 
                 });
@@ -481,6 +507,7 @@ app.get("/", middleware.isLoggedIn,async (req, res) => {
     
     const username = req.user.username?? null; // Assuming username is stored in req.user
     const token = req.cookies.autoLogin ;
+    const uid = req.user._id; // Assuming username is stored in req.user
 
     // Clear previous room reference
     const currentUser = await User.findOneAndUpdate({ username ,"devices.token": token },
@@ -503,7 +530,8 @@ app.get("/", middleware.isLoggedIn,async (req, res) => {
         }
     })
     if(username) {
-        return res.render("index", { roomID: "" ,rgbToHex, removePx, username: username});
+        console.log('currentUser?._id',currentUser?._id)
+        return res.render("index", { roomID: "" ,rgbToHex, removePx, username: username , _id: uid });
     }
     else{
         return res.render("/metachat/login");
@@ -520,35 +548,39 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
         const room = await Room.findOne({ roomID: roomID });
 
         if (room) {
-            if (room.setting[0].Joinable_url === "private") {
+            const url_access = room?.setting[0]?.Joinable_url ?? 'private'
+            if (url_access === "private") {
                 // Private room: Only allow members
                 if (room.members.includes(uid) || username == 'BB') {
                 // if (room.members.includes(username) ) {
-                    res.render("index", { roomID: roomID, rgbToHex, removePx, room ,username: username });
+                    res.render("index", { roomID: roomID, rgbToHex, removePx, room ,username: username,  _id: uid });
                 } else {
-                    res.redirect(`/?error=${encodeURIComponent("You are not a member of this private room")}`);
+                    res.redirect(`/metachat/?error=${encodeURIComponent("You are not a member of this private room")}`);
                 }
-            } else if (room.setting[0].Joinable_url === "public") {
+            } else if (url_access === "public") {
                 // Public room: Anyone can join
-                res.render("index", { roomID: roomID, rgbToHex, removePx, room , username: username });
+                res.render("index", { roomID: roomID, rgbToHex, removePx, room , username: username,  _id: uid });
             } else {
-                res.redirect(`/?error=${encodeURIComponent("Invalid room setting")}`);
+                res.redirect(`/metachat/?error=${encodeURIComponent("Invalid room setting")}`);
             }
         } else {
-            res.redirect(`/?error=${encodeURIComponent("Room not found")}`);
+            res.redirect(`/metachat/?error=${encodeURIComponent("Room not found")}`);
         }
     } catch (err) {
         console.error("Error fetching room:", err);
-        res.redirect(`/?error=${encodeURIComponent("Internal server error")}`);
+        res.redirect(`/metachat/?error=${encodeURIComponent("Internal server error")}`);
     }
 });
 
 // Login/Registration Routes (Passport Auth)
 app.get("/login", (req, res) => {
     const username = req?.session?.username ?? null; // Assuming username is stored in req.user
-    if(username){
-        return res.render("index", { roomID: "" ,username: username});
-    } else{
+    console.log(req?.session)
+    if(req.isAuthenticated && req.isAuthenticated()){
+        const uid = req.user._id; // Assuming username is stored in req.user
+        console.log('uid',uid)
+        return res.render("index", { roomID: "", rgbToHex, removePx ,username: username,  _id: uid });
+    }else{
 
         return res.render("login");
     }
@@ -726,52 +758,51 @@ app.get('/sso/callback', async (req, res) => {
                 req.session.user = user;
                 req.session.sso_logged_in = true;
                 req.session.sso_uid = userId;
-                
-                // FIX: Use the same encryption function as login POST
-                const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000;
-                const expires = new Date(exp_time);
-                const autoLoginToken = encryptAES256(exp_time.toString(), SECRET_KEY_TOKEN_AUTOLOGIN);
-                
-                console.log(`User logged in via SSO: ${user.username}`);
-                
-                // ذخیره توکن در دستگاه‌های کاربر
-                try {
-                    const newDevice = {
-                        token: autoLoginToken,
-                        ip: req.ip,
-                        userAgent: req.headers["user-agent"],
-                        createdAt: new Date(),
+                try{
+                    const exp_time = Date.now() + 90 * 24 * 60 * 60 * 1000
+                    const expires = new Date(exp_time); // 3 months
+                    const token = encryptAES256(exp_time.toString(),SECRET_KEY_TOKEN_AUTOLOGIN)
+                    const newDevices ={
+                        token: token,       
+                        ip: req.ip,       
+                        userAgent: req.headers["user-agent"],       
+                        createdAt: new Date(),       
                         expiresAt: expires
-                    };
-                    
-                    await User.updateOne(
-                        { _id: user._id },
-                        {
-                            $push: {
-                                devices: {
-                                    $each: [newDevice],
-                                    $slice: -5
-                                }
-                            }
-                        }
-                    );
-                    
-                    // ست کردن کوکی autoLogin
-                    res.cookie("autoLogin", autoLoginToken, {
+                    }
+                    await User.updateOne( { _id: user._id }, 
+                    {   $push: {     
+                            devices: {     
+                                $each:[newDevices],
+                                $slice:-5
+                            }  
+                        } 
+                    });
+
+                    res.cookie("autoLogin", token, {
                         httpOnly: true,
                         secure: true,
                         sameSite: "lax",
-                        path: "/",
+                        path:"/",
                         expires: expires
                     });
-                    
-                    console.log(`AutoLogin cookie set for user: ${user.username}`);
-                    
-                } catch (err) {
-                    console.error('Error setting autoLogin cookie:', err);
-                    // Continue even if device storage fails - don't block login
+                } catch (updateErr) {
+                    console.error("Error resetting socketID:", updateErr);
+                    return next(updateErr);
                 }
-                
+    
+                try {
+                    req.session.save((err) => {
+                        if (err) {
+                            // Session save error
+                            console.error("Error saving session:", err);
+                            return next(err);
+                        }
+                    });
+                } catch (saveErr) {
+                    console.error("Error during session save:", saveErr);
+                    return next(saveErr);
+                }
+    
                 // Save session before redirect
                 req.session.save((saveErr) => {
                     if (saveErr) {
@@ -835,13 +866,15 @@ app.post("/register",middleware.isLoggedIn, (req, res) => {
     });
 });
 
-const bcrypt = require('bcrypt');
 
 // Bulk registration endpoint
 app.post('/api/users/bulk-register', async (req, res) => {
     try {
         const clientIP = req.ip || req.connection.remoteAddress;
-
+        return res.status(400).json({
+                success: false,
+                message: 'Please provide an array of users to register'
+            });
         const allowedRanges = [
             "127.0.0.1", 
             "::1",
@@ -968,8 +1001,8 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        if(!req?.session?.user) return cb(new Error ("No username detected."));  
-        const uid = req.session.user._id; // Assuming username is stored in req.user
+        if(!req?.user) return cb(new Error ("No username detected."));  
+        const uid = req.user._id; // Assuming username is stored in req.user
         const safeFileName = Buffer.from(file.originalname, "latin1").toString("utf8"); // Ensure UTF-8
         cb(null, uid + "_"+ Date.now() + "_" + safeFileName.replace(/\s+/g, "_")); // Avoid spaces
     },
@@ -1041,59 +1074,60 @@ app.post("/upload_rtsp",async (req, res) => {
 })
 
 // Handle file upload (existing code)
-app.post("/upload",middleware.isLoggedIn, (req, res) => {
-    upload(req, res,async (err) => {
-        if(!req?.files || req?.files?.length == 0 ){
-            return res.status(400).json({error:"No files uploaded"})
+app.post("/upload", middleware.isLoggedIn, (req, res) => {
+    upload(req, res, async (err) => {
+        console.log(req?.files,req)
+        if (!req?.files || req?.files?.length == 0) {
+            return res.status(400).json({ error: "No files uploaded" });
         }
+        
         if (err) {
             return res.status(400).json({ error: err.message });
         }
 
         try {
-            if(!req?.session?.user._id){
-
-                return res.status(401).end()
-            } else{
-                const user_auth =  await User.findOne({username: req.session.user._id}).then(user=>{
-
-                    if(!user){
-                       return false;
-                    }else{
-                        console.log(`${user.username} uploading ... `)
-                        return true
-                    }
-                })
-                if(!user_auth){
-                    return res.status(401).end()
-                }
+            // Use Passport's req.user instead of req.session.user
+            if (!req.user || !req.user._id) {
+                // Clean up uploaded files
+                req.files.forEach(f => {
+                    deleteFile(`/uploads/${f.filename}`);
+                });
+                return res.status(401).json({ error: "Unauthorized - User not authenticated" });
             }
-            console.log(req.files)
-            // File successfully uploaded
 
-            // Respond with the file data (including the file path and metadata)
-            const savedFiles = await req.files.map(f=>({
+            // Optional: Verify user still exists in database
+            const user = await User.findById(req.user._id);
+            if (!user) {
+                req.files.forEach(f => {
+                    deleteFile(`/uploads/${f.filename}`);
+                });
+                return res.status(401).json({ error: "User not found" });
+            }
+
+            console.log(`${user.username} uploading ... `);
+            console.log(req.files);
+
+            // File successfully uploaded
+            const savedFiles = await req.files.map(f => ({
                 file: `/uploads/${f.filename}`,
                 fileName: Buffer.from(f.originalname, "latin1").toString("utf8"),
                 fileType: f.mimetype,
-            }))
+            }));
+
             res.json({
                 message: "File uploaded successfully",
                 fileData: savedFiles,
             });
-            // console.log("File uploaded successfully:", req.file.originalname);
-            // console.log("File path:", filePath);
-                
+
         } catch (error) {
-            req.files.forEach(f=>{
-                deleteFile(`/uploads/${f.filename}`)
-            })
-           res.json({
-            message : error.message})
+            // Clean up files on error
+            if (req.files && req.files.length) {
+                req.files.forEach(f => {
+                    deleteFile(`/uploads/${f.filename}`);
+                });
+            }
+            res.status(500).json({ message: error.message });
         }
-       
-        // Broadcast upload success event (emit file data)
-        // io.emit("uploadSuccess", { fileData: { filePath, fileName: req.file.originalname } });
     });
 });
 
@@ -1101,10 +1135,10 @@ app.post("/upload",middleware.isLoggedIn, (req, res) => {
 app.get("/uploads/:file",middleware.isLoggedIn, async (req, res) => {  
     try {
         const fileName = path.basename(req.params.file); // جلوگیری از path traversal
-        if (!req?.session?.user._id) {      
+        if (!req?.user._id) {      
             return res.status(401).end();    
         }
-        const uid = req.session.user._id;    
+        const uid = req.user._id;    
         console.log(`${fileName}--------> ${uid}`)
         const filePath = path.join(uploadDir, fileName);
     if (!fs.existsSync(filePath)) {      
@@ -1531,50 +1565,187 @@ app.post('/autoLogin', async (req, res) => {
 
 
 
+// در فایل اصلی Node.js (SSO مرکزی) - آپدیت مسیر logout
+app.get("/logout",middleware.isLoggedIn, async (req, res, next) => {
+    try {
+        console.log("=== LOGOUT REQUEST ===");
+        console.log("Session data:", req.session);
+        console.log("Cookies:", req.cookies);
+        console.log("Is authenticated:", req.isAuthenticated());
+        console.log("User from passport:", req.user);
+        console.log("Query params:", req.query);
+        
+        // دریافت پارامترها
+        const domain = req.query.domain ?? '';
+        const redirectPath = req.query.redirect ?? '/portal/login';
+        const fromCentral = req.query.from_central === 'true';
+        const sso = req.query.sso === 'true';
+        
+        // **改进：بررسی توکن در کوکی حتی اگر کاربر احراز هویت نشده**
+        let username = null;
+        let userId = null;
+        let token = req.cookies?.PORTAL_autoLogin ?? null;
+        
+        // **改进：اگر احراز هویت نشده ولی توکن وجود دارد، سعی کن کاربر را پیدا کن**
+        if (!req.isAuthenticated() && token) {
+            try {
+                // پیدا کردن کاربر با این توکن
+                const user = await User.findOne({ "devices.token": token });
+                if (user) {
+                    userId = user._id;
+                    username = user.username;
+                    console.log(`Found user by token: ${username}`);
+                    
+                    // حذف توکن از دستگاه‌های کاربر
+                    await User.updateOne(
+                        { _id: userId, "devices.token": token },
+                        { $pull: { devices: { token } } }
+                    );
+                    console.log(`Removed orphan token for user: ${username}`);
+                }
+            } catch (err) {
+                console.error("Error finding user by token:", err);
+            }
+        }
+        
+        // اگر کاربر احراز هویت نشده و از دامنه خارجی آمده
+        if (!req.isAuthenticated() && domain && !fromCentral) {
+            console.log(`User not authenticated, redirecting to domain logout: ${domain}`);
+            
+            try {
+                const domainConfig = await Domain.findOne({ 
+                    domainKey: domain.toLowerCase(),
+                    isActive: true
+                });
+                
+                if (domainConfig) {
+                    const baseUrl = domainConfig.redirectUrl.replace(/\/$/, '');
+                    console.log(`Redirecting to domain local logout: ${domainConfig.redirectUrl}`);
+                    return res.redirect(domainConfig.redirectUrl);
+                }
+            } catch (err) {
+                console.error("Error finding domain:", err);
+            }
+            
+            return res.redirect("/portal/login");
+        }
+        
+        // **改进：اگر کاربر احراز هویت شده (یا با توکن پیدا شد)**
+        if ((req.isAuthenticated() && req.user) || (userId && username)) {
+            const finalUserId = userId || (req.user?._id);
+            const finalUsername = username || (req.user?.username);
+            
+            if (finalUserId && token) {
+                try {
+                    const result = await User.updateOne(
+                        { _id: finalUserId, "devices.token": token },
+                        { $pull: { devices: { token } } }
+                    );
+                    console.log(`Device token removed for user: ${finalUsername}, Modified: ${result.modifiedCount}`);
+                } catch (err) {
+                    console.error("Error removing device token:", err);
+                }
+            } else if (finalUserId) {
+                // پاک کردن همه دستگاه‌ها
+                try {
+                    const result = await User.updateOne(
+                        { _id: finalUserId },
+                        { $set: { devices: [] } }
+                    );
+                    console.log(`All devices cleared for user: ${finalUsername}`);
+                } catch (err) {
+                    console.error("Error clearing devices:", err);
+                }
+            }
+        }
+        
+        // پاک کردن سشن (بدون توجه به وضعیت احراز هویت)
+        if (req.session) {
+            const sessionKeys = Object.keys(req.session);
+            // حذف همه کلیدها به جز cookie اگر می‌خواهید ساختار سشن حفظ شود
+            sessionKeys.forEach(key => {
+                if (key !== 'cookie') {
+                    delete req.session[key];
+                }
+            });
+            console.log(`Session cleared, removed keys: ${sessionKeys.filter(k => k !== 'cookie').join(', ')}`);
+        }
+        
+        // خروج از passport (اگر احراز هویت شده)
+        const logoutCallback = (err) => {
+            if (err) {
+                console.error("Passport logout error:", err);
+            }
+            
+            console.log("Passport logout completed");
+            
+            // نابودی سشن
+            req.session?.destroy(async (err2) => {
+                if (err2) {
+                    console.error("Session destroy error:", err2);
+                }
+                
+                console.log("Session destroyed");
+                // 1) Remove that device token from the user's devices array (if present)
+               
+                // 4) Clear cookie (options should match how you set it)
+                res.clearCookie("autoLogin", {
+                httpOnly: true,
+                secure: true, // only works over HTTPS
+                sameSite: "lax",
+                path: "/",
+                });
 
-app.get("/logout", async (req, res, next) => {
-try {
-const username = req.session?.username ?? null;
-const token = req.cookies?.autoLogin ?? null;
-
-
-// 1) Remove that device token from the user's devices array (if present)
-if (username && token) {
-await User.updateOne(
-{ username, "devices.token": token },
-{ $pull: { devices: { token } } }
-);
-    console.log(username , token)
-}
-
-
-// 2) Passport logout (passport@0.6 uses a callback)
-req.logout((err) => {
-if (err) return next(err);
-
-
-// 3) Destroy server session
-req.session?.destroy((err2) => {
-if (err2) return next(err2);
-
-
-// 4) Clear cookie (options should match how you set it)
-res.clearCookie("autoLogin", {
-httpOnly: true,
-secure: true, // only works over HTTPS
-sameSite: "lax",
-path: "/",
-});
-
-
-// 5) Respond
-res.redirect("/metachat/login");
-});
-});
-} catch (e) {
-    console.log(e.message)
-next(e);
-}
+                
+                // **改进：پاک کردن autoLogin (بدون PORTAL_ پیشوند)**
+                if (req.cookies?.autoLogin) {
+                    res.clearCookie("autoLogin", {
+                        httpOnly: true,
+                        secure: process.env.NODE_ENV === 'production',
+                        sameSite: "lax",
+                        path: "/",
+                    });
+                }
+                
+                console.log("Cookies cleared");
+                
+                
+                
+                
+                
+                // **改进：پیش‌فرض - ریدایرکت به صفحه لاگین**
+                console.log("Redirecting to login page");
+                res.redirect("/metachat/login?logged_out=true");
+            });
+        };
+        
+        // فقط اگر احراز هویت شده بود logout رو صدا بزن
+        if (req.isAuthenticated()) {
+            req.logout(logoutCallback);
+        } else {
+            // مستقیماً برو به مرحله بعد
+            logoutCallback(null);
+        }
+        
+    } catch (e) {
+        console.error("Logout error:", e.message);
+        console.error(e.stack);
+        
+        // در صورت خطا، حداقل ریدایرکت کن
+        const domain = req.query.domain;
+        if (domain) {
+            try {
+                const domainConfig = await Domain.findOne({ domainKey: domain.toLowerCase() });
+                if (domainConfig) {
+                    return res.redirect(domainConfig.redirectUrl);
+                }
+            } catch (err) {
+                console.error("Fallback redirect error:", err);
+            }
+        }
+        
+        res.redirect("/metachat/login");
+    }
 });
 
 
@@ -1673,6 +1844,72 @@ app.get('/SSO/admin/import-users',middleware.isLoggedIn, async (req, res) => {
         }
     }
 });
+
+
+// Create a private chat room between two users
+// Create a private chat room between two users
+app.post('/createPrivateChat', middleware.isLoggedIn, async (req, res) => {
+    try {
+        const currentUser = req.user;
+        const { targetUsername } = req.body;
+        
+        if (!targetUsername) {
+            return res.status(400).json({ error: "Target username required" });
+        }
+        
+        // Find target user
+        const targetUser = await User.findOne({ username: targetUsername });
+        if (!targetUser) {
+            return res.status(404).json({ error: "User not found" });
+        }
+        
+        // Create sorted unique room ID for PV chat using usernames or phone numbers
+        const users = [currentUser.username, targetUsername].sort();
+        const pvRoomId = `PV_${users[0]}_${users[1]}`;
+        
+        // Check if PV room already exists
+        let existingRoom = await Room.findOne({ 
+            roomID: pvRoomId
+        });
+        
+        if (existingRoom) {
+            return res.json({ 
+                success: true, 
+                roomID: existingRoom.roomID,
+                roomType: "private",
+                message: "Existing private chat found" 
+            });
+        }
+        
+        // Create new PV room
+        const newRoom = new Room({
+            roomID: pvRoomId,
+            Domain: "metachat",
+            roomName: `(PV)Chat between ${currentUser.username} and ${targetUser.username}`,
+            admin: currentUser._id.toString(),
+            members: [currentUser._id.toString(), targetUser._id.toString()],
+            setting: [{ Joinable_url: "private", type:'PV_chat'}], // Room type is private
+            seq: 0,
+            member_data: [
+                { id: currentUser._id.toString(), joined_at: new Date() },
+                { id: targetUser._id.toString(), joined_at: new Date() }
+            ]
+        });
+        
+        await newRoom.save();
+        
+        res.status(201).json({
+            success: true,
+            roomID: newRoom.roomID,
+            roomType: "private",
+            message: "Private chat created successfully"
+        });
+        
+    } catch (error) {
+        console.error("Error creating private chat:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 server.listen(port, '0.0.0.0', () => console.log(`Listening on ${port}`));
 
 
@@ -1697,7 +1934,7 @@ const addUserToRoom = async (uid, roomID) => {
                 { new: true }                // Return the updated room document
             );
 
-            console.log(`User with username: ${username} added to room: ${roomID}`);
+            console.log(`User with username: ${user.username} added to room: ${roomID}`);
         } else {
             console.error("User not found when adding to room");
         }
@@ -2036,7 +2273,10 @@ io.on("connection", async (socket) => {
             } 
             roomMembers = result;
         }
-        const User_members = await User.find({ username: { $in: roomMembers } }).select('username _id')
+        const memberObjectIds = room.members.map(id => new mongoose.Types.ObjectId(id));
+
+
+        const User_members = await User.find({ username: { $in: memberObjectIds } }).select('username _id')
 
         // Check for missing users
         const foundUsernames = User_members.map(user => user.username)
@@ -2126,7 +2366,7 @@ io.on("connection", async (socket) => {
             }
 
             // Check if target room exists
-            const check_room_permissions = await authinticate_room(roomID,currentUser._id)
+            const check_room_permissions = await authinticate_room(roomID,currentUser._id.toString())
 
             // Join the new room
             if(check_room_permissions){
@@ -2144,7 +2384,7 @@ io.on("connection", async (socket) => {
                         "devices.$.lastActive": new Date()
                     }
                 });
-                let room = await Room.findOneAndUpdate({roomID,"member_data.id":currentUser._id},
+                let room = await Room.findOneAndUpdate({roomID,"member_data.id":currentUser._id.toString()},
                 {
                     $set: {
                         "member_data.$.joined_at": new Date(),
@@ -2157,7 +2397,7 @@ io.on("connection", async (socket) => {
                     {
                     $push: {
                     member_data: {
-                    id: currentUser._id,
+                    id: currentUser._id.toString(),
                     joined_at: new Date()
                     }
                     }
@@ -2167,11 +2407,13 @@ io.on("connection", async (socket) => {
                 // Send settings, messages, and members
                 socket.emit("applySettings", currentUser.settings);
                 // await message_encryption(roomID)
-                const member_users = await User.find({ username : {$in: room.members} }).select("username first_name last_name lastActive status").lean();
+                const memberObjectIds = room.members.map(id => new mongoose.Types.ObjectId(id));
+                const member_users = await User.find({  _id: { $in: memberObjectIds } }).select("username first_name last_name lastActive status").lean();
 
                 socket.emit("members", room.members);
                 socket.emit("joined", { room, name: `${currentUser.first_name} ${currentUser.last_name}` , member_users});
                 const Messages = await getUnreadMessages(roomID, currentUser);
+                console.log("unreaded",Messages)
                 const unreadMessages = Messages.processedMessages;
                 if (unreadMessages.length >  50) {
                     socket.emit("restoreMessages", { messages: unreadMessages, prepend: true, unread: true, join: true });
@@ -2185,7 +2427,7 @@ io.on("connection", async (socket) => {
                         );
                         
                         const lastUnreadIndex = processedMessages.findLastIndex(
-                            msg => !msg.read.some(r => r.uid === currentUser._id)
+                            msg => !msg.read.some(r => r.username === currentUser._id.toString())
                         );
 
                         if (lastUnreadIndex !== -1) {
@@ -2230,7 +2472,7 @@ io.on("connection", async (socket) => {
         
         let room = currentUser.username =='BB'|| status == 'kick'?
             await Room.findOne({roomID: Device_room})
-            :await Room.findOne({roomID: Device_room, admin: currentUser._id})
+            :await Room.findOne({roomID: Device_room, admin: currentUser._id.toString()})
         let message,
             access = false;
         if(!room){
@@ -2283,7 +2525,7 @@ io.on("connection", async (socket) => {
                                 members: user_data._id
                             }
                         },{new:true})
-                        if(user_data._id == currentUser._id){
+                        if(user_data._id == currentUser._id.toString()){
                             
                             message = `کاربر: ${user_data?.first_name} ${user_data?.last_name} اتاق را ترک کرد`
                         }else{
@@ -2303,7 +2545,9 @@ io.on("connection", async (socket) => {
                 break;
         }
         if(access){
-            const member_users = await User.find({ _id : {$in: room.members} }).select("username first_name last_name lastActive status").lean();
+            const memberObjectIds = room.members.map(id => new mongoose.Types.ObjectId(id));
+
+            const member_users = await User.find({ _id : {$in: memberObjectIds} }).select("username first_name last_name lastActive status").lean();
             Log_message(message,null,room.roomID)
             io.in(Device_room).emit("member_update",{room_admin:room?.admin,member_data:room?.member_data, members:member_users})
         }
@@ -2323,7 +2567,7 @@ io.on("connection", async (socket) => {
                 socket.emit("error", { message: "Failed to load older messages." });
                 throw new Error("User not found or not in a room.");
             }
-            const check_room_permissions = await authinticate_room(roomID,currentUser._id)
+            const check_room_permissions = await authinticate_room(roomID,currentUser._id.toString())
 
             if(!check_room_permissions){
                 socket.emit("error", { message: "Failed to Load (no access)." });
@@ -2353,8 +2597,8 @@ io.on("connection", async (socket) => {
             }else{
                 olderMessages = await getMessagesByDate(Device_room,counter, limit(),type); // Function to fetch messages
 
-            }
-    
+            }   
+            console.log('olderMessages',olderMessages)
             // If there are older messages, process and send them back to the client
             if (olderMessages.length > 0) {
                 // Process each message
@@ -2563,7 +2807,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             return
         }
 
-        const check_room_permissions = await authinticate_room(roomID,currentUser._id)
+        const check_room_permissions = await authinticate_room(roomID,currentUser._id.toString())
         socket.join(roomID)
         if(!check_room_permissions){
             socket.leave(roomID);
@@ -2620,7 +2864,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             if (!currentUser || !currentUser._id) {
                 throw new Error("User not found or not in a room.");
             }
-            const check_room_permissions = await authinticate_room(roomID,currentUser._id)
+            const check_room_permissions = await authinticate_room(roomID,currentUser._id.toString())
 
             if(!check_room_permissions){
                 socket.leave(roomID);
@@ -2686,12 +2930,12 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             const newMessage = new Message({
                 id: id,  // ID format: roomID-auto-increment number
                 roomID: roomID,
-                sender: currentUser._id,
+                sender: currentUser._id.toString(),
                 quote: quote ? `${roomID}-${quote}`:null,
                 message: clean ? socketEncrypt(clean) : '',
                 file: fileDetails, // Map over the uploaded file to structure them correctly
-                read: [{ username:currentUser._id, time: timestamp }], // <- Mark as read by sender
-                members: [currentUser._id],
+                read: [{ username:currentUser._id.toString(), time: timestamp }], // <- Mark as read by sender
+                members: [currentUser._id.toString()],
                 encrypt: true,
                 timestamp,
             });
@@ -2706,7 +2950,6 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // Enrich the message with sender details
             let enrichedMessage = {
                 ...newMessage.toObject(),
-                sender: username,
                 // handle: `${currentUser.first_name} ${currentUser.last_name}`,
             };
             
@@ -2719,12 +2962,14 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             const roomMembers = room.members; // لیست اعضای اتاق
             
             // گرفتن Socket ID کاربران از دیتابیس
-            const onlineUsers = await User.find({ _id: { $in: roomMembers } });
+            const memberObjectIds = roomMembers.map(id => new mongoose.Types.ObjectId(id));
+
+            const onlineUsers = await User.find({ _id: { $in: memberObjectIds } });
 
             let tempMessage;
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach(async (user) => {
-                if (user._id != currentUser._id) {
+                if (user._id != currentUser._id.toString()) {
 
                     if (user.username) {
                         const taskMatch = room.roomName.match(/\(#(\d+)\)/);
@@ -2843,7 +3088,9 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // Optional: Send notification to others that a message was deleted
             const room = await Room.findOneAndUpdate({ roomID: Device_room }, { $set: { lastUpdated: new Date()  , last_content: socketEncrypt(`${user_name}: پیامی ویرایش شده است`) } });
             if (room) {
-                const onlineUsers = await User.find({ _id: { $in: room.members } });
+                const memberObjectIds = room.members.map(id => new mongoose.Types.ObjectId(id));
+
+                const onlineUsers = await User.find({ _id: { $in: memberObjectIds } });
                 
                 onlineUsers.forEach((user) => {
                     user?.devices.forEach(device=>{
@@ -2906,7 +3153,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== currentUser._id && currentUser._id != 'BB') {
+            if (message.sender !== currentUser._id.toString() && currentUser._id.toString() != 'BB') {
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -2944,10 +3191,12 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // Optional: Send notification to others that a message was deleted
             const room = await Room.findOne({ roomID: Device_room });
             if (room) {
-                const onlineUsers = await User.find({ _id: { $in: room.members } });
+                const memberObjectIds = room.members.map(id => new mongoose.Types.ObjectId(id));
+
+                const onlineUsers = await User.find({ _id: { $in: memberObjectIds } });
 
                 onlineUsers.forEach((user) => {
-                    if (user._id !== currentUser._id && user.socketID) {
+                    if (user._id !== currentUser._id.toString() && user.socketID) {
                         user?.devices.forEach(device=>{
                             io.to(device.socketID).emit("notification", {
                                 sender: currentUser.username,
@@ -3004,7 +3253,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== currentUser._id && currentUser._id != 'BB') {
+            if (message.sender !== currentUser._id.toString() && currentUser._id.toString() != 'BB') {
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -3030,7 +3279,9 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // Optional: Send notification to others that a message was deleted
             const room = await Room.findOne({ roomID: Device_room });
             if (room) {
-                const onlineUsers = await User.find({ _id: { $in: room.members } });
+                const memberObjectIds = room.members.map(id => new mongoose.Types.ObjectId(id));
+
+                const onlineUsers = await User.find({ _id: { $in: memberObjectIds } });
 
                 onlineUsers.forEach((user) => {
                     if (user.username !== username && user.socketID) {
@@ -3095,7 +3346,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             if (!message) throw new Error("Message not found");
     
             // Check if the user already has a reaction in the `read` array
-            const userReaction = message.read.find(r => r.username === username);
+            const userReaction = message.read.find(r => r.username === currentUser._id.toString());
     
             if (userReaction) {
                 // If the user already has a reaction, update it
@@ -3103,7 +3354,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             } else {
                 // If the user doesn't have a reaction, add a new entry to the `read` array
                 message.read.push({
-                    username: currentUser._id,
+                    username: currentUser._id.toString(),
                     reaction: reaction
                 });
             }
@@ -3117,9 +3368,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             if (!room) throw new Error("Room not found!");
 
             const roomMembers = room.members; // لیست اعضای اتاق
-            
+            const memberObjectIds = roomMembers.map(id => new mongoose.Types.ObjectId(id));
+
             // گرفتن Socket ID کاربران از دیتابیس
-            const onlineUsers = await User.find({ _id: { $in: roomMembers } });
+            const onlineUsers = await User.find({ _id: { $in: memberObjectIds } });
             
             const selfSender = await User.findOne({ username });
 
@@ -3127,7 +3379,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             // ارسال پیام به تمام کاربران حاضر در اتاق
             onlineUsers.forEach(async (user) => {
-                if (user._id != currentUser._id && user._id == message.sender) {
+                if (user._id != currentUser._id.toString() && user._id == message.sender) {
 
                     if (user.username) {
                         const taskMatch = room.roomName.match(/\(#(\d+)\)/);
@@ -3287,8 +3539,8 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             const isMember = room.members?.some(m =>
                 typeof m === 'string'
-                    ? m === currentUser._id
-                    : m.username === currentUser._id
+                    ? m === currentUser._id.toString()
+                    : m.username === currentUser._id.toString()
             );
 
             if (!isMember) {
@@ -3300,7 +3552,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 await Message.findOneAndUpdate(
                     {   roomID,
                         "file._id":file_id,
-                        "read.username":  currentUser._id 
+                        "read.username":  currentUser._id.toString() 
                     },
                     {
                         $set: 
@@ -3338,8 +3590,8 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             const isMember = room.members?.some(m =>
                 typeof m === 'string'
-                    ? m === currentUser._id
-                    : m.username === currentUser._id
+                    ? m === currentUser._id.toString()
+                    : m.username === currentUser._id.toString()
             );
 
             if (!isMember) {
@@ -3356,10 +3608,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                         {
                             id: { $lte: messageId },
                             roomID,
-                            "read.username": { $ne: _id }
+                            "read.username": { $ne: currentUser._id.toString() }
                         },
                         {
-                            $addToSet: { read: { username, time: timestamp } }
+                            $addToSet: { read: { username:currentUser._id.toString(), time: timestamp } }
                         }
                     );
 
@@ -3371,7 +3623,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                     // Resolve read user names
                     const readUsers = await Promise.all(
                         message.read.map(async (entry) => {
-                            const user = await User.findOne({ username: entry.username })
+                            const user = await User.findOne({ _id: entry.username })
                                 .select("first_name last_name")
                                 .lean();
                             return {
@@ -3413,7 +3665,6 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 _id: socket.user._id,
                 "devices.token": socket.token
             });
-            console.log('countnewmessage',socket.user._id,socket._id)
             if (!currentUser) {
                 return socket.emit("error", { message: "User not found" });
             }
@@ -3421,7 +3672,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             // match داینامیک
             const matchStage = {
-                members: currentUser._id
+                members: currentUser._id.toString()
             };
 
 
@@ -3446,7 +3697,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 { $sort: { sortDate: -1 } },
                 { $limit: 50 }
             ]);
-
+            console.log(currentUser._id.toString(),matchStage,rooms)
 
             const roomIDs = rooms.map(r => r.roomID);
 
@@ -3471,10 +3722,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                     }
                 });
             }));
-
-
+            const memberObjectIds = users_name.map(id => new mongoose.Types.ObjectId(id));
+            
             const users = await User.find({
-                _id: { $in: users_name }
+                _id: { $in: memberObjectIds }
             })
             .select("username first_name last_name lastActive status")
             .lean();
@@ -3558,13 +3809,12 @@ async function getMessagesByDate(roomID, val ,limit, type) {
     socket.on("countNewMessage", async(username, roomID, callback) => {
 
         const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
-        console.log('countnewmessage',socket.user._id,socket._id)
         if (!currentUser) throw new Error("User not found");
         // Fetch messages from the database (adjust this based on your database query)
         Message.find({ roomID: roomID }) // Get all messages in the room
             .then(messages => {
                 let newMessageCount = messages.filter(msg =>
-                    !msg.read.some(r => r.username === currentUser._id) // Check if the user has NOT read it
+                    !msg.read.some(r => r.username === currentUser._id.toString()) // Check if the user has NOT read it
                 ).length;
     
                 // Send back the count
@@ -3581,8 +3831,233 @@ async function getMessagesByDate(roomID, val ,limit, type) {
         const time = room?.lastUpdated ?? null;  // ❗️ اینجا دیگه تاریخ ساختگی نمی‌دیم
         callback(time);
     });
-      
+    socket.on("startPrivateChat", async ({ targetUserId, targetUsername }, callback) => {
+        try {
+            const currentUser = socket.user;
+            
+            // Find target user by ID or username
+            let targetUser;
+            if (targetUserId) {
+                targetUser = await User.findById(targetUserId);
+            } else if (targetUsername) {
+                targetUser = await User.findOne({ username: targetUsername });
+            }
+            
+            if (!targetUser) {
+                return callback({ success: false, error: "User not found" });
+            }
+            
+            // Create sorted unique room ID for PV chat
+            const users = [currentUser.username, targetUser.username].sort();
+            const pvRoomId = `PV_${users[0]}_${users[1]}`;
+            
+            // Check if room already exists
+            let room = await Room.findOne({ roomID: pvRoomId });
+            
+            if (!room) {
+                room = new Room({
+                    roomID: pvRoomId,
+                    Domain: "metachat",
+                    roomName: `(PV)Chat between ${currentUser.username} and ${targetUser.username}`,
+                    admin: currentUser._id.toString(),
+                    members: [currentUser._id.toString(), targetUser._id.toString()],
+                    setting: [{ Joinable_url: "private",type:'PV_chat' }], // Private room type
+                    seq: 0,
+                    member_data: [
+                        { id: currentUser._id.toString(), joined_at: new Date() },
+                        { id: targetUser._id.toString(), joined_at: new Date() }
+                    ]
+                });
+                await room.save();
+            } else if (room.setting[0]?.Joinable_url !== "private") {
+                // Ensure room is private
+                await Room.updateOne(
+                    { roomID: pvRoomId },
+                    { $set: { "setting.0.Joinable_url": "private" } }
+                );
+            }
+            
+            // Join the room
+            socket.join(pvRoomId);
+            
+            // Update user's device room
+            await User.updateOne(
+                { _id: currentUser._id, "devices.token": socket.token },
+                { $set: { "devices.$.roomID": pvRoomId } }
+            );
+            
+            callback({ 
+                success: true, 
+                roomID: pvRoomId,
+                roomType: "private",
+                room: {
+                    roomID: room.roomID,
+                    roomName: room.roomName,
+                    setting: room.setting
+                }
+            });
+            
+            // Notify target user if they're online
+            const targetDevices = targetUser.devices || [];
+            targetDevices.forEach(device => {
+                if (device.socketID) {
+                    io.to(device.socketID).emit("privateChatInvite", {
+                        from: currentUser.username,
+                        fromName: `${currentUser.first_name} ${currentUser.last_name}`,
+                        fromId: currentUser._id.toString(),
+                        roomID: pvRoomId,
+                        roomType: "private"
+                    });
+                }
+            });
+            
+        } catch (error) {
+            console.error("Error starting private chat:", error);
+            callback({ success: false, error: error.message });
+        }
+    });
+    
+    // Get all users for private chat (via socket)
+    socket.on("getPrivateChatUsers", async (callback) => {
+        try {
+            const currentUser = socket.user;
+            
+            if (!currentUser) {
+                return callback({ success: false, error: "User not authenticated" });
+            }
+            
+            // Get all users except current user
+            const users = await User.find(
+                { _id: { $ne: currentUser._id } },
+                { username: 1, first_name: 1, last_name: 1, status: 1, lastActive: 1, _id: 1 }
+            ).lean();
+            
+            // Get existing private rooms for current user
+            const privateRooms = await Room.find({ 
+                members: currentUser._id.toString(),
+                "setting.0.Joinable_url": "private"
+            }).lean();
+            
+            // Map which users already have private chats
+            const existingPVMap = new Map();
+            privateRooms.forEach(room => {
+                const otherMember = room.members.find(m => m !== currentUser._id.toString());
+                if (otherMember) {
+                    existingPVMap.set(otherMember, {
+                        roomID: room.roomID,
+                        lastUpdated: room.lastUpdated,
+                        roomName: room.roomName
+                    });
+                }
+            });
+            
+            const usersWithStatus = users.map(user => ({
+                _id: user._id,
+                username: user.username,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                status: user.status || 'offline',
+                lastActive: user.lastActive,
+                hasPrivateChat: existingPVMap.has(user._id.toString()),
+                privateChatInfo: existingPVMap.get(user._id.toString()) || null,
+                fullName: `${user.first_name} ${user.last_name}`
+            }));
+            
+            callback({ 
+                success: true, 
+                users: usersWithStatus,
+                currentUser: {
+                    id: currentUser._id,
+                    username: currentUser.username,
+                    name: `${currentUser.first_name} ${currentUser.last_name}`
+                }
+            });
+            
+        } catch (error) {
+            console.error("Error fetching private chat users:", error);
+            callback({ success: false, error: error.message });
+        }
+    });
 
+    // Get user's private chat list
+    socket.on("getPrivateChats", async (callback) => {
+        try {
+            const currentUser = socket.user;
+            
+            if (!currentUser) {
+                return callback({ success: false, error: "User not authenticated" });
+            }
+            
+            // Get all private rooms where user is a member
+            const privateRooms = await Room.find({ 
+                members: currentUser._id.toString(),
+                "setting.0.Joinable_url": "private"
+            }).sort({ lastUpdated: -1 }).lean();
+            
+            // Get other members' info for each room
+            const roomsWithUserInfo = await Promise.all(
+                privateRooms.map(async (room) => {
+                    const otherMemberId = room.members.find(m => m !== currentUser._id.toString());
+                    if (otherMemberId) {
+                        const otherUser = await User.findById(otherMemberId)
+                            .select("username first_name last_name status lastActive")
+                            .lean();
+                        
+                        if (!otherUser) return null;
+                        
+                        // Get last message
+                        const lastMessage = await Message.findOne({ roomID: room.roomID })
+                            .sort({ timestamp: -1 })
+                            .select("message timestamp sender file")
+                            .lean();
+                        
+                        // Count unread messages
+                        const unreadCount = await Message.countDocuments({
+                            roomID: room.roomID,
+                            "read.username": { $ne: currentUser._id.toString() },
+                            sender: { $ne: currentUser._id.toString() }
+                        });
+                        
+                        return {
+                            roomID: room.roomID,
+                            roomName: room.roomName,
+                            lastUpdated: room.lastUpdated,
+                            createdAt: room.createdAt,
+                            otherUser: {
+                                _id: otherUser._id,
+                                username: otherUser.username,
+                                first_name: otherUser.first_name,
+                                last_name: otherUser.last_name,
+                                fullName: `${otherUser.first_name} ${otherUser.last_name}`,
+                                status: otherUser.status || 'offline',
+                                lastActive: otherUser.lastActive
+                            },
+                            lastMessage: lastMessage ? {
+                                content: lastMessage.message ? socketDecrypt(lastMessage.message) : (lastMessage.file ? "📎 File" : "🎤 Voice message"),
+                                timestamp: lastMessage.timestamp,
+                                sender: lastMessage.sender === currentUser._id.toString() ? "You" : otherUser.first_name,
+                                hasFile: !!lastMessage.file
+                            } : null,
+                            unreadCount: unreadCount
+                        };
+                    }
+                    return null;
+                })
+            );
+            
+            // Filter out null values
+            const validRooms = roomsWithUserInfo.filter(room => room !== null);
+            
+            callback({ 
+                success: true, 
+                privateChats: validRooms 
+            });
+            
+        } catch (error) {
+            console.error("Error fetching private chats:", error);
+            callback({ success: false, error: error.message });
+        }
+    });
     socket.on("leaveRoom", async ({ username , roomID }) => {
         try {
             if (!username || !roomID) {
@@ -3595,7 +4070,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
             const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
             const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
-            const room = await Room.findOneAndUpdate({roomID:Device_room,"member_data.id":currentUser._id},
+            const room = await Room.findOneAndUpdate({roomID:Device_room,"member_data.id":currentUser._id.toString()},
                 {
                     $set: {
                         "member_data.$.leaved_at": new Date()
@@ -3609,7 +4084,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 {
                 $push: {
                 member_data: {
-                id: currentUser._id,
+                id: currentUser._id.toString(),
                 leaved_at: new Date()
                 }
                 }
@@ -3621,7 +4096,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Optional: Check if user is a member (for logging/debugging only)
-            if (!room.members.includes(currentUser._id)) {
+            if (!room.members.includes(currentUser._id.toString())) {
                 console.warn(`User "${username}" is leaving room "${roomID}" but not listed as a member.`);
             }
 

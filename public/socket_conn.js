@@ -4,9 +4,10 @@ const href = "/";
 const ioUrl = "https://mc.farahoosh.ir/";
 
 const currentUser = {
+    _id: $('#_id').text().trim(),
     username: $('#username').text().trim()
 };
-
+// $('#_id').remove()
 // Initialize Socket.IO with better configuration
 const socket = io(ioUrl, {
     transports: ['websocket', 'polling'], // WebSocket first for better performance
@@ -27,7 +28,7 @@ console.log("Initializing Socket.IO connection...");
 socket.on("connect", () => {
     console.log("Connected to metaChat via Socket.IO 🎯");
     console.log("Socket ID:", socket.id);
-    $('#output').empty();
+    // $('#output').empty();
     
     // Emit userLoggedIn event with current user data
     socket.emit("userLoggedIn", {

@@ -1,6 +1,7 @@
 <%-include('partials/header.ejs') %>
 <p style="display:none" id='roomID'><%=roomID%></p>
 <p style="display:none" id='username'><%=username%></p>
+<p style="display:none" id='_id'><%=_id%></p>
 <!-- <div id="alert" class="px-3"></div> -->
 
 <div data-bs-theme="dark" id="main">
@@ -76,30 +77,109 @@
         <div class="row h-100 flex-nowrap">
             <div id="side_contact" class="row m-0 p-0 col-12 gap-1 col-md-4 col-lg-3 border-end hide-scrollbar">
                 <div class="position-relative  m-0  col-12 p-0">
-                    <div class="row col-12 pb-2 g-3 mt-0 gap-2 m-auto justify-content-center position-sticky top-0  backdrop-blur-chat-bg z-1">
-                        <div class="col-12 ">
-                            <div class="input-group">
-                                <div class="input-group-text"><i class=" bi bi-search"></i> </div>
-                                <input placeholder="Search title or room-id" id="search_roomList" class="form-control"/>
+                    <!-- Add this before the roomList_ul -->
+                    <div class="chat-tabs mb-2">
+                        <ul class="nav nav-tabs" id="chatTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="groups-tab" data-bs-toggle="tab" data-bs-target="#groups" type="button" role="tab">
+                                    <i class="bi bi-people-fill"></i> گروه‌ها
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="private-tab" data-bs-toggle="tab" data-bs-target="#private" type="button" role="tab">
+                                    <i class="bi bi-chat-dots-fill"></i> پیام‌های خصوصی
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Groups Container -->
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="groups" role="tabpanel">
+                            <div class="position-relative m-0 col-12 p-0">
+                                <div class="row col-12 pb-2 g-3 mt-0 gap-2 m-auto justify-content-center position-sticky top-0 backdrop-blur-chat-bg z-1">
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <div class="input-group-text"><i class="bi bi-search"></i></div>
+                                            <input placeholder="جستجوی گروه‌ها..." id="search_groupList" class="form-control"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-theme">
+                                    <ul class="list-group px-1 container rounded overflow-y-auto overflow-x-hidden hide-scrollbar" id="groupList_ul">
+                                        <!-- dynamically inserted groups -->
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="private" role="tabpanel">
+                            <div class="position-relative m-0 col-12 p-0">
+                                <div class="row col-12 pb-2 g-3 mt-0 gap-2 m-auto justify-content-center position-sticky top-0 backdrop-blur-chat-bg z-1">
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <div class="input-group-text"><i class="bi bi-search"></i></div>
+                                            <input placeholder="جستجوی کاربران... (با @ شروع کنید)" id="search_privateList" class="form-control"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-theme">
+                                    <!-- Users Search Results -->
+                                    <div id="userSearchResults" class="d-none">
+                                        <div class="px-2 py-1 bg-light border-bottom">
+                                            <small class="text-muted">نتایج جستجوی کاربران</small>
+                                        </div>
+                                        <ul class="list-group px-1 container rounded overflow-y-auto overflow-x-hidden hide-scrollbar" id="userSearchList_ul">
+                                        </ul>
+                                    </div>
+                                    <!-- Private Chats List -->
+                                    <ul class="list-group px-1 container rounded overflow-y-auto overflow-x-hidden hide-scrollbar" id="privateList_ul">
+                                        <!-- dynamically inserted private chats -->
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="bg-theme">
-                        <ul class="list-group px-1 container rounded overflow-y-auto overflow-x-hidden hide-scrollbar" id="roomList_ul">
-                            <!-- dynamically inserted contacts -->
-                        </ul>
-                    </div>
-                    <div class="dropdown col-auto position-fixed bottom-0   p-0 m-1 ">
-                        <button class="btn  btn-meta col-auto rounded-circle" type="button" data-bs-toggle="dropdown"><i class="fs-5 bi bi-plus-lg"></i></button>
+
+                    <!-- Floating Action Button for New Chat -->
+                    <div class="dropdown col-auto position-fixed bottom-0 p-0 m-1">
+                        <button class="btn btn-meta col-auto rounded-circle" type="button" data-bs-toggle="dropdown">
+                            <i class="fs-5 bi bi-plus-lg"></i>
+                        </button>
                         <div class="dropdown-menu row gap-5 col-auto bg-transparent border-0" aria-labelledby="dropdownMenuButton">
                             <div class="col-12 my-2">
-                                <button class="btn text-start m-auto btn-meta animate__animated animate__fadeInUp col-auto  rounded-5 " data-bs-toggle="modal" data-bs-target="#joinRoom"> <i class="fs-5 bi bi-door-open"></i> پیوستن اتاق</button>
+                                <button class="btn text-start m-auto btn-meta animate__animated animate__fadeInUp col-auto rounded-5" data-bs-toggle="modal" data-bs-target="#joinRoom">
+                                    <i class="fs-5 bi bi-door-open"></i> پیوستن به گروه
+                                </button>
                             </div>
                             <div class="col-12 my-2">
-                                <button class="btn text-start m-auto btn-meta animate__animated animate__fadeInUp col-auto  rounded-5 " data-bs-toggle="modal" data-bs-target="#createRoom"><i class="fs-5 bi bi-cloud-plus"></i> ساختن اتاق</button>
+                                <button class="btn text-start m-auto btn-meta animate__animated animate__fadeInUp col-auto rounded-5" data-bs-toggle="modal" data-bs-target="#createRoom">
+                                    <i class="fs-5 bi bi-cloud-plus"></i> ساختن گروه
+                                </button>
                             </div>
-                    
+                            <div class="col-12 my-2">
+                                <button class="btn text-start m-auto btn-meta animate__animated animate__fadeInUp col-auto rounded-5" id="newPrivateChatBtn">
+                                    <i class="fs-5 bi bi-chat-plus"></i> پیام خصوصی جدید
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal for selecting user to start private chat -->
+                    <div class="modal fade" id="selectUserModal" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-scrollable">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">انتخاب کاربر برای پیام خصوصی</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <input type="text" class="form-control mb-3" id="userSearchInput" placeholder="جستجوی کاربر...">
+                                    <ul class="list-group" id="userSelectList">
+                                        <!-- Users will be listed here -->
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -199,7 +279,7 @@
 
 
     <script   nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/socket_conn.js'></script>
-    <script   nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/chat_v0501.js'></script>
+    <script   nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/chat_v0503.js'></script>
     <script  nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/roomManagement.js' ></script>
     <script  nonce="<%= nonce %>" src="https://mc.farahoosh.ir/metachat/setting.js" ></script>
 

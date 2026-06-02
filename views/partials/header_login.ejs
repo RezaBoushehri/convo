@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-site-verification" content="MOT4BrvonNU3M3gRjaHaIKyGUOw8Ii4EOSpG1Qj1Chg" />
+    <meta name="description" content="Chatting web app for different people to get along with one another. Chat are deleted after single use">
+    <meta name="keywords" content="Convoo, Convo, Chat, Chatting, HerkouApp, heroku app ">
+    <meta name="author" content="Sparsh Jain">
+    <link rel="icon" href="https://mc.farahoosh.ir/metachat/svg/logo.svg" type='icon/svg'>
+    <title>Meta Chat</title>
+    <script src="https://mc.farahoosh.ir/metachat/js/socket.io.js"></script>
+    <script src="https://mc.farahoosh.ir/metachat/js/DOMPurify-main/DOMPurify-main/dist/purify.min.js"></script>
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
+    <!-- <link rel="stylesheet" href="https://mc.farahoosh.ir/metachat/bootstrap-4.4.1-dist/css/bootstrap.min.css"> -->
+    <link rel="stylesheet" type='text/css' href="https://mc.farahoosh.ir/metachat/css/loading.css">
+    <link rel="stylesheet" type='text/css' href="https://mc.farahoosh.ir/metachat/css/typingLoader.css">
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"> -->
+    <!-- <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito&display=swap" rel="stylesheet"> -->
+    <!-- <script src="https://mc.farahoosh.ir/metachat/js/jquery-3.3.1.min.js"></script> -->
+    <!-- <link rel="stylesheet" href="https://mc.farahoosh.ir/metachat/css/bootstrap-icons-1.11.3/font/bootstrap-icons.min.css"> -->
+    <!-- <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+        " integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
+    <!-- <script src="https://mc.farahoosh.ir/metachat/bootstrap-4.4.1-dist/js/bootstrap.min.js" ></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
+    <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/browser-image-compression@latest/dist/browser-image-compression.js"></script> -->
+    <script src="https://mc.farahoosh.ir/metachat/js/crypto-js.min.js"></script>
+
+    <!-- <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+        " integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
+    <script type="text/javascript" src="https://mc.farahoosh.ir/metachat/js/browser-image-compression.js"></script>
+    <link href="https://mc.farahoosh.ir/metachat/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://mc.farahoosh.ir/metachat/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://mc.farahoosh.ir/metachat/css/animate.compat.css" />
+    <script src="https://mc.farahoosh.ir/metachat/js/jquery-4.0.0.min.js"></script>
+    <script src="https://mc.farahoosh.ir/metachat/js/sweetAlert.js"></script>
+    <script src="https://mc.farahoosh.ir/metachat/js/side.js"></script>
+    <script src="https://mc.farahoosh.ir/metachat/js/timeFormated.js" defer></script>
+    <link href="https://mc.farahoosh.ir/metachat/vendor/animate/animate.min.css" rel="stylesheet">
+    <link rel="stylesheet" type='text/css' href="https://mc.farahoosh.ir/metachat/css/style_v0411.css">
+
+</head>
+
+<body data-bs-theme="dark" >
+    <div id="backgroundImg" class="backgroundImg"></div>
+
+    <audio id="message_sound" src="https://mc.farahoosh.ir/metachat/sound/notif.wav" preload="auto"></audio>
+    <audio id="notification_sound" src="https://mc.farahoosh.ir/metachat/sound/message.ogg" preload="auto"></audio>
+    <div id="header_div" class="col-12  position-sticky top-0 z-3">
+        
+
+        <nav class="backdrop-blur-chat-bg navbar px-1 position-relative">
+            <a class="navbar-brand" href="https://mc.farahoosh.ir/metachat"><img class='img-fluid col-2' src='https://mc.farahoosh.ir/metachat/svg/logo.svg' width='25px'><span class='my-auto'>&nbspMETA CHAT</span></a>
+            <div class="d-flex col-auto gap-2 position-absolute end-0 me-2">
+                <div id="theme_btn" class="col-auto overflow-hidden">
+                    <button data-theme="light" class="btn btn-white animate__animated rounded-circle col-auto shadow-sm hover" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-original-title="حالت شب"><i class="bi bi-sun-fill animate__animated animate__bounceIn text-warning"></i></button>
+                    <button data-theme="dark" class="btn btn-dark animate__animated rounded-circle col-auto shadow-sm hover" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-original-title="حالت روز"><i class="bi bi-moon-fill animate__animated animate__bounceIn text-primary"></i></button>
+                </div>
+            </div>
+        </nav>
+    </div>
+    <div id="offlineMessage">You're offline</div>
+
+    <div id="loading" class="loader px-3 d-none">
+        <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
+                <span>Loading, please wait...</span>
+    </div>
+    <script nonce="<%= nonce %>" >
+       
+        function updateOfflineStatus() {
+            const offlineMessage = document.getElementById('offlineMessage');
+            if (!navigator.onLine) {
+                offlineMessage.classList.add('show');
+            } else {
+                offlineMessage.classList.remove('show');
+            }
+        }
+
+        // Listen for changes in the network status
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+
+        // Initial check
+        updateOfflineStatus();
+        // Request notification permission when the page loads
+        if (Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+        
+        
+        
+    </script>
+        </body>
+</html>
