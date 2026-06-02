@@ -2273,7 +2273,7 @@ io.on("connection", async (socket) => {
             } 
             roomMembers = result;
         }
-        const memberObjectIds = room.members.map(id => new mongoose.Types.ObjectId(id));
+        const memberObjectIds = roomMembers.map(id => new mongoose.Types.ObjectId(id));
 
 
         const User_members = await User.find({ username: { $in: memberObjectIds } }).select('username _id')

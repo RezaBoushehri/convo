@@ -140,7 +140,7 @@ const leaveRoom = () => {
     if(NEED_TO_RELOAD_ROOM_UI){
         init_page(false)
     }
-    $('#roomList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0')
+    $('#groupList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0')
 
     $("#roomInfo").addClass('d-none');
     $("#chat-window").addClass('d-none');
@@ -210,7 +210,7 @@ socket.on('roomList_newMessages', async (data) => {
     console.log(data)
     try {
         
-        const room = $(`#roomList_ul a[data-id="${data.room.roomID}"]`);
+        const room = $(`#groupList_ul a[data-id="${data.room.roomID}"]`);
         // update counter   
         room.find('.counter_message')        
             .text(data.count)        
@@ -219,8 +219,8 @@ socket.on('roomList_newMessages', async (data) => {
             .html(data.last_content)        
         // update last update timestamp    
         // const now = Date.now();    
-        $(`#roomList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
-        $(`#roomList_ul li#${data.room.roomID} .position-absolute .jdate `).text(formatDate(data.room.lastUpdated));
+        $(`#groupList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
+        $(`#groupList_ul li#${data.room.roomID} .position-absolute .jdate `).text(formatDate(data.room.lastUpdated));
         if(roomList_data) roomList_data.room.filter(rm=> rm == data.room.roomID).map(rm=> rm={...rm, newMessage: data.count})
     } catch (error) {
         showAlert(error.message,'danger')
@@ -237,9 +237,9 @@ document.querySelector(".roomNameInput").addEventListener("keyup", (event) => {
 
 
 async function room_list_genration(data,clear=true){
-    const $roomList_ul = $('#roomList_ul');
+    const $groupList_ul = $('#groupList_ul');
     if(clear){
-        $roomList_ul.empty();
+        $groupList_ul.empty();
     }
     await data?.room.filter(room=> room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/)).map(room=>{
             const room_name_pv = room.members.filter(user=> user !== currentUser.username).map(username=>{
@@ -287,15 +287,15 @@ async function room_list_genration(data,clear=true){
             </li>
 
             `)
-        $roomList_ul.append($li)
+        $groupList_ul.append($li)
     });
     Promise
         .resolve(
-            $('#roomList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0'))
+            $('#groupList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0'))
         .then(
-            $(`#roomList_ul li#${localStorage.getItem('last_room_joined_MC')}`).addClass('bg-primary').removeClass('border-0'))
+            $(`#groupList_ul li#${localStorage.getItem('last_room_joined_MC')}`).addClass('bg-primary').removeClass('border-0'))
     if(clear){
-        document.getElementById('roomList_ul').scrollTo({
+        document.getElementById('groupList_ul').scrollTo({
             top: 0,                        // Scroll to the top
             behavior: "smooth",            // Smooth scrolling
         });
@@ -315,18 +315,18 @@ $(`#search_roomList`).on("focus input",(e)=>{
     room_list_genration({room,users})
 })
 function sortRooms() {
-    const $roomList_ul = $('#roomList_ul');
+    const $groupList_ul = $('#groupList_ul');
 
-    const rooms = $roomList_ul.children('li').get();
+    const rooms = $groupList_ul.children('li').get();
     rooms.sort((a, b) => {        
         const dateA = new Date($(a).attr('data-last-update'));        
         const dateB = new Date($(b).attr('data-last-update'));
         return dateB - dateA; // newest first    
     });
-    $roomList_ul.empty()
+    $groupList_ul.empty()
 
     $.each(rooms, function(index, room) {    
-        $roomList_ul.append(room);   
+        $groupList_ul.append(room);   
     });
 }
 // Global variables
@@ -768,10 +768,10 @@ socket.on('roomList_newMessages', async (data) => {
     $('#loading').removeClass('d-none');
     
     try {
-        const room = $(`#roomList_ul a[data-id="${data.room.roomID}"]`);
+        const room = $(`#groupList_ul a[data-id="${data.room.roomID}"]`);
         room.find('.counter_message').text(data.count).removeClass('d-none');
         room.find('.message').html(data.last_content);
-        $(`#roomList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
+        $(`#groupList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
         
         // Also update in private chats if applicable
         if (data.room.roomName.match(/\(PV\)Chat between/)) {
