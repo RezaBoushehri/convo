@@ -152,7 +152,7 @@ app.use(security.securityLogger);
 // Apply rate limiters to specific route groups
 app.use('/api/', security.extremeLimiter);
 app.use('/login', security.authLimiter);
-app.use('/login', security.loginSlowDown);
+// app.use('/login', security.loginSlowDown);
 app.use('/register', security.authLimiter);
 // const mongoURI = "mongodb://chatAdmin:chatAdmin@127.0.0.1:27017/chatRoom?authSource=chatRoom"; // Replace with your URI
 const mongoURI = `mongodb://${DB_USERNAME}:${encodedPassword}@${MONGO_URI}/chatRoom?authSource=chatRoom`;
@@ -2267,32 +2267,28 @@ io.on("connection", async (socket) => {
             const result = []; 
             for (const num of roomMembers.split(',')) {  
                 const n = num.trim();  
-                if (n.length === 11 && !isNaN(n)) {   
-                    result.push(n);  
+                if (!isNaN(n)) {   
+                    result.push(n); 
+                    console.log(result) 
                 } 
+                console.log(roomMembers) 
             } 
             roomMembers = result;
         }
-        const memberObjectIds = roomMembers.map(id => new mongoose.Types.ObjectId(id));
 
 
-        const User_members = await User.find({ username: { $in: memberObjectIds } }).select('username _id')
+        const User_members = await User.find({ username: { $in: roomMembers } }).select('username _id')
 
         // Check for missing users
-        const foundUsernames = User_members.map(user => user.username)
-        const missingMembers = roomMembers.filter(member => !foundUsernames.includes(member))
-
-        if (missingMembers.length > 0) {
-            socket.emit("error", { message: `${missingMembers.join(', ')} not Found.` })
-            return
-        }
+        const User_mem_id = User_members.map(user => user._id)
+        
 
         roomMembers.push(currentUser.username)
         const room = new Room({
             roomID: uniqueRoomID,
             roomName: roomName,
             admin: currentUser._id,
-            members: User_members.map(mem => mem._id), // members array of _id
+            members: User_mem_id, // members array of _id
             setting: [{ Joinable_url: Joinable_url ?? "private" }]
         });
         await room.save(); // Save the room to the database
@@ -3040,7 +3036,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             const Device_room = currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
             const user_name = currentUser?.first_name && currentUser?.last_name ? `${currentUser?.first_name} ${currentUser?.last_name}` : username
 
-            uid = user._id
+            uid = currentUser._id.toString()
             if (!messageId || typeof messageId !== "string" && !new_message) {
                 throw new Error("Invalid or missing messageId.");
             }
@@ -3064,7 +3060,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== uid && uid != 'BB') {
+            if (message.sender !== uid && uid != '6a1dbb49d1be99b6fd1f9772') {
                 throw new Error("You can only edit your own messages.");
             }
 
@@ -3127,7 +3123,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             if(!messageId)throw new Error("Invalid  USER.");
             const currentUser = await User.findOne({_id: socket.user._id ,"devices.token": socket.token });
             const Device_room =  currentUser.devices.filter(d=> d.token == socket.token)[0].roomID
-            username =user.username
+            username = socket.user.username
 
             if (!messageId || typeof messageId !== "string") {
                 throw new Error("Invalid or missing messageId.");
@@ -3151,9 +3147,9 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             if (roomIDFromId !== Device_room) {
                 throw new Error("Message does not belong to your current room.");
             }
-
+            console.log("message.sender !== currentUser._id.toString()",currentUser._id.toString(),message.sender,message.sender !== currentUser._id.toString())
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== currentUser._id.toString() && currentUser._id.toString() != 'BB') {
+            if (message.sender !== currentUser._id.toString() && currentUser._id.toString() != '6a1dbb49d1be99b6fd1f9772') {
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -3253,7 +3249,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             // Authorization: Only the sender can delete their own message
-            if (message.sender !== currentUser._id.toString() && currentUser._id.toString() != 'BB') {
+            if (message.sender !== currentUser._id.toString() && currentUser._id.toString() != '6a1dbb49d1be99b6fd1f9772') {
                 throw new Error("You can only delete your own messages.");
             }
 
@@ -3918,7 +3914,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
     });
     
     // Get all users for private chat (via socket)
-    socket.on("getPrivateChatUsers", async (callback) => {
+    socket.on("getPrivateChats", async ({ cursor=null, cache=true } = {}, callback) => {
         try {
             const currentUser = socket.user;
             
@@ -3926,73 +3922,40 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 return callback({ success: false, error: "User not authenticated" });
             }
             
-            // Get all users except current user
-            const users = await User.find(
-                { _id: { $ne: currentUser._id } },
-                { username: 1, first_name: 1, last_name: 1, status: 1, lastActive: 1, _id: 1 }
-            ).lean();
-            
-            // Get existing private rooms for current user
-            const privateRooms = await Room.find({ 
+            // Build match stage with cursor pagination
+            const matchStage = {
                 members: currentUser._id.toString(),
-                "setting.0.Joinable_url": "private"
-            }).lean();
+                "setting.0.Joinable_url": "private",
+                "setting.0.type": "PV_chat",
+                $expr: { $lte: [ { $size: "$members" }, 2 ] }
+            };
             
-            // Map which users already have private chats
-            const existingPVMap = new Map();
-            privateRooms.forEach(room => {
-                const otherMember = room.members.find(m => m !== currentUser._id.toString());
-                if (otherMember) {
-                    existingPVMap.set(otherMember, {
-                        roomID: room.roomID,
-                        lastUpdated: room.lastUpdated,
-                        roomName: room.roomName
-                    });
-                }
-            });
-            
-            const usersWithStatus = users.map(user => ({
-                _id: user._id,
-                username: user.username,
-                first_name: user.first_name,
-                last_name: user.last_name,
-                status: user.status || 'offline',
-                lastActive: user.lastActive,
-                hasPrivateChat: existingPVMap.has(user._id.toString()),
-                privateChatInfo: existingPVMap.get(user._id.toString()) || null,
-                fullName: `${user.first_name} ${user.last_name}`
-            }));
-            
-            callback({ 
-                success: true, 
-                users: usersWithStatus,
-                currentUser: {
-                    id: currentUser._id,
-                    username: currentUser.username,
-                    name: `${currentUser.first_name} ${currentUser.last_name}`
-                }
-            });
-            
-        } catch (error) {
-            console.error("Error fetching private chat users:", error);
-            callback({ success: false, error: error.message });
-        }
-    });
-
-    // Get user's private chat list
-    socket.on("getPrivateChats", async (callback) => {
-        try {
-            const currentUser = socket.user;
-            
-            if (!currentUser) {
-                return callback({ success: false, error: "User not authenticated" });
+            // Add cursor condition if cursor exists
+            if (cursor) {
+                matchStage.$expr = {
+                    $and: [
+                        { $lte: [ { $size: "$members" }, 2 ] },
+                        {
+                            $lt: [
+                                { $ifNull: ["$lastUpdated", "$createdAt"] },
+                                new Date(cursor)
+                            ]
+                        }
+                    ]
+                };
             }
             
-            // Get all private rooms where user is a member
-            const privateRooms = await Room.find({ 
-                members: currentUser._id.toString(),
-                "setting.0.Joinable_url": "private"
-            }).sort({ lastUpdated: -1 }).lean();
+            // Get private rooms with pagination
+            const privateRooms = await Room.aggregate([
+                { $match: matchStage },
+                {
+                    $addFields: {
+                        sortDate: { $ifNull: ["$lastUpdated", "$createdAt"] }
+                    }
+                },
+                { $sort: { sortDate: -1 } },
+                { $limit: 50 }
+            ]);
             
             // Get other members' info for each room
             const roomsWithUserInfo = await Promise.all(
@@ -4023,6 +3986,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                             roomName: room.roomName,
                             lastUpdated: room.lastUpdated,
                             createdAt: room.createdAt,
+                            sortDate: room.sortDate,
                             otherUser: {
                                 _id: otherUser._id,
                                 username: otherUser.username,
@@ -4048,13 +4012,89 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             // Filter out null values
             const validRooms = roomsWithUserInfo.filter(room => room !== null);
             
+            // Get next cursor
+            const nextCursor = privateRooms.length
+                ? privateRooms[privateRooms.length - 1].sortDate
+                : null;
+            
             callback({ 
                 success: true, 
-                privateChats: validRooms 
+                privateChats: validRooms,
+                nextCursor,
+                cache,
+                hasMore: privateRooms.length === 50 // If we got exactly 50, there might be more
             });
             
         } catch (error) {
             console.error("Error fetching private chats:", error);
+            callback({ success: false, error: error.message });
+        }
+    });
+   // Add new socket event for searching users
+   socket.on("searchPrivateChatUsers", async ({ searchTerm }, callback) => {
+        try {
+            const currentUser = socket.user;
+            
+            if (!currentUser) {
+                return callback({ success: false, error: "User not authenticated" });
+            }
+            
+            // Build search query
+            let query = { _id: { $ne: currentUser._id } }; // Always exclude current user
+            
+            // Add search conditions if search term provided
+            if (searchTerm && searchTerm.length >= 2) {
+                const searchRegex = new RegExp(searchTerm, 'i');
+                query.$or = [
+                    { username: searchRegex },
+                    { first_name: searchRegex },
+                    { last_name: searchRegex },
+                    { 
+                        $expr: {
+                            $regexMatch: {
+                                input: { $concat: ["$first_name", " ", "$last_name"] },
+                                regex: searchTerm,
+                                options: 'i'
+                            }
+                        }
+                    }
+                ];
+            }
+            
+            // Return all users except current if searchTerm is empty/too short
+            const users = await User.find(query)
+                .select("username first_name last_name status lastActive")
+                .limit(searchTerm && searchTerm.length >= 2 ? 20 : 50) // Limit based on search
+                .lean();
+            
+            // Check which users already have private chats with current user
+            const existingPrivateChats = await Room.find({
+                members: currentUser._id.toString(),
+                "setting.0.type": "PV_chat"
+            }).select("members").lean();
+            
+            const existingChatUserIds = new Set();
+            existingPrivateChats.forEach(chat => {
+                chat.members.forEach(member => {
+                    if (member !== currentUser._id.toString()) {
+                        existingChatUserIds.add(member);
+                    }
+                });
+            });
+            
+            const usersWithStatus = users.map(user => ({
+                ...user,
+                fullName: `${user.first_name} ${user.last_name}`,
+                hasPrivateChat: existingChatUserIds.has(user._id.toString())
+            }));
+            
+            callback({ 
+                success: true, 
+                users: usersWithStatus 
+            });
+            
+        } catch (error) {
+            console.error("Error searching users:", error);
             callback({ success: false, error: error.message });
         }
     });

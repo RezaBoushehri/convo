@@ -199,50 +199,6 @@ function join(newRoomID) {
         roomID = newRoomID;
     }
 }
-let cursor = null;
-let loading = false;
-let hasMore = true;
-init_page()
-
-function loadRooms(cache=false) {
-    if (loading || !hasMore) return;
-
-    loading = true;
-    $loadingElement.removeClass('d-none').addClass('show')
-    socket.emit("roomList", {
-        cursor: cursor,
-        cache
-    });
-}
-$('#side_contact').on('scroll', () => {
-    // محاسبه فاصله تا انتهای لیست
-    const isNearBottom = $('#side_contact').scrollTop() + $('#side_contact').innerHeight() >= $('#side_contact')[0].scrollHeight - 1200;
-
-    if (isNearBottom) {
-        loadRooms();
-    }
-});
-function init_page(join_Logic=true){
-    $loadingElement.removeClass('d-none').addClass('show')
-
-    if (roomID != "" && join_Logic) {
-        console.log('roomID:',roomID) 
-        join(roomID)
-        
-    }
-    cursor = null;
-    loading = false;
-    hasMore = true;
-    const cache_roomList = localStorage.getItem('roomList')??[]
-    loadRooms(true)
-    
-    $(document).ready(()=>{
-
-        if(localStorage.getItem('roomList')) room_list_genration(JSON.parse(cache_roomList))
-    })
-
-
-}
 
 function emoji(messageId) {
     if (document.querySelectorAll('.stickerPicker')) {
@@ -1591,7 +1547,9 @@ socket.on("joined", (data) => {
     // console.log(member_users)
     currentUser.room = data.room.roomID
     localStorage.setItem('last_room_joined_MC',data.room.roomID)
-    $(`#roomList_ul li#${currentUser.room} .counter_message`).addClass('d-none').text('')
+    $(`#side_contact li[id="${currentUser.room}"] .counter_message`).addClass('d-none').text('')
+    $(`#side_contact li`).removeClass('active')
+    $(`#side_contact li[id="${currentUser.room}"]`).addClass('active')
     const side_contact = $('#side_contact');
     const{room} = data
     side_contact.addClass('hidden');
@@ -1767,7 +1725,7 @@ socket.on("joined", (data) => {
         // title="رفتن به فهرست اصلی" data-bs-toggle="tooltip" data-bs-placement="bottom"
         const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
         const $modal_body = $('#roomInfo_modal .modal-body')
-        const admin = member_users.filter(user=> user.username == data.room.admin)[0]
+        const admin = member_users.find(user=> user._id == data.room.admin)
         room_settings_initialize(data?.room?.setting)
         Promise.resolve(
             
@@ -2398,8 +2356,8 @@ function process_messages_pack(data){
             console.log(messagesCreatedHandler)
                 
             if (messages.length < 20 ) {
-                let message_date = messages[0].getAttribute('data-date');
-                
+                let message_date = $('#output .firstMessage').attr('data-date');
+                console.log(message_date)
                 if (message_date) {
                     $loadingElement.removeClass('d-none').addClass('show')
 

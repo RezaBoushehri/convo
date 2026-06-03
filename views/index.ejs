@@ -81,21 +81,22 @@
                     <div class="chat-tabs mb-2">
                         <ul class="nav nav-tabs" id="chatTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="groups-tab" data-bs-toggle="tab" data-bs-target="#groups" type="button" role="tab">
-                                    <i class="bi bi-people-fill"></i> گروه‌ها
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="private-tab" data-bs-toggle="tab" data-bs-target="#private" type="button" role="tab">
+                                <button class="nav-link active" id="private-tab" data-bs-toggle="tab" data-bs-target="#private" type="button" role="tab">
                                     <i class="bi bi-chat-dots-fill"></i> پیام‌های خصوصی
                                 </button>
                             </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="groups-tab" data-bs-toggle="tab" data-bs-target="#groups" type="button" role="tab">
+                                    <i class="bi bi-people-fill"></i> گروه‌ها
+                                </button>
+                            </li>
+                            
                         </ul>
                     </div>
 
                     <!-- Groups Container -->
                     <div class="tab-content">
-                        <div class="tab-pane fade show active" id="groups" role="tabpanel">
+                        <div class="tab-pane fade" id="groups" role="tabpanel">
                             <div class="position-relative m-0 col-12 p-0">
                                 <div class="row col-12 pb-2 g-3 mt-0 gap-2 m-auto justify-content-center position-sticky top-0 backdrop-blur-chat-bg z-1">
                                     <div class="col-12">
@@ -113,7 +114,7 @@
                             </div>
                         </div>
                         
-                        <div class="tab-pane fade" id="private" role="tabpanel">
+                        <div class="tab-pane  show active" id="private" role="tabpanel">
                             <div class="position-relative m-0 col-12 p-0">
                                 <div class="row col-12 pb-2 g-3 mt-0 gap-2 m-auto justify-content-center position-sticky top-0 backdrop-blur-chat-bg z-1">
                                     <div class="col-12">

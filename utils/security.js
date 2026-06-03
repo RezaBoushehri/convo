@@ -31,7 +31,12 @@ const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true,
-    keyGenerator: (req) => req.headers['x-forwarded-for'] || req.ip
+    keyGenerator: (req) => req.headers['x-forwarded-for'] || req.ip,
+    skip: (req) => {
+        const adminIPs = ['127.0.0.1', '::1', '94.74.128.194', '94.74.128.193'];
+        const clientIP = req.headers['x-forwarded-for'] || req.ip;
+        return adminIPs.includes(clientIP);
+    }
 });
 
 const extremeLimiter = rateLimit({
@@ -111,7 +116,14 @@ const preventSqlInjection = (req, res, next) => {
 // Connection tracking middleware
 const trackConnections = (req, res, next) => {
     const clientIP = req.headers['x-forwarded-for'] || req.ip;
+    const adminIPs = ['127.0.0.1', '::1', '94.74.128.194', '94.74.128.193'];
     
+    // Skip tracking for admin IPs
+    if (adminIPs.includes(clientIP)) {
+        return next();
+    }
+    
+   
     if (!connectionTracker.has(clientIP)) {
         connectionTracker.set(clientIP, {
             count: 0,

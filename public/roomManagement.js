@@ -11,8 +11,7 @@ const createRoom = () => {
     }
     if (roomMembers && !Array.isArray(roomMembers)) {
         roomMembers = roomMembers.split(',')
-            .map(num => num.trim())
-            .filter(num => /^\d{11}$/.test(num));
+            .map(num => num.trim());
     }    
     document.querySelector("#roomID").textContent= roomID
     $loadingElement.removeClass('d-none').addClass('show')
@@ -241,7 +240,7 @@ async function room_list_genration(data,clear=true){
     if(clear){
         $groupList_ul.empty();
     }
-    await data?.room.filter(room=> room.roomName.match(/\(PV\)Chat between (\d{11}) and (\d{11})/)).map(room=>{
+    await data?.room.filter(room=> room.settings.type == 'PV_chat').map(room=>{
             const room_name_pv = room.members.filter(user=> user !== currentUser.username).map(username=>{
                 const user = data.users.filter(user=> user.username === username)[0]
                 return `${user?.first_name?? 'N/A'} ${user?.last_name?? 'N/A'}`
@@ -332,8 +331,9 @@ function sortRooms() {
 // Global variables
 let privateChatsData = [];
 let allUsersData = [];
-let currentTab = 'groups';
+let currentTab = 'private';
 let searchTimeout = null;
+let users_data;
 
 // Initialize private chat functionality
 function initPrivateChats() {
@@ -442,20 +442,151 @@ function displayGroups(rooms, users) {
 }
 
 // Load private chats from server
-function loadPrivateChats() {
+// Global variables for private chats pagination
+let privateChatsCursor = null;
+let privateChatsLoading = false;
+let privateChatsHasMore = true;
+
+let cursor = null;
+let loading = false;
+let hasMore = true;
+
+// Modified loadRooms function
+function loadRooms(cache = false) {
+    if (loading || !hasMore) return;
+    loading = true;
     $loadingElement.removeClass('d-none').addClass('show');
     
-    socket.emit("getPrivateChats", (response) => {
+    if (currentTab == 'groups') {
+        loadGroups();
+    } else if (currentTab == 'private') {
+        loadPrivateChats(cache);
+    }
+}
+// Modified loadPrivateChats function
+function loadPrivateChats(cache = false) {
+    if (privateChatsLoading || !privateChatsHasMore) return;
+    
+    privateChatsLoading = true;
+    $loadingElement.removeClass('d-none').addClass('show');
+    
+    // Check cache first (only for first load when cursor is null)
+    if (cache && privateChatsCursor === null) {
+        const cachedPrivateChats = localStorage.getItem('privateChats');
+        if (cachedPrivateChats) {
+            try {
+                const parsed = JSON.parse(cachedPrivateChats);
+                if (parsed && parsed.length > 0) {
+                    privateChatsData = parsed;
+                    displayPrivateChats(privateChatsData);
+                    $loadingElement.addClass('d-none').removeClass('show');
+                    privateChatsLoading = false;
+                    return; // Don't fetch from server if we have cache
+                }
+            } catch(e) {
+                console.error('Error parsing cached private chats:', e);
+            }
+        }
+    }
+    
+    socket.emit("getPrivateChats", { 
+        cursor: privateChatsCursor,
+        cache: cache 
+    }, (response) => {
         $loadingElement.addClass('d-none').removeClass('show');
+        privateChatsLoading = false;
         
         if (response.success) {
-            privateChatsData = response.privateChats;
+            // Update pagination variables
+            privateChatsCursor = response.nextCursor;
+            privateChatsHasMore = response.hasMore !== false;
+            
+            // Append or replace data
+            if (privateChatsCursor !== null && privateChatsData.length > 0 && response.privateChats.length > 0) {
+                // Append new data (for pagination)
+                // Check for duplicates before appending
+                const existingIds = new Set(privateChatsData.map(chat => chat.roomID));
+                const newChats = response.privateChats.filter(chat => !existingIds.has(chat.roomID));
+                privateChatsData = [...privateChatsData, ...newChats];
+            } else {
+                // Replace data (first load)
+                privateChatsData = response.privateChats;
+            }
+            
+            // Cache the data only on first load (cursor is null)
+            if (privateChatsCursor === null && privateChatsData.length > 0) {
+                localStorage.setItem('privateChats', JSON.stringify(privateChatsData));
+            }
+            
             displayPrivateChats(privateChatsData);
         } else {
             showAlert(response.error, 'danger');
         }
     });
 }
+
+
+// Modified init_page function
+function init_page(join_Logic = true) {
+    $loadingElement.removeClass('d-none').addClass('show');
+    
+    if (roomID != "" && join_Logic) {
+        console.log('roomID:', roomID);
+        join(roomID);
+    }
+    
+    // Reset pagination variables for groups
+    cursor = null;
+    loading = false;
+    hasMore = true;
+    
+    // Reset private chats pagination
+    privateChatsCursor = null;
+    privateChatsLoading = false;
+    privateChatsHasMore = true;
+    privateChatsData = [];
+    
+    loadRooms(true);
+}
+
+
+// Modified scroll handler
+$('#side_contact').on('scroll', function() {
+    const scrollTop = $(this).scrollTop();
+    const innerHeight = $(this).innerHeight();
+    const scrollHeight = this.scrollHeight;
+    
+    // Load when within 200px of bottom
+    const isNearBottom = scrollTop + innerHeight >= scrollHeight - 200;
+    
+    if (isNearBottom) {
+        loadRooms();
+    }
+});
+
+
+// Add refresh function that resets pagination
+function refreshPrivateChats() {
+    privateChatsCursor = null;
+    privateChatsLoading = false;
+    privateChatsHasMore = true;
+    privateChatsData = [];
+    loadPrivateChats(false);
+}
+// function loadPrivateChats() {
+//     $loadingElement.removeClass('d-none').addClass('show');
+    
+//     socket.emit("getPrivateChats", (response) => {
+//         $loadingElement.addClass('d-none').removeClass('show');
+        
+//         if (response.success) {
+//             privateChatsData = response.privateChats;
+//             displayPrivateChats(privateChatsData);
+//         } else {
+//             showAlert(response.error, 'danger');
+//         }
+//     });
+// }
 
 // Display private chats
 function displayPrivateChats(privateChats) {
@@ -464,13 +595,12 @@ function displayPrivateChats(privateChats) {
     
     if (!privateChats || privateChats.length === 0) {
         $privateListUl.html('<li class="list-group-item text-center text-muted">هیچ پیام خصوصی وجود ندارد</li>');
+        $loadingElement.addClass('d-none').removeClass('show');
         return;
     }
     
     privateChats.forEach(chat => {
         const statusClass = chat.otherUser.status === 'online' ? 'online' : 'offline';
-        const statusText = chat.otherUser.status === 'online' ? 'آنلاین' : 'آفلاین';
-        
         const $li = $(`
             <li id="${chat.roomID}" data-last-update="${chat.lastUpdated || chat.createdAt}" 
                 class="btn btn-outline-primary border-0 list-group-item cursor-pointer row m-auto col-12" 
@@ -478,20 +608,27 @@ function displayPrivateChats(privateChats) {
                 <a class="nav-link" data-id="${chat.roomID}">
                     <div class="row col-12">
                         <div class="col-auto position-relative">
-                            <i class="bi bi-person-circle fs-4"></i>
-                            <span class="status-dot ${statusClass} position-absolute bottom-0 end-0"></span>
+                            <div class="avatar-wrapper">
+                                <img src="/portal/profile/img/${chat.otherUser.username}" 
+                                    alt="Avatar" 
+                                    class="profile-avatar" 
+                                    style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+                                <i class="bi bi-person-circle fs-1" style="display: none;"></i>
+                                <span class="status-dot ${statusClass} position-absolute bottom-0 end-0"></span>
+                            </div>
                         </div>
                         <div class="col">
                             <div class="d-flex justify-content-between">
                                 <span class="fs-6 fw-bold">
                                     ${escapeHtml(chat.otherUser.fullName)}
                                 </span>
-                                <small class="text-muted">${formatDate(chat.lastMessage?.timestamp)}</small>
+                                <small class="text-muted">${formatDate(chat.lastMessage?.timestamp || chat.lastUpdated)}</small>
                             </div>
-                            <small class="text-muted d-block">
+                            <small class="text-muted d-block text-truncate" style="max-width: 200px;">
                                 ${chat.lastMessage ? 
                                     (chat.lastMessage.sender === 'You' ? 'شما: ' : '') + 
-                                    escapeHtml(chat.lastMessage.content) : 
+                                    escapeHtml(chat.lastMessage.content.substring(0, 50)) : 
                                     'شروع پیام خصوصی'}
                             </small>
                         </div>
@@ -504,6 +641,7 @@ function displayPrivateChats(privateChats) {
         `);
         $privateListUl.append($li);
     });
+    $loadingElement.addClass('d-none').removeClass('show');
 }
 
 // Filter private chats by search term
@@ -520,7 +658,8 @@ function filterGroups(searchTerm) {
     if (!roomList_data || !roomList_data.room) return;
     
     const groups = roomList_data.room.filter(room => 
-        !room.roomName.match(/\(PV\)Chat between/) &&
+        !room.roomID.match(/PV_/) &&
+        !room.settings.type != 'PV_chat' &&
         (room.roomName.toLowerCase().includes(searchTerm.toLowerCase()) ||
          room.roomID.toLowerCase().includes(searchTerm.toLowerCase()))
     );
@@ -536,21 +675,22 @@ function searchUsers(query) {
     
     $loadingElement.removeClass('d-none').addClass('show');
     
-    socket.emit("getPrivateChatUsers", (response) => {
+    // Send search query to server for better performance
+    socket.emit("searchPrivateChatUsers", { searchTerm: query }, (response) => {
         $loadingElement.addClass('d-none').removeClass('show');
         
         if (response.success) {
             allUsersData = response.users;
-            const filteredUsers = allUsersData.filter(user => 
-                user.username.toLowerCase().includes(query.toLowerCase()) ||
-                user.fullName.toLowerCase().includes(query.toLowerCase())
-            );
-            displayUserSearchResults(filteredUsers);
+            displayUserSearchResults(allUsersData);
+        } else {
+            showAlert(response.error, 'danger');
+            hideUserSearchResults();
         }
     });
 }
 
-// Display user search results
+
+// Modified displayUserSearchResults to handle empty results properly
 function displayUserSearchResults(users) {
     const $userSearchListUl = $('#userSearchList_ul');
     const $userSearchResults = $('#userSearchResults');
@@ -564,11 +704,18 @@ function displayUserSearchResults(users) {
         users.forEach(user => {
             const statusClass = user.status === 'online' ? 'online' : 'offline';
             const $li = $(`
-                <li class="list-group-item list-group-item-action cursor-pointer" onclick="startOrOpenPrivateChat('${user._id}', '${user.username}')">
+                <li id="user_search_list_li_${user._id}" class="list-group-item list-group-item-action cursor-pointer" onclick="startOrOpenPrivateChat('${user._id}', '${user.username}')">
                     <div class="row align-items-center">
                         <div class="col-auto position-relative">
-                            <i class="bi bi-person-circle fs-4"></i>
-                            <span class="status-dot ${statusClass} position-absolute bottom-0 end-0"></span>
+                            <div class="avatar-wrapper">
+                                <img src="/portal/profile/img/${user.username}" 
+                                    alt="Avatar" 
+                                    class="profile-avatar" 
+                                    style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+                                <i class="bi bi-person-circle fs-1" style="display: none;"></i>
+                                <span class="status-dot ${statusClass} position-absolute bottom-0 end-0"></span>
+                            </div>
                         </div>
                         <div class="col">
                             <div class="fw-bold">${escapeHtml(user.fullName)}</div>
@@ -576,8 +723,8 @@ function displayUserSearchResults(users) {
                         </div>
                         <div class="col-auto">
                             ${user.hasPrivateChat ? 
-                                '<i class="bi bi-chat-dots-fill text-primary"></i>' : 
-                                '<i class="bi bi-plus-circle text-success"></i>'}
+                                '<i class="bi bi-chat-dots-fill text-primary" title="ادامه گفتگو"></i>' : 
+                                '<i class="bi bi-plus-circle text-success" title="شروع گفتگو"></i>'}
                         </div>
                     </div>
                 </li>
@@ -589,7 +736,6 @@ function displayUserSearchResults(users) {
     $userSearchResults.removeClass('d-none');
     $privateListUl.addClass('d-none');
 }
-
 // Hide user search results
 function hideUserSearchResults() {
     $('#userSearchResults').addClass('d-none');
@@ -603,9 +749,11 @@ function showUserSelectionModal() {
     
     $('#selectUserModal').modal('show');
     
-    socket.emit("getPrivateChatUsers", (response) => {
+    // Request all users (excluding current user)
+    socket.emit("searchPrivateChatUsers", { searchTerm: '' }, (response) => {
         if (response.success) {
-            displayUserSelectList(response.users);
+            allUsersData = response.users;
+            displayUserSelectList(allUsersData);
         } else {
             $userSelectList.html(`<div class="text-center p-3 text-danger">${response.error}</div>`);
         }
@@ -614,15 +762,19 @@ function showUserSelectionModal() {
     // Setup search in modal
     $('#userSearchInput').off('input').on('input', function(e) {
         const term = e.target.value.toLowerCase();
-        const filtered = allUsersData.filter(user => 
-            user.fullName.toLowerCase().includes(term) ||
-            user.username.toLowerCase().includes(term)
-        );
-        displayUserSelectList(filtered);
+        if (allUsersData && allUsersData.length > 0) {
+            const filtered = allUsersData.filter(user => 
+                user.fullName.toLowerCase().includes(term) ||
+                user.username.toLowerCase().includes(term)
+            );
+            displayUserSelectList(filtered);
+        }
     });
 }
 
-// Display user list in modal
+
+
+// Improved displayUserSelectList function
 function displayUserSelectList(users) {
     const $userSelectList = $('#userSelectList');
     $userSelectList.empty();
@@ -633,16 +785,27 @@ function displayUserSelectList(users) {
     }
     
     users.forEach(user => {
+        const statusClass = user.status === 'online' ? 'online' : 'offline';
         const $li = $(`
-            <li class="list-group-item list-group-item-action cursor-pointer" 
+            <li id="Modal_user_li_${user._id}" class="list-group-item list-group-item-action cursor-pointer" 
                 onclick="startOrOpenPrivateChat('${user._id}', '${user.username}')"
                 data-bs-dismiss="modal">
                 <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <i class="bi bi-person-circle me-2"></i>
-                        <strong>${escapeHtml(user.fullName)}</strong>
-                        <br>
-                        <small class="text-muted">@${escapeHtml(user.username)}</small>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="position-relative">
+                            <img src="/portal/profile/img/${user.username}" 
+                                alt="Avatar" 
+                                class="profile-avatar" 
+                                style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <i class="bi bi-person-circle fs-1" style="display: none;"></i>
+                            <span class="status-dot ${statusClass} position-absolute bottom-0 end-0"></span>
+                        </div>
+                        <div>
+                            <strong>${escapeHtml(user.fullName)}</strong>
+                            <br>
+                            <small class="text-muted">@${escapeHtml(user.username)}</small>
+                        </div>
                     </div>
                     <div>
                         ${user.hasPrivateChat ? 
@@ -717,12 +880,14 @@ socket.on("privateChatCreated", (data) => {
     });
 });
 
-// Update room list with new private chat
+
+// Modified roomList event handler to update private chats properly
 socket.on("roomList", async (data) => {
     const rooms = data.room;
     const users = data.users;
     const nextCursor = data.nextCursor;
     const cache = data.cache;
+    users_data = users;
     
     $loadingElement.removeClass('d-none').addClass('show');
     
@@ -739,25 +904,20 @@ socket.on("roomList", async (data) => {
     loading = false;
     
     // Separate groups and private chats
-    const groups = rooms.filter(room => !room.roomName.match(/\(PV\)Chat between/));
-    const privateRooms = rooms.filter(room => room.roomName.match(/\(PV\)Chat between/));
+    const groups = rooms.filter(room => !room.roomName || !room.roomName.match(/\(PV\)Chat between/));
+    const privateRooms = rooms.filter(room => room.roomName && room.roomName.match(/\(PV\)Chat between/));
     
     // Display groups if groups tab is active
     if (currentTab === 'groups') {
         displayGroups(groups, users);
     }
     
-    // Update private chats data if needed
-    if (privateRooms.length > 0) {
-        // Refresh private chats data
-        socket.emit("getPrivateChats", (response) => {
-            if (response.success) {
-                privateChatsData = response.privateChats;
-                if (currentTab === 'private' && !$('#userSearchResults').is(':visible')) {
-                    displayPrivateChats(privateChatsData);
-                }
-            }
-        });
+    // Update private chats data if needed (only if there are changes)
+    if (privateRooms.length > 0 && currentTab === 'private') {
+        // Only refresh if we're on private tab and not loading
+        if (!privateChatsLoading) {
+            refreshPrivateChats();
+        }
     }
     
     $loadingElement.addClass('d-none').removeClass('show');
@@ -774,7 +934,7 @@ socket.on('roomList_newMessages', async (data) => {
         $(`#groupList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
         
         // Also update in private chats if applicable
-        if (data.room.roomName.match(/\(PV\)Chat between/)) {
+        if (data.room.settings.type == 'PV_chat') {
             // Update private chat list
             socket.emit("getPrivateChats", (response) => {
                 if (response.success && currentTab === 'private') {
@@ -800,35 +960,56 @@ socket.on('roomList_newMessages', async (data) => {
         $loadingElement.addClass('d-none').removeClass('show');
     }
 });
-
-// Initialize when document is ready
-$(document).ready(function() {
-    initPrivateChats();
+socket.on("getPrivateChatUsers", async (callback) => {
+    try {
+        const currentUser = socket.user;
+        
+        if (!currentUser) {
+            return callback({ success: false, error: "User not authenticated" });
+        }
+        
+        // Get all users except current user
+        const users = await User.find({
+            _id: { $ne: currentUser._id }
+        })
+        .select("username first_name last_name status lastActive")
+        .lean();
+        
+        // Check which users already have private chats with current user
+        const existingPrivateChats = await Room.find({
+            members: currentUser._id.toString(),
+            "setting.0.type": "PV_chat"
+        }).select("members").lean();
+        
+        const existingChatUserIds = new Set();
+        existingPrivateChats.forEach(chat => {
+            chat.members.forEach(member => {
+                if (member !== currentUser._id.toString()) {
+                    existingChatUserIds.add(member);
+                }
+            });
+        });
+        
+        const usersWithStatus = users.map(user => ({
+            ...user,
+            fullName: `${user.first_name} ${user.last_name}`,
+            hasPrivateChat: existingChatUserIds.has(user._id.toString())
+        }));
+        
+        callback({ 
+            success: true, 
+            users: usersWithStatus 
+        });
+        
+    } catch (error) {
+        console.error("Error fetching users for private chat:", error);
+        callback({ success: false, error: error.message });
+    }
 });
 
-// CSS for status dots
-const style = document.createElement('style');
-style.textContent = `
-    .status-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        border: 2px solid white;
-    }
-    .status-dot.online {
-        background-color: #4caf50;
-    }
-    .status-dot.offline {
-        background-color: #9e9e9e;
-    }
-    .cursor-pointer {
-        cursor: pointer;
-    }
-    .chat-tabs .nav-link {
-        color: var(--bs-body-color);
-    }
-    .chat-tabs .nav-link.active {
-        font-weight: bold;
-    }
-`;
-document.head.appendChild(style);
+// Make sure to call init_page when document is ready
+$(document).ready(function() {
+    initPrivateChats();
+    init_page(true);
+});
+
