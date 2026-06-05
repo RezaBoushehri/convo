@@ -1,6 +1,9 @@
 const Message = require('../models/message');
 const User = require('../models/room')
-const Room = require('../models/room')
+const Room = require('../models/room'),
+    mongoose = require("mongoose"),
+ { ObjectId } = require('mongodb') // or mongoose.Types.ObjectId
+
 const {processMessage,sendBackupToPHP,count_new_msg_room} = require('./messages_func'),
     {socketEncrypt,socketDecrypt} = require('./encryption')
 
@@ -48,8 +51,10 @@ async function Log_message(message,files=[],roomID='npmDtEwjElmn74vqmu') {
     const roomMembers = room.members; // لیست اعضای اتاق
     
     // گرفتن Socket ID کاربران از دیتابیس
-    const onlineUsers = await User.find({ username: { $in: roomMembers } });
 
+    const memberObjectIds = roomMembers.map(id => new mongoose.Types.ObjectId(id));
+
+    const onlineUsers = await User.find({ _id: { $in: memberObjectIds } });
     let tempMessage;
     // ارسال پیام به تمام کاربران حاضر در اتاق
     onlineUsers.forEach(async (user) => {

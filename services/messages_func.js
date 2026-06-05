@@ -223,7 +223,7 @@ async function getUnreadMessages(roomID = null, currentUser) {
 
             const unread = messages.filter(msg => {
                 if (!msg.read) return true;
-                return !msg.read.some(r => r.username === currentUser.username);
+                return !msg.read.some(r => r.username === currentUser._id.toString());
             });
 
             const remainingSlots = totalLimit - allUnreadMessages.length;

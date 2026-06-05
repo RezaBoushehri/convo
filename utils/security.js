@@ -3,7 +3,7 @@ const slowDown = require('express-slow-down');
 const helmet = require('helmet');
 const { body, validationResult } = require('express-validator');
 const xss = require('xss');
-
+const adminIPs = ['127.0.0.1', '::1', '94.74.128.194', '94.74.128.193','172.16.28.30'];
 // Connection tracker
 const connectionTracker = new Map();
 const MAX_CONNECTIONS_PER_IP = 20;
@@ -18,7 +18,7 @@ const standardLimiter = rateLimit({
     legacyHeaders: false,
     keyGenerator: (req) => req.headers['x-forwarded-for'] || req.ip,
     skip: (req) => {
-        const adminIPs = ['127.0.0.1', '::1', '94.74.128.194', '94.74.128.193'];
+        
         const clientIP = req.headers['x-forwarded-for'] || req.ip;
         return adminIPs.includes(clientIP);
     }
@@ -33,7 +33,7 @@ const authLimiter = rateLimit({
     skipSuccessfulRequests: true,
     keyGenerator: (req) => req.headers['x-forwarded-for'] || req.ip,
     skip: (req) => {
-        const adminIPs = ['127.0.0.1', '::1', '94.74.128.194', '94.74.128.193'];
+        
         const clientIP = req.headers['x-forwarded-for'] || req.ip;
         return adminIPs.includes(clientIP);
     }
@@ -47,7 +47,7 @@ const extremeLimiter = rateLimit({
     legacyHeaders: false,
     keyGenerator: (req) => req.headers['x-forwarded-for'] || req.ip,
     skip: (req) => {
-        const adminIPs = ['127.0.0.1', '::1', '94.74.128.194', '94.74.128.193'];
+        
         const clientIP = req.headers['x-forwarded-for'] || req.ip;
         return adminIPs.includes(clientIP);
     }
@@ -116,7 +116,7 @@ const preventSqlInjection = (req, res, next) => {
 // Connection tracking middleware
 const trackConnections = (req, res, next) => {
     const clientIP = req.headers['x-forwarded-for'] || req.ip;
-    const adminIPs = ['127.0.0.1', '::1', '94.74.128.194', '94.74.128.193'];
+    
     
     // Skip tracking for admin IPs
     if (adminIPs.includes(clientIP)) {

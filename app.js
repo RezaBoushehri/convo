@@ -1031,13 +1031,14 @@ app.post("/upload_rtsp",async (req, res) => {
     const clientIP = req.ip || req.connection.remoteAddress;
 
     const allowedRanges = [
+        "127.0.0.1",  // existing range
         "172.16.28.30",  // existing range
         "94.74.128.194",   // additional IP
         "94.74.128.193"    // additional IP
     ];
     
     const ipIsAllowed = allowedRanges.some(range => ipRangeCheck(clientIP, range));
-    if(!ipIsAllowed) return res.status(401).end()
+    if(!ipIsAllowed) return res.status(401).json({error:"No Access"})
     upload_rtsp_file(req, res,async (err) => {
 
 
@@ -1051,7 +1052,7 @@ app.post("/upload_rtsp",async (req, res) => {
             const json = decrypt(req.body.payload,SECRET_KEY_RTSP)
             if(!json?.message){
 
-                return res.status(401).end()
+                return res.status(401).json({error:"No message"})
             }
             const savedFiles = req?.files?.map(f=>({
                 file: `/uploads/${f.filename}`,
@@ -2425,7 +2426,7 @@ io.on("connection", async (socket) => {
                         const lastUnreadIndex = processedMessages.findLastIndex(
                             msg => !msg.read.some(r => r.username === currentUser._id.toString())
                         );
-
+                        console.log("index:",lastUnreadIndex)
                         if (lastUnreadIndex !== -1) {
                             processedMessages[lastUnreadIndex].readLine = true;
                         }
