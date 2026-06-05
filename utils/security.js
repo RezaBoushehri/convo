@@ -9,6 +9,35 @@ const connectionTracker = new Map();
 const MAX_CONNECTIONS_PER_IP = 20;
 const CONNECTION_CLEANUP_INTERVAL = 5000;
 
+
+const ALLOWED_IPS = process.env.ALLOWED_PROFILE_IPS?.split(',') || [
+    '127.0.0.1',
+    
+    '94.74.128.193',
+    '94.74.128.194'
+];
+
+const isIPAllowed = (ip) => {
+    const cleanIP = ip.replace(/^::ffff:/, '');
+    return ALLOWED_IPS.includes(cleanIP);
+};
+
+const restrictToAllowedIPs = (req, res, next) => {
+    const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.ip;
+    
+    if (isIPAllowed(clientIP)) {
+        return next();
+    }
+    
+    // Log unauthorized access attempt
+    console.warn(`Unauthorized profile image access attempt from IP: ${clientIP}`);
+    
+    res.status(403).json({
+        error: 'Access forbidden',
+        code: 'IP_NOT_ALLOWED'
+    });
+};
+
 // Rate limiters
 const standardLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -221,6 +250,7 @@ module.exports = {
     extremeLimiter,
     loginSlowDown,
     xssProtection,
+    restrictToAllowedIPs,
     // preventSqlInjection,
     trackConnections,
     securityLogger,

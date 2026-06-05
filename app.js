@@ -150,6 +150,9 @@ app.use(security.xssProtection);
 app.use(security.trackConnections);
 app.use(security.securityLogger);
 // Apply rate limiters to specific route groups
+app.use('/SSO/admin/import-users/', security.restrictToAllowedIPs);
+app.use('/upload_rtsp/', security.restrictToAllowedIPs);
+app.use('/api/users/bulk-register/', security.restrictToAllowedIPs);
 app.use('/api/', security.extremeLimiter);
 app.use('/login', security.authLimiter);
 // app.use('/login', security.loginSlowDown);
@@ -1778,8 +1781,8 @@ app.get('/SSO/admin/import-users',middleware.isLoggedIn, async (req, res) => {
             return res.status(403).json({ error: "Access denied: You don't have permission to be alive." });
         }
         
+        return res.status(403).json({ error: "Access denied" });
         if ((!req.user || req.user.username !== 'BB') && !ipIsAllowed) {
-            return res.status(403).json({ error: "Access denied" });
         }
         
         // Validate that User model exists
