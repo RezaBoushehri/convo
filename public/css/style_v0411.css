@@ -1611,6 +1611,7 @@ label[for=file-input] i.bi-paperclip::before{
 }
 .status-dot.online {
     background-color: #4caf50;
+    box-shadow: #218838 0px 0px 4px 0px;
 }
 .status-dot.offline {
     background-color: #9e9e9e8b;
