@@ -2429,16 +2429,17 @@ io.on("connection", async (socket) => {
                         const lastUnreadIndex = processedMessages.findLastIndex(
                             msg => !msg.read.some(r => r.username === currentUser._id.toString())
                         );
-                        console.log("index:",lastUnreadIndex)
-                        if (lastUnreadIndex !== -1) {
-                            processedMessages[lastUnreadIndex].readLine = true;
-                        }
-
-                        socket.emit("restoreMessages", {
+                        let data ={
                             messages: processedMessages,
                             prepend: true,
                             join: true
-                        });
+                        }
+                        if (lastUnreadIndex !== -1) {
+                            processedMessages[lastUnreadIndex].readLine = true;
+                            data.unread = true
+                        }
+
+                        socket.emit("restoreMessages", data);
 
 
 

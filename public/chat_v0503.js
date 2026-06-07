@@ -2210,7 +2210,7 @@ socket.on("restoreMessages", async  (data) => {
         // console.log(data.message)
         $loadingElement.addClass('d-none').removeClass('show')
         loadNextMessage = false;
-        showAlert(data.message,'info')
+        console.warn(data.message)
 
         // output.querySelector('.firstMessage').innerHTML=''
     })
@@ -2325,6 +2325,8 @@ function process_messages_pack(data){
 
             })).then(async ()=>{
                 init_message_ui()
+                console.log('visibleMessagesUnread',visibleMessagesUnread)
+
                 if (visibleMessages.length > 0 && data.unread) {
                     await socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
                     if (typeof updatePVnotif === 'function') {
@@ -2478,7 +2480,6 @@ function process_messages_pack(data){
                     }
                     
                     })
-                    
                     // Emit the IDs of visible messages to the server
                     if (visibleMessagesUnread.length > 0) {
                         socket.emit("markMessagesRead", { messageIds: visibleMessagesUnread, roomID: roomID });
