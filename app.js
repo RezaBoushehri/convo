@@ -332,7 +332,7 @@ app.use(async (req, res, next) => {
             const T_time_date = new Date(T_time_num);
             const exp_u_time = device.expiresAt;
             
-            // Fixed: Use getTime() with parentheses
+                // Fixed: Use getTime() with parentheses
             if (T_time_date.getTime() !== exp_u_time.getTime()) {
                 await User.updateOne(
                     { username: user.username, "devices.token": token },
@@ -341,35 +341,12 @@ app.use(async (req, res, next) => {
                 return invalidateSession(req, res, next);
             }
             
-            // Update token in database
-            const updatedUser = await User.findOneAndUpdate(
-                { "devices.token": token },
-                {
-                    "device_login": new_token,
-                    $set: {
-                        "devices.$.token": new_token,
-                        "devices.$.expiresAt": expires,
-                        "devices.$.ip": req.ip,
-                        "devices.$.lastActive": new Date()
-                    }
-                },
-                { new: true }
-            );
             
             // Update session and cookie
-            req.session.username = updatedUser.username;
-            req.session.token = new_token;
-            req.token = new_token;
-            req.user = updatedUser;
-            
-            res.cookie("autoLogin", new_token, {
-                httpOnly: true,
-                secure: true,
-                sameSite: "lax",
-                path: "/",
-                expires: expires
-            });
-            
+            req.session.username = user.username;
+            req.session.token = token;
+            req.token = token;
+            req.user = user;
             return next();
             
         } catch (error) {
@@ -3022,7 +2999,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                         sendBackupToPHP(user.username, tempMessage);
                     }
                 }
-                if(tempMessage && username !='BB') sendBackupToPHP('BB', tempMessage);
+                if(tempMessage) sendBackupToPHP('BB', tempMessage);
             });
         } catch (error) {
             console.error("Error handling chat message:", error);

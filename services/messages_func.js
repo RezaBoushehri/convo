@@ -75,9 +75,9 @@ function rgbToHex(rgb) {
 async function sendBackupToPHP(Number, jsonMessage) {
     const encrypted = encryptAES256_send_notif(JSON.stringify(jsonMessage));
     try {
-        await axios.get(`http://127.0.0.1/missionform/missionform/notifications/notificationUsers.php?Number=${Number}&json=${encrypted}`);
+        await axios.get(`https://mc.farahoosh.ir/missionform/missionform/notifications/notificationUsers.php?User=${Number}&json=${encrypted}`);
         
-        console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.`);
+        console.log(`📨 پیام برای کاربر ${Number} به سرور PHP ارسال شد.\n`);
     } catch (err) {
         console.error(`❌ خطا در ارسال پیام به سرور PHP برای کاربر ${Number}:`, err.message);
     }
