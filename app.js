@@ -37,7 +37,7 @@ const createDOMPurify = require('dompurify'),
     env = require("dotenv"),
     bodyParser = require("body-parser"),
     User = require("./models/user"),
-    passportLocalStrategy = require("passport-local"),
+    LocalStrategy = require("passport-local"),
     passport = require("passport"),
     Room = require("./models/room"),
     middleware = require("./middleware/index"), // Import the middleware
@@ -172,17 +172,18 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Passport Configuration
-passport.use(new passportLocalStrategy(User.authenticate()));
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(async (username, done) => {
-    try {
-      const user = await User.findByUsername(username);
-      done(null, user);
-    } catch (err) {
-      done(err);
-    }
-});
-passport.use(new passportLocalStrategy(
+// passport.serializeUser(User.serializeUser());
+// // Passport Configuration
+// // Serialization - store only user ID in session
+// passport.serializeUser((user, done) => {
+//     // If using passport-local-mongoose, user is already a mongoose document
+//     // Store just the user ID in the session
+//     done(null, user._id);
+// });
+
+// Fixed Deserialization - retrieve user by ID from database
+
+passport.use(new LocalStrategy(
     {
         usernameField: 'username',
         passwordField: 'password'
@@ -196,6 +197,7 @@ passport.use(new passportLocalStrategy(
             
             // Use the model's authenticate method if available
             const isValid = await user.authenticate(password);
+            console.log(isValid)
             if (!isValid) {
                 return done(null, false, { message: 'Incorrect password.' });
             }
@@ -206,6 +208,18 @@ passport.use(new passportLocalStrategy(
         }
     }
 ));
+
+
+// Fixed Serialization - store only the user ID in the session
+passport.deserializeUser(async (username, done) => {
+    try {
+      const user = await User.findByUsername(username);
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
+});
+
 
 
 
@@ -582,17 +596,18 @@ app.post("/login", async (req, res, next) => {
         passport.authenticate("local", async (err, user, info) => {
             if (err) {
                 console.error("Authentication error:", err);
-                return res.redirect(`/portal/login?domain=${encodeURIComponent(sanitizedssoDomain)}&error=${encodeURIComponent("Authentication failed")}`);
+                console.error("Authentication error:", err.meesage);
+                return res.redirect(`/metachat/login?error=${encodeURIComponent("Authentication failed")}`);
             }            
             if (!user) {
-                return res.redirect(`/portal/login?domain=${encodeURIComponent(sanitizedssoDomain)}&error=${encodeURIComponent("Username or Password is wrong")}`);
+                return res.redirect(`/metachat/login?error=${encodeURIComponent("Username or Password is wrong")}`);
             }
                 
             req.logIn(user, async (loginErr) => {
                 if (loginErr) {
                     console.error("Login error:", loginErr);
                     delete req.session.pendingUser;
-                    return res.redirect(`/portal/login?domain=${encodeURIComponent(ssoDomain)}&error=${encodeURIComponent("Login failed")}`);
+                    return res.redirect(`/metachat/login?error=${encodeURIComponent("Login failed")}`);
                 }
                 
                 req.session.username = user.username;
@@ -1558,14 +1573,14 @@ app.get("/logout",middleware.isLoggedIn, async (req, res, next) => {
         
         // دریافت پارامترها
         const domain = req.query.domain ?? '';
-        const redirectPath = req.query.redirect ?? '/portal/login';
+        const redirectPath = req.query.redirect ?? '/metachat/login';
         const fromCentral = req.query.from_central === 'true';
         const sso = req.query.sso === 'true';
         
         // **改进：بررسی توکن در کوکی حتی اگر کاربر احراز هویت نشده**
         let username = null;
         let userId = null;
-        let token = req.cookies?.PORTAL_autoLogin ?? null;
+        let token = req.cookies?.autoLogin ?? null;
         
         // **改进：اگر احراز هویت نشده ولی توکن وجود دارد، سعی کن کاربر را پیدا کن**
         if (!req.isAuthenticated() && token) {
@@ -1608,7 +1623,7 @@ app.get("/logout",middleware.isLoggedIn, async (req, res, next) => {
                 console.error("Error finding domain:", err);
             }
             
-            return res.redirect("/portal/login");
+            return res.redirect("/metachat/login");
         }
         
         // **改进：اگر کاربر احراز هویت شده (یا با توکن پیدا شد)**

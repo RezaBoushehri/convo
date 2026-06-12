@@ -73,6 +73,10 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: null, // Optional, will be null if not set
     },
+    isActive: {
+        type: Boolean,
+        default: true, // Optional, will be null if not set
+    },
     settings: {
         bgColor: { type: String },
         fgColor: { type: String},
@@ -82,5 +86,4 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 
 userSchema.plugin(passportLocalMongoose);
-
 module.exports = mongoose.models.User || mongoose.model("User", userSchema);
