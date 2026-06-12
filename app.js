@@ -182,7 +182,15 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // });
 
 // Fixed Deserialization - retrieve user by ID from database
-
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(async (username, done) => {
+    try {
+      const user = await User.findByUsername(username);
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
+});
 passport.use(new LocalStrategy(
     {
         usernameField: 'username',
@@ -198,7 +206,7 @@ passport.use(new LocalStrategy(
             // Use the model's authenticate method if available
             const isValid = await user.authenticate(password);
             console.log(isValid)
-            if (!isValid) {
+            if (!isValid.user) {
                 return done(null, false, { message: 'Incorrect password.' });
             }
             
@@ -208,17 +216,6 @@ passport.use(new LocalStrategy(
         }
     }
 ));
-
-
-// Fixed Serialization - store only the user ID in the session
-passport.deserializeUser(async (username, done) => {
-    try {
-      const user = await User.findByUsername(username);
-      done(null, user);
-    } catch (err) {
-      done(err);
-    }
-});
 
 
 
@@ -485,7 +482,7 @@ app.get("/:path", async (req, res, next) => {
 
     if (path.includes('profile')) {
         if (!req.user) {
-            return res.redirect('/metachat/login');
+            return res.redirect('/portal/login?domain=metachat');
         }
 
         const username = req.user.username;
@@ -528,7 +525,7 @@ app.get("/", middleware.isLoggedIn,async (req, res) => {
         return res.render("index", { roomID: "" ,rgbToHex, removePx, username: username , _id: uid });
     }
     else{
-        return res.render("/metachat/login");
+        return res.redirect("/portal/login?domain=metachat");
     }   
 
 });
@@ -568,6 +565,7 @@ app.get("/join/:id", middleware.isLoggedIn, async (req, res) => {
 
 // Login/Registration Routes (Passport Auth)
 app.get("/login", (req, res) => {
+    return res.redirect('/portal/login?domain=metachat')
     const username = req?.session?.username ?? null; // Assuming username is stored in req.user
     console.log(req?.session)
     if(req.isAuthenticated && req.isAuthenticated()){
