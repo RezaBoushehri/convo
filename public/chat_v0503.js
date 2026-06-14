@@ -787,10 +787,10 @@ function prepareFileDetails(fileData) {
         const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 120
         createUploadUI(data.user);
         // if(data.progress == 100) $(`#${data.user}_upload-container .loader`).removeClass('d-none') TODO: work later
-        if(data.progress == 100) $(`#${data.user}_upload-container`).remove()
-        $(`#${data.user}_upload-container #upload-progress`).val(data.progress).css('width',`${data.progress}%`);  
-        $(`#${data.user}_upload-container #upload-status`).text(`${convertSize(data.loaded)} / ${convertSize(data.total)} `);
-        $(`#${data.user}_upload-container #upload-progress`).text(`${Math.round(data.progress)}%`);
+        if(data.progress == 100) $(`[id="${data.user}_upload-container"]`).remove()
+        $(`[id="${data.user}_upload-container"] #upload-progress`).val(data.progress).css('width',`${data.progress}%`);  
+        $(`[id="${data.user}_upload-container"] #upload-status`).text(`${convertSize(data.loaded)} / ${convertSize(data.total)} `);
+        $(`[id="${data.user}_upload-container"] #upload-progress`).text(`${Math.round(data.progress)}%`);
         if(isNearBottom) scrollDown()
     });
 button.addEventListener("click", async () => {
@@ -890,8 +890,8 @@ button.addEventListener("click", async () => {
 
         let percent = (e.loaded / e.total) * 100;
         if(percent == 100) {
-            $(`#${currentUser._id}_upload-container #upload-progress`).val(percent); 
-            $(`#${currentUser._id}_upload-container #upload-progress`).text(`${Math.round(percent)}%`);
+            $(`[id="${currentUser._id}_upload-container"] #upload-progress`).val(percent); 
+            $(`[id="${currentUser._id}_upload-container"] #upload-progress`).text(`${Math.round(percent)}%`);
         }
         socket.emit("uploadProgress", { progress: percent , loaded: e.loaded, total: e.total});
     };
@@ -964,8 +964,8 @@ async function voice_upload(text,quote,blob){
             xhr.upload.onprogress = (e) => {
               let percent = (e.loaded / e.total) * 100;
               socket.emit("uploadProgress", {progress: percent});
-              $(`#${currentUser._id}_upload-container #upload-progress`).val(percent); 
-                $(`#${currentUser._id}_upload-container #upload-progress`).text(`${Math.round(percent)}%`);
+              $(`[id="${currentUser._id}_upload-container"] #upload-progress`).val(percent); 
+                $(`[id="${currentUser._id}_upload-container"] #upload-progress`).text(`${Math.round(percent)}%`);
             };
             xhr.onload = () => {
                 // Hide / reset progress UI
@@ -1226,7 +1226,7 @@ message.addEventListener("keydown", (event) => {
 });
 //=================================================================
 socket.on("chat",async(data , ack) => {
-    Promise.resolve($(`#roomList_ul li#${data.roomID}`).attr('data-last-update', (data.timestamp || new Date()))).then(()=>{
+    Promise.resolve($(`#roomList_ul li[id="${data.roomID}"]`).attr('data-last-update', (data.timestamp || new Date()))).then(()=>{
         
         sortRooms()
     })
@@ -1348,7 +1348,7 @@ socket.on('member_update',(data)=>{
     console.log(members,member_data)
     const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
 
-    const admin = member_users.filter(user=> user.username == room_admin)[0]
+    const admin = member_users.filter(user=> user._id == room_admin)[0]
 
     Promise.resolve(
         $roomInfoForm.find('[name="admin"]').data('username',admin.username).text(`${admin.first_name} ${admin.last_name}`)
@@ -1580,25 +1580,50 @@ socket.on("joined", (data) => {
     //     console.error("Invalid data received in 'joined' event:", data);
     //     return;
     // }
-
+    console.log(data.otherUser)
     if(document.querySelector(".close")) document.querySelector(".close").click();
-        $("#roomInfo").removeClass('d-none').html(`           
-                <!-- roomInfo -->
-                <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-1 mt-1">
-                
-                    <button type='button'  
-                        class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary' onclick='leaveRoom()'>
-                        <i class='bi fs-bold bi-arrow-left'></i>
-                    </button>    
-                <!-- Toggle button for mobile -->
-                    <button class="btn btn-secondary col-auto text-warning  " type="button"  data-bs-toggle="modal" data-bs-target="#roomInfo_modal" 
-                        aria-expanded="false" aria-controls="roomControls">
-                        <i class="bi bi-info-circle"></i> ${data.room.roomName}
-                    </button>
-                    <div id="headTag" class="col-12 row m-auto z-1" dir="auto" style=" text-align: center;"></div>
-                
-                </div>
-        `)
+        $("#roomInfo").removeClass('d-none').html(`
+        <!-- roomInfo -->
+        <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-1 mt-1">
+        
+            <!-- Back button (always visible) -->
+            <button type='button'  
+            class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary' 
+            onclick='leaveRoom()'>
+            <i class='bi fs-bold bi-arrow-left'></i>
+            </button>    
+
+            ${
+            data.otherUser
+                ? `<!-- Show other user info as a DIV (no modal) -->
+                <div class=" d-flex col bg-theme shadow border border-1 border-secondary text-start pe-3  rounded-5 border" style="padding:1px;">
+                    <div class="position-relative col-auto">
+                        <img src="/portal/profile/img/${data.otherUser.username}" alt="Avatar" class=" profile-avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
+                        <span class="status-dot ${data.otherUser.status} position-absolute bottom-0 end-0"></span>
+                    </div>
+                    <div class="d-flex col align-items-center gap-2">
+                    <div class="row col-12">
+                        <strong class="col-auto">${escapeHtml(data.otherUser.first_name)} ${escapeHtml(data.otherUser.last_name)}</strong><br>
+                        <small class="text-muted col">
+                            @${escapeHtml(data.otherUser.username)} • 
+                            <span class="user-status status-${data.otherUser.status}">${data.otherUser.status}</span>
+                        </small>
+                        <div class="col-12 small text-muted mt-1">
+                            ${new Date(data.otherUser.lastActive).toLocaleString("fa-IR")}
+                        </div>
+                    </div>
+                    </div>
+                </div>`
+                : `<!-- Original button for groups / normal rooms -->
+                <button class="btn btn-secondary col-auto text-warning" type="button" 
+                    data-bs-toggle="modal" data-bs-target="#roomInfo_modal" 
+                    aria-expanded="false" aria-controls="roomControls">
+                    <i class="bi bi-info-circle"></i> ${escapeHtml(data.roomName)}
+                </button>`
+            }
+        
+        </div>
+        `);
         Promise.resolve($("#room_modal_div_placement").removeClass('d-none').html(`
             <div class="modal fade" id="roomInfo_modal" tabindex="-1" role="dialog" aria-labelledby="" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg" role="document">
@@ -1799,7 +1824,7 @@ socket.on("joined", (data) => {
         .resolve(
             $('#roomList_ul li.bg-primary').removeClass('bg-primary').addClass('border-0'))
         .then(
-            $(`#roomList_ul li#${data.room.roomID}`).addClass('bg-primary').removeClass('border-0'))
+            $(`#roomList_ul li[id="${data.room.roomID}"]`).addClass('bg-primary').removeClass('border-0'))
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
 
     // output.insertAdjacentHTML("afterend",    `<div id="feedback" class=' container pb-5 mb-3'></div>`); // Class of each message div
@@ -2325,8 +2350,6 @@ function process_messages_pack(data){
 
             })).then(async ()=>{
                 init_message_ui()
-                console.log('visibleMessagesUnread',visibleMessagesUnread)
-
                 if (visibleMessages.length > 0 && data.unread) {
                     await socket.emit("markMessagesRead", { messageIds: visibleMessages, roomID : roomID});
                     if (typeof updatePVnotif === 'function') {
@@ -2355,7 +2378,6 @@ function process_messages_pack(data){
                 }
             }
             
-            console.log(messagesCreatedHandler)
                 
             if (messages.length < 20 ) {
                 let message_date = $('#output .firstMessage').attr('data-date');
@@ -2747,9 +2769,11 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                      </div>
                      <hr>`
             }else if(r.username !== currentUser._id){
-                // console.log(member_users)
+                console.log(member_users)
                 // return
-                const user = member_users.filter(user=> user.username === r.username)[0]
+                console.log(r)
+
+                const user = member_users.filter(user=> user._id === r.username)[0]
                 const user_name = user ? `${user?.first_name} ${user?.last_name}`:r.username
                 return `<div user-id='${r.username}' style="font-size:0.9rem;text-align:left;">
                 ${user?.first_name} ${user?.last_name} at ${formatTimestamp(r.time)} ${r.reaction}${r.voice_heared ? `<span class="jdate  animate__animated animate__fadeIn" title="Heared the voice"><i class="bi bi-ear"></i></span>`:''}
@@ -3655,7 +3679,7 @@ socket.on("delete_file",async(id)=>{
      if (id) {
         const fileEl = $(`#file_${id}`)
         if (fileEl) {
-            Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
+            Promise.resolve($(`#roomList_ul li[id="${currentUser.room}"]`).attr('data-last-update', new Date())).then(()=>{
                 
                 sortRooms()
             })
@@ -3739,14 +3763,14 @@ function filterEmojis(messageId) {
     }
 }
 socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
-    const readInfoElement = document.querySelector(`#read-info-${messageId}`);
+    const readInfoElement = document.querySelector(`[id="read-info-${messageId}"]`);
     let spiltedId = messageId.split('-')[1]
     const memberReaction = document.querySelector(`[reactionmessage="${spiltedId}"]`);
     if (readInfoElement) {
         // Update the read information for each read user
         const seenUser = readInfoElement.querySelector(`[user-id='${username}']`);
         
-        Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
+        Promise.resolve($(`#roomList_ul li[id="${currentUser.room}"]`).attr('data-last-update', new Date())).then(()=>{
             
             sortRooms()
         })
@@ -3819,20 +3843,21 @@ socket.on("reactionAdded", ({ messageId, username ,time  , reaction }) => {
 // read-info panel
 // Example usage within your socket event
 socket.on("readMessageUpdate", ({ id, readUsers }) => {
-    const readInfoElement = document.querySelector(`#read-info-${id}`);
-    var toggleBtn = document.querySelector(`[read-data-id="${id}"]`);
-    if (readInfoElement) {
-        toggleBtn.innerHTML=`<i class="animate__animated animate__bounceIn bi text-primary bi-check2-all"></i>`
-        // Update the read information for each read user
-        readUsers.forEach((r) => {
-            if (r.username !== currentUser._id) {
-                updateTimeForReadUser(r, readInfoElement);
-            }else{
-                $(`.messageRead[data-id="${id.split('-')[1]}"]`).data('readStatus','read')
- 
-            }
-        });
-    }
+    const readInfoElement = $(`[id="read-info-${id}"]`);
+    var toggleBtn = $(`[read-data-id="${id}"]`);
+    // Update the read information for each read user
+    console.log('readMessageUpdate',readUsers)
+    readUsers.forEach((r) => {
+        if (r._id !== currentUser._id) {
+            updateTimeForReadUser(r, readInfoElement);
+            toggleBtn.html(`<i class="animate__animated animate__bounceIn bi text-primary bi-check2-all"></i>`)
+
+        }else{
+            $(`.messageRead[data-id="${id.split('-')[1]}"]`).data('readStatus','read')
+
+        }
+    });
+    
 });
 
 const updateTimeForReadUser = (r, readInfoElement) => {
@@ -3849,26 +3874,23 @@ const updateTimeForReadUser = (r, readInfoElement) => {
             clearInterval(interval); // Stop the interval if more than 1 minute has passed
         }
 
-        if(r.username!=currentUser._id){
+        if(r._id!=currentUser._id){
         // Update the displayed time for the read user
-        readInfoElement.innerHTML = `
-            <div user-id='${r.username}' style="font-size: 0.9rem; text-align: left;">
+        readInfoElement.append(`
+            <div user-id='${r._id}' style="font-size: 0.9rem; text-align: left;">
                 ${r.name} at ${formatTimestamp(r.time)}
-            </div>`;
+            </div>`);
         }
     }, 1000); // Update every second
 };
 function openReadedMessage(dataId) {
     // Get the read-info div based on the data-id
-    const infoDiv = document.querySelector(`#read-info-${dataId}`);
-    const toggleBtn = document.querySelector(`[read-data-id="${dataId}"]`);
+    const infoDiv = $(`[id="read-info-${dataId}"]`);
 
-    if (!infoDiv || !toggleBtn) return; // Ensure elements exist
 
-    if (infoDiv.classList.contains("visible")) {
+    if (infoDiv.hasClass("visible")) {
         // Hide the read-info and reset content
-        infoDiv.classList.remove("visible");
-        infoDiv.style.display = "none";
+        infoDiv.removeClass("visible");
         console.log("hide");
         return;
     }
@@ -3876,8 +3898,7 @@ function openReadedMessage(dataId) {
     // Generate the read info HTML content
 
     // Show the read-info
-    infoDiv.style.display = "block";
-    infoDiv.classList.add("visible");
+    infoDiv.addClass("visible");
     console.log("show");
 }
 
@@ -4286,7 +4307,7 @@ async function deleteMessage(messageId) {
             if (response && response.success) {
                 // Successfully deleted on server
                 
-                Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
+                Promise.resolve($(`#roomList_ul li[id="${currentUser.room}"]`).attr('data-last-update', new Date())).then(()=>{
                     
                     sortRooms()
                 })
@@ -4358,7 +4379,7 @@ async function editMessage(messageId) {
 
                 if (response && response.success) {
                     
-                    Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
+                    Promise.resolve($(`#roomList_ul li[id="${currentUser.room}"]`).attr('data-last-update', new Date())).then(()=>{
                         
                         sortRooms()
                     })
@@ -4396,7 +4417,7 @@ socket.on("delete", (messageId) => {
 
         if ($messageElement) {
             
-            Promise.resolve($(`#roomList_ul li#${currentUser.room}`).attr('data-last-update', new Date())).then(()=>{
+            Promise.resolve($(`#roomList_ul li[id="${currentUser.room}"]`).attr('data-last-update', new Date())).then(()=>{
                 
                 sortRooms()
             })

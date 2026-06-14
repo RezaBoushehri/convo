@@ -597,6 +597,7 @@ body{
 .read-info.visible {
     opacity: 1; /* Fully visible */
     visibility: visible; /* Make visible for the transition */
+    display: block !important;
 }
 /* General styling for the emoji picker */
 .stickerPicker {
@@ -1612,9 +1613,14 @@ label[for=file-input] i.bi-paperclip::before{
 .status-dot.online {
     background-color: #4caf50;
     box-shadow: #218838 0px 0px 4px 0px;
+    box-shadow: #218838 0px 0px 4px 0px;
 }
 .status-dot.offline {
     background-color: #9e9e9e8b;
+}
+.status-dot.sleep {
+    background-color: #ffc107;
+    box-shadow: #ffc107 0px 0px 4px 0px;
 }
 .cursor-pointer {
     cursor: pointer;

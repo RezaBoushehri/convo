@@ -240,7 +240,7 @@ async function room_list_genration(data,clear=true){
     if(clear){
         $groupList_ul.empty();
     }
-    await data?.room.filter(room=> room.settings.type == 'PV_chat').map(room=>{
+    await data?.room.filter(room=> room.setting[0].type == 'PV_chat').map(room=>{
             const room_name_pv = room.members.filter(user=> user !== currentUser.username).map(username=>{
                 const user = data.users.filter(user=> user.username === username)[0]
                 return `${user?.first_name?? 'N/A'} ${user?.last_name?? 'N/A'}`
@@ -600,7 +600,7 @@ function displayPrivateChats(privateChats) {
     }
     
     privateChats.forEach(chat => {
-        const statusClass = chat.otherUser.status === 'online' ? 'online' : 'offline';
+        
         const $li = $(`
             <li id="${chat.roomID}" data-last-update="${chat.lastUpdated || chat.createdAt}" 
                 class="btn btn-outline-primary border-0 list-group-item cursor-pointer row m-auto col-12" 
@@ -615,7 +615,7 @@ function displayPrivateChats(privateChats) {
                                     style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
                                 <i class="bi bi-person-circle fs-1" style="display: none;"></i>
-                                <span class="status-dot ${statusClass} position-absolute bottom-0 end-0"></span>
+                                <span class="status-dot ${chat.otherUser.status} position-absolute bottom-0 end-0"></span>
                             </div>
                         </div>
                         <div class="col">
@@ -659,7 +659,7 @@ function filterGroups(searchTerm) {
     
     const groups = roomList_data.room.filter(room => 
         !room.roomID.match(/PV_/) &&
-        !room.settings.type != 'PV_chat' &&
+        !room.setting[0].type != 'PV_chat' &&
         (room.roomName.toLowerCase().includes(searchTerm.toLowerCase()) ||
          room.roomID.toLowerCase().includes(searchTerm.toLowerCase()))
     );
@@ -702,7 +702,6 @@ function displayUserSearchResults(users) {
         $userSearchListUl.html('<li class="list-group-item text-center text-muted">کاربری یافت نشد</li>');
     } else {
         users.forEach(user => {
-            const statusClass = user.status === 'online' ? 'online' : 'offline';
             const $li = $(`
                 <li id="user_search_list_li_${user._id}" class="list-group-item list-group-item-action cursor-pointer" onclick="startOrOpenPrivateChat('${user._id}', '${user.username}')">
                     <div class="row align-items-center">
@@ -714,7 +713,7 @@ function displayUserSearchResults(users) {
                                     style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
                                 <i class="bi bi-person-circle fs-1" style="display: none;"></i>
-                                <span class="status-dot ${statusClass} position-absolute bottom-0 end-0"></span>
+                                <span class="status-dot ${user.status} position-absolute bottom-0 end-0"></span>
                             </div>
                         </div>
                         <div class="col">
@@ -785,7 +784,6 @@ function displayUserSelectList(users) {
     }
     
     users.forEach(user => {
-        const statusClass = user.status === 'online' ? 'online' : 'offline';
         const $li = $(`
             <li id="Modal_user_li_${user._id}" class="list-group-item list-group-item-action cursor-pointer" 
                 onclick="startOrOpenPrivateChat('${user._id}', '${user.username}')"
@@ -799,7 +797,7 @@ function displayUserSelectList(users) {
                                 style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                             <i class="bi bi-person-circle fs-1" style="display: none;"></i>
-                            <span class="status-dot ${statusClass} position-absolute bottom-0 end-0"></span>
+                            <span class="status-dot ${user.status} position-absolute bottom-0 end-0"></span>
                         </div>
                         <div>
                             <strong>${escapeHtml(user.fullName)}</strong>
@@ -934,7 +932,7 @@ socket.on('roomList_newMessages', async (data) => {
         $(`#groupList_ul li#${data.room.roomID}`).attr('data-last-update', data.room.lastUpdated);
         
         // Also update in private chats if applicable
-        if (data.room.settings.type == 'PV_chat') {
+        if (data.room.setting[0].type== 'PV_chat') {
             // Update private chat list
             socket.emit("getPrivateChats", (response) => {
                 if (response.success && currentTab === 'private') {
@@ -960,53 +958,6 @@ socket.on('roomList_newMessages', async (data) => {
         $loadingElement.addClass('d-none').removeClass('show');
     }
 });
-socket.on("getPrivateChatUsers", async (callback) => {
-    try {
-        const currentUser = socket.user;
-        
-        if (!currentUser) {
-            return callback({ success: false, error: "User not authenticated" });
-        }
-        
-        // Get all users except current user
-        const users = await User.find({
-            _id: { $ne: currentUser._id }
-        })
-        .select("username first_name last_name status lastActive")
-        .lean();
-        
-        // Check which users already have private chats with current user
-        const existingPrivateChats = await Room.find({
-            members: currentUser._id.toString(),
-            "setting.0.type": "PV_chat"
-        }).select("members").lean();
-        
-        const existingChatUserIds = new Set();
-        existingPrivateChats.forEach(chat => {
-            chat.members.forEach(member => {
-                if (member !== currentUser._id.toString()) {
-                    existingChatUserIds.add(member);
-                }
-            });
-        });
-        
-        const usersWithStatus = users.map(user => ({
-            ...user,
-            fullName: `${user.first_name} ${user.last_name}`,
-            hasPrivateChat: existingChatUserIds.has(user._id.toString())
-        }));
-        
-        callback({ 
-            success: true, 
-            users: usersWithStatus 
-        });
-        
-    } catch (error) {
-        console.error("Error fetching users for private chat:", error);
-        callback({ success: false, error: error.message });
-    }
-});
-
 // Make sure to call init_page when document is ready
 $(document).ready(function() {
     initPrivateChats();

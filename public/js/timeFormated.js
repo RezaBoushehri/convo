@@ -6,7 +6,8 @@
  * - Over a year: Y/M/D (fa-IR locale)
  * @param {Date} timestamp - The timestamp to format.
  * @returns {string} - Formatted timestamp.
- */function formatTimestamp(timestamp) {
+ */
+function formatTimestamp(timestamp) {
     const now = new Date();
     const messageTime = new Date(timestamp);
     const timeDiff = now - messageTime;

@@ -2397,11 +2397,40 @@ io.on("connection", async (socket) => {
                 // Send settings, messages, and members
                 socket.emit("applySettings", currentUser.settings);
                 // await message_encryption(roomID)
+                const otherUserInfo = async()=>{
+
+                    const otherMemberId = room.members.find(m => m !== currentUser._id.toString());
+                    console.log("otherMemberId",otherMemberId)
+                    if (otherMemberId) {
+                        const otherUser = await User.findById(otherMemberId)
+                            .select("username first_name last_name status lastActive")
+                            .lean();
+                        
+                        if (!otherUser) return null;
+                        
+                        console.log(otherUser)
+                        
+                        return {
+                            
+                            _id: otherUser._id,
+                            username: otherUser.username,
+                            first_name: otherUser.first_name,
+                            last_name: otherUser.last_name,
+                            fullName: `${otherUser.first_name} ${otherUser.last_name}`,
+                            status: otherUser.status || 'offline',
+                            lastActive: otherUser.lastActive
+                            
+                        };
+                    }
+                }   
+                        
+                
                 const memberObjectIds = room.members.map(id => new mongoose.Types.ObjectId(id));
                 const member_users = await User.find({  _id: { $in: memberObjectIds } }).select("username first_name last_name lastActive status").lean();
-
+                
+                const otherUser = room.setting[0]?.type=='PV_chat' ? await otherUserInfo():null
                 socket.emit("members", room.members);
-                socket.emit("joined", { room, name: `${currentUser.first_name} ${currentUser.last_name}` , member_users});
+                socket.emit("joined", { room, name: `${currentUser.first_name} ${currentUser.last_name}` , member_users , otherUser  });
                 const Messages = await getUnreadMessages(roomID, currentUser);
                 console.log("unreaded",Messages)
                 const unreadMessages = Messages.processedMessages;
@@ -3614,10 +3643,11 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                     // Resolve read user names
                     const readUsers = await Promise.all(
                         message.read.map(async (entry) => {
-                            const user = await User.findOne({ _id: entry.username })
-                                .select("first_name last_name")
+                            const user = await User.findOne({ _id: new mongoose.Types.ObjectId(entry.username) })
+                                .select("_id first_name last_name")
                                 .lean();
                             return {
+                                _id: user._id.toString()??'',
                                 name: user ? `${user.first_name} ${user.last_name}` : entry.username,
                                 time: entry.time
                             };
