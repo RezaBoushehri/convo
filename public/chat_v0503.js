@@ -1601,17 +1601,17 @@ socket.on("joined", (data) => {
                         <img src="/portal/profile/img/${data.otherUser.username}" alt="Avatar" class=" profile-avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
                         <span class="status-dot ${data.otherUser.status} position-absolute bottom-0 end-0"></span>
                     </div>
-                    <div class="d-flex col align-items-center gap-2">
-                    <div class="row col-12">
-                        <strong class="col-auto">${escapeHtml(data.otherUser.first_name)} ${escapeHtml(data.otherUser.last_name)}</strong><br>
-                        <small class="text-muted col">
-                            @${escapeHtml(data.otherUser.username)} • 
-                            <span class="user-status status-${data.otherUser.status}">${data.otherUser.status}</span>
-                        </small>
-                        <div class="col-12 small text-muted mt-1">
-                            ${new Date(data.otherUser.lastActive).toLocaleString("fa-IR")}
+                    <div class="d-flex ps-2 col align-items-center gap-2">
+                        <div class="row col-12">
+                            <strong class="col-auto">${escapeHtml(data.otherUser.first_name)} ${escapeHtml(data.otherUser.last_name)}</strong><br>
+                            <small class="text-muted col">
+                                @${escapeHtml(data.otherUser.username)} • 
+                                <span class="user-status status-${data.otherUser.status}">${data.otherUser.status}</span>
+                            </small>
+                            <div class="col-12 small  text-muted mt-1">
+                                ${new Date(data.otherUser.lastActive).toLocaleString("fa-IR")}
+                            </div>
                         </div>
-                    </div>
                     </div>
                 </div>`
                 : `<!-- Original button for groups / normal rooms -->
