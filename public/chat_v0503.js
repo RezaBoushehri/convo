@@ -1596,7 +1596,7 @@ socket.on("joined", (data) => {
             ${
             data.otherUser
                 ? `<!-- Show other user info as a DIV (no modal) -->
-                <div class=" d-flex col bg-theme shadow border border-1 border-secondary text-start pe-3  rounded-5 border" style="padding:1px;">
+                <div class=" d-flex col backdrop-blur-chat-bg shadow-sm border border-1 border-secondary text-start pe-3  rounded-5 border" style="padding:1px;">
                     <div class="position-relative col-auto">
                         <img src="/portal/profile/img/${data.otherUser.username}" alt="Avatar" class=" profile-avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
                         <span class="status-dot ${data.otherUser.status} position-absolute bottom-0 end-0"></span>
