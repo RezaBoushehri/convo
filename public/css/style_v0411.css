@@ -93,11 +93,11 @@ html, body {
     }
 
     /* وقتی هدر مخفی شد، هدر را جابجا کن */
-    /* #header_div.hidden {
+    #header_div.hidden {
         transform: translateX(-100%);
         opacity: 0;
         pointer-events: none;
-    } */
+    }
 
     /* تنظیم ارتفاع مین‌ویرپر وقتی هدر مخفی است (استفاده از + برای هم‌سطح بودن) */
     #header_div.hidden ~ #mainWrapper {
