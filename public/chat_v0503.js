@@ -4364,7 +4364,7 @@ async function editMessage(messageId) {
                 cancel
             </button>
         `)).then(()=>{
-            $(`#output #message_edit_form_${messageId}`).focus()
+            $(`#output [id="message_edit_form_${messageId}"]`).focus()
 
         })
     
@@ -4373,7 +4373,7 @@ async function editMessage(messageId) {
             $el_edit.html(old);
         });
         $el_edit.find('.save-edit-btn').on('click', function () {
-            const new_message = $(`#chat-window #message_edit_form_${messageId}`).html()
+            const new_message = $(`#chat-window [id="message_edit_form_${messageId}"]`).html()
             // Emit delete event to server
             socket.emit("edit", {  username :currentUser._id , messageId , new_message}, async (response) => {
 
