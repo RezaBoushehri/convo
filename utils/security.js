@@ -13,6 +13,7 @@ const CONNECTION_CLEANUP_INTERVAL = 5000;
 const ALLOWED_IPS = process.env.ALLOWED_PROFILE_IPS?.split(',') || [
     '127.0.0.1',
     
+    '109.203.187.225',
     '94.74.128.193',
     '94.74.128.194'
 ];
