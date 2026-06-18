@@ -66,7 +66,7 @@ async function getMessagesUpToYesterday_file_delete(roomID=null,days_ago=1,only_
             message = `at ${new Date().toLocaleString('fa-IR')}\nIn: ${room?.roomName??''} #${roomID}.
                         \nNo any message to delete with file before: ${endOfYesterday.toLocaleString('fa-IR')}`
             console.log(message);
-            Log_message(message)
+            // Log_message(message)
 
         }
     })();

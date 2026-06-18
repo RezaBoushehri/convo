@@ -160,11 +160,11 @@ async function delete_OrphanFiles() {
       files_size = convertSize(files_size)
       message += '🗑️ حذف شد'
       message += `\n\n${folder_size1} Folder size first,\n-${files_size} files deleted,\n${folder_size2} Folder size now.`
+      Log_message(message)
     }else{
       message = 'کل امور طیب.'
     }
-    Log_message(message)
-    
+    console.log(message)
     })();
 }
 // ======================== deleting public rooms=======================

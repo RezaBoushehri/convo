@@ -2043,9 +2043,9 @@ setInterval(() => {
     // }, (12*60*60*1000));
 setInterval(() => {
     getMessagesUpToYesterday_file_delete('npmDtEwjElmn74vqmu',30,false) // log room clear
-    // delete_OrphanFiles()
+    delete_OrphanFiles()
 }, (7*24*60*60*1000));
-// delete_OrphanFiles()
+delete_OrphanFiles()
 getMessagesUpToYesterday_file_delete('npmDtEwjElmn74vqmu',30,false) // log room clear
 getMessagesUpToYesterday_file_delete('8x12wLE6irmn714ker',14) // RTSP rooms
 getMessagesUpToYesterday_file_delete('MYL0V3')
