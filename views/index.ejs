@@ -166,23 +166,7 @@
                         </div>
                     </div>
 
-                    <!-- Modal for selecting user to start private chat -->
-                    <div class="modal fade" id="selectUserModal" tabindex="-1">
-                        <div class="modal-dialog modal-dialog-scrollable">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">انتخاب کاربر برای پیام خصوصی</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <input type="text" class="form-control mb-3" id="userSearchInput" placeholder="جستجوی کاربر...">
-                                    <ul class="list-group" id="userSelectList">
-                                        <!-- Users will be listed here -->
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    
                 </div>
             </div>
             <!-- CONTACT LIST (Sidebar) -->
@@ -277,7 +261,23 @@
             </div>
         </div>
     </div>
-
+    <!-- Modal for selecting user to start private chat -->
+    <div class="modal fade" id="selectUserModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">انتخاب کاربر برای پیام خصوصی</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control mb-3" id="userSearchInput" placeholder="جستجوی کاربر...">
+                    <ul class="list-group" id="userSelectList">
+                        <!-- Users will be listed here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script   nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/socket_conn.js'></script>
     <script   nonce="<%= nonce %>" src='https://mc.farahoosh.ir/metachat/chat_v0503.js'></script>
