@@ -482,7 +482,7 @@ app.get("/:path", async (req, res, next) => {
 
     if (path.includes('profile')) {
         if (!req.user) {
-            return res.redirect('/portal/login?domain=metachat');
+            return res.redirect('/metachat/login');
         }
 
         const username = req.user.username;
@@ -525,7 +525,7 @@ app.get("/", middleware.isLoggedIn,async (req, res) => {
         return res.render("index", { roomID: "" ,rgbToHex, removePx, username: username , _id: uid });
     }
     else{
-        return res.redirect("/portal/login?domain=metachat");
+        return res.redirect("/metachat/login");
     }   
 
 });
@@ -580,6 +580,7 @@ app.get("/login", (req, res) => {
 
 // Using async/await properly for login and handling redirects
 app.post("/login", async (req, res, next) => {
+    return res.status(401)
     try {
         // بررسی وجود username و password در بدنه درخواست
         if (!req.body.username || !req.body.password) {
