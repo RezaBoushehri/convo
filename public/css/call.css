@@ -1,0 +1,218 @@
+/* Voice / video call UI */
+
+.call-trigger-btn {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+
+.incoming-call-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px;
+    border-radius: 16px;
+    background: rgba(20, 22, 28, 0.92);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    color: #fff;
+    animation: callToastIn 0.25s ease-out;
+    max-width: 92vw;
+}
+
+@keyframes callToastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.incoming-call-avatar img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.incoming-call-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.incoming-call-name {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.incoming-call-type {
+    font-size: 0.85rem;
+    opacity: 0.75;
+}
+
+.incoming-call-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.call-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    display: flex;
+    flex-direction: column;
+    background: rgba(10, 11, 15, 0.96);
+    backdrop-filter: blur(6px);
+    color: #fff;
+}
+
+.call-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    font-size: 1rem;
+    opacity: 0.85;
+}
+
+.call-timer {
+    font-variant-numeric: tabular-nums;
+}
+
+.call-tiles-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-auto-rows: minmax(140px, 1fr);
+    gap: 10px;
+    padding: 10px 16px;
+    overflow-y: auto;
+    align-content: center;
+}
+
+.call-tile {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #1b1d24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+}
+
+.call-tile video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.call-tile.audio-only video {
+    display: none;
+}
+
+.call-tile-avatar {
+    display: none;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.call-tile.audio-only .call-tile-avatar {
+    display: flex;
+}
+
+.call-tile-name {
+    position: absolute;
+    bottom: 8px;
+    left: 10px;
+    font-size: 0.85rem;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.call-tile-status {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 0.75rem;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.call-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 18px;
+}
+
+.call-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.call-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.call-btn:active {
+    transform: scale(0.95);
+}
+
+.call-btn.active {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.call-btn-danger {
+    background: #dc3545;
+}
+
+.call-btn-danger:hover {
+    background: #bb2d3b;
+}
+
+.call-btn-success {
+    background: #198754;
+}
+
+.call-btn-success:hover {
+    background: #157347;
+}
+
+@media (max-width: 576px) {
+    .call-tiles-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+    .call-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.15rem;
+    }
+}

@@ -283,7 +283,7 @@ app.use(async (req, res, next) => {
         `style-src 'self' 'unsafe-inline'`,
         `img-src 'self' data: https: blob:`,     // ✅ blob: رو اضافه کردم
         `font-src 'self'`,
-        `connect-src 'self' https:`,              // ✅ برای ارسال فایل به سرور
+        `connect-src 'self' https: stun: turn:`,  // ✅ برای ارسال فایل به سرور + WebRTC ICE (STUN/TURN)
         `frame-ancestors 'self' https://mc.farahoosh.ir`,
         `base-uri 'self'`,
         `form-action 'self'`
@@ -2075,6 +2075,65 @@ const init_settings = {
 
 // change_settings()
 const onlineUsersServer = new Map(); // socket.id => username
+
+// ---- Voice/video call signaling state (in-memory, per-process) ----
+const activeCalls = new Map(); // callId => call
+const roomActiveCallId = new Map(); // roomID => callId
+const CALL_RING_TIMEOUT_MS = 45000;
+
+function buildCallParticipant(socket) {
+    return {
+        socketId: socket.id,
+        userId: socket.user._id.toString(),
+        username: socket.user.username,
+        fullName: `${socket.user.first_name} ${socket.user.last_name}`,
+    };
+}
+
+function serializeCallParticipants(call) {
+    return Array.from(call.participants.values());
+}
+
+function endCall(callId, reason) {
+    const call = activeCalls.get(callId);
+    if (!call) return;
+    if (call.ringTimeout) clearTimeout(call.ringTimeout);
+    activeCalls.delete(callId);
+    if (roomActiveCallId.get(call.roomID) === callId) {
+        roomActiveCallId.delete(call.roomID);
+    }
+    io.to(call.roomID).emit("call:ended", { callId, reason });
+}
+
+function removeParticipantFromCall(callId, socketId, reason) {
+    const call = activeCalls.get(callId);
+    if (!call || !call.participants.has(socketId)) return;
+    call.participants.delete(socketId);
+    if (call.participants.size <= 1) {
+        endCall(callId, reason);
+        return;
+    }
+    io.to(call.roomID).emit("call:participant-left", { callId, socketId, reason });
+}
+
+function joinCall(callId, socket, callback) {
+    const call = activeCalls.get(callId);
+    if (!call) {
+        callback?.({ success: false, message: "Call has ended" });
+        return;
+    }
+    if (call.ringTimeout) {
+        clearTimeout(call.ringTimeout);
+        call.ringTimeout = null;
+    }
+    call.status = "active";
+    const existingParticipants = serializeCallParticipants(call);
+    const participant = buildCallParticipant(socket);
+    call.participants.set(socket.id, participant);
+
+    callback?.({ success: true, callId, callType: call.callType, roomID: call.roomID, participants: existingParticipants });
+    socket.broadcast.to(call.roomID).emit("call:participant-joined", { callId, participant });
+}
 
 io.on("connection", async (socket) => {
     console.log('New client connected:', socket.id,socket.user.username,socket.user._id ,socket.token);
@@ -4201,6 +4260,85 @@ async function getMessagesByDate(roomID, val ,limit, type) {
     });
 
     
+    // ---- Voice/video call signaling ----
+    socket.on("call:invite", async ({ callType } = {}, callback) => {
+        try {
+            if (callType !== "audio" && callType !== "video") {
+                return callback?.({ success: false, message: "Invalid call type" });
+            }
+            const currentUser = await User.findOne({ _id: socket.user._id, "devices.token": socket.token });
+            const Device_room = currentUser?.devices.find(d => d.token === socket.token)?.roomID;
+            if (!currentUser || !Device_room) {
+                return callback?.({ success: false, message: "Join a room before starting a call" });
+            }
+
+            const existingCallId = roomActiveCallId.get(Device_room);
+            if (existingCallId && activeCalls.has(existingCallId)) {
+                return joinCall(existingCallId, socket, callback);
+            }
+
+            const room = await Room.findOne({ roomID: Device_room });
+            const isDirect = room?.setting?.[0]?.type === "PV_chat";
+
+            const callId = uuidv4();
+            const initiator = buildCallParticipant(socket);
+            const call = {
+                callId,
+                roomID: Device_room,
+                callType,
+                isDirect,
+                initiatorSocketId: socket.id,
+                participants: new Map([[socket.id, initiator]]),
+                status: "ringing",
+                ringTimeout: null,
+            };
+            call.ringTimeout = setTimeout(() => {
+                if (activeCalls.get(callId)?.status === "ringing") {
+                    endCall(callId, "no-answer");
+                }
+            }, CALL_RING_TIMEOUT_MS);
+            activeCalls.set(callId, call);
+            roomActiveCallId.set(Device_room, callId);
+
+            socket.broadcast.to(Device_room).emit("call:incoming", {
+                callId, callType, roomID: Device_room, caller: initiator,
+            });
+            callback?.({ success: true, callId });
+        } catch (error) {
+            console.error("call:invite error:", error);
+            callback?.({ success: false, message: "Failed to start call" });
+        }
+    });
+
+    socket.on("call:accept", ({ callId } = {}, callback) => {
+        if (!callId) return callback?.({ success: false, message: "Missing callId" });
+        joinCall(callId, socket, callback);
+    });
+
+    socket.on("call:decline", ({ callId } = {}) => {
+        const call = activeCalls.get(callId);
+        if (!call) return;
+        const decliner = buildCallParticipant(socket);
+        io.to(call.roomID).emit("call:declined", { callId, by: decliner });
+        if (call.isDirect && call.participants.size <= 1) {
+            endCall(callId, "declined");
+        }
+    });
+
+    socket.on("call:leave", ({ callId } = {}) => {
+        if (!callId) return;
+        removeParticipantFromCall(callId, socket.id, "left");
+    });
+
+    socket.on("call:signal", ({ callId, to, type, payload } = {}) => {
+        const call = activeCalls.get(callId);
+        if (!call || !to || !type) return;
+        if (!call.participants.has(socket.id) || !call.participants.has(to)) return;
+        io.to(to).emit("call:signal", {
+            callId, from: socket.id, fromUser: buildCallParticipant(socket), type, payload,
+        });
+    });
+
     socket.on("draw", (data) => {
         io.emit("draw", data);
     });
@@ -4235,6 +4373,12 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             });
             // socket.broadcast.to(currentUser.roomID).emit("userDisconnected", `${currentUser.first_name} ${currentUser.last_name}`);
             onlineUsersServer.delete(socket.id);
+
+            for (const call of Array.from(activeCalls.values())) {
+                if (call.participants.has(socket.id)) {
+                    removeParticipantFromCall(call.callId, socket.id, "disconnected");
+                }
+            }
         } catch (error) {
             console.error("Error during disconnect:", error);
         }
