@@ -6,6 +6,7 @@ const messageSchema = new mongoose.Schema({
     roomID: { type: String, required: true }, // The room in which the message was sent
     sender: { type: String, required: true }, // Sender's username
     quote: { type: String, default: null }, // Message content
+    forward: { type: String, default: null }, // Full id (roomID-counter) of the original forwarded message; may reference a different room
     read: [
         {
             username: { type: String, required: true },

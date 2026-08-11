@@ -2872,7 +2872,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
     }
     });
     socket.on("chat", async (data , callback) => {
-        let { id, username: encryptedUsername,roomID, message, file, quote, voice } = data;
+        let { id, username: encryptedUsername,roomID, message, file, quote, voice, forward } = data;
         try {
 
 
@@ -2945,7 +2945,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             
             const timestamp = new Date();
             if(!username) throw new Error("User not found or not part of a room.");
-            if (!message  && !file && !voice) throw new Error("no message.");
+            if (!message  && !file && !voice && !forward) throw new Error("no message.");
             // Validate the user
             
             const newMessage = new Message({
@@ -2955,6 +2955,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 quote: quote ? `${roomID}-${quote}`:null,
                 message: clean ? socketEncrypt(clean) : '',
                 file: fileDetails, // Map over the uploaded file to structure them correctly
+                forward: forward || null,
                 read: [{ username:currentUser._id.toString(), time: timestamp }], // <- Mark as read by sender
                 members: [currentUser._id.toString()],
                 encrypt: true,
@@ -3025,7 +3026,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                         }
                         tempMessage={
                             ...tempMessage,
-                            roomID : roomID
+                            roomID : roomID,
+                            metadata : {
+                                section: 'metachat'
+                            }
                         }
                         user?.devices.forEach(device=>{
 

@@ -315,8 +315,22 @@ $(`#search_roomList`).on("focus input",(e)=>{
 })
 function sortRooms() {
     const $groupList_ul = $('#groupList_ul');
+    const $private_ul = $('#privateList_ul');
 
+    const private_rooms = $private_ul.children('li').get();
+    console.log(private_rooms)
+    private_rooms.sort((a, b) => {        
+        const dateA = new Date($(a).attr('data-last-update'));        
+        const dateB = new Date($(b).attr('data-last-update'));
+        return dateB - dateA; // newest first    
+    });
+    $private_ul.empty()
+
+    $.each(private_rooms, function(index, room) {    
+        $private_ul.append(room);   
+    });
     const rooms = $groupList_ul.children('li').get();
+    console.log(rooms)
     rooms.sort((a, b) => {        
         const dateA = new Date($(a).attr('data-last-update'));        
         const dateB = new Date($(b).attr('data-last-update'));

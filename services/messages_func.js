@@ -1,6 +1,7 @@
 // services/getYesterdayMessages.js
 const Message = require('../models/message'),
     Room = require('../models/room'),
+    User = require('../models/user'),
     axios = require('axios'),
     express = require("express"),
     env = require("dotenv"),
@@ -61,7 +62,7 @@ function removePx(value) {
 }
 
 function rgbToHex(rgb) {
-    if(rgb) return null
+    if(!rgb) return null
     const match = rgb?.match(/^(\d+),\s*(\d+),\s*(\d+)$/) ?? null;
     if (!match) return rgb;
     
@@ -116,11 +117,41 @@ async function processMessage(msg) {
         }
     }
 
+    let forwardMessage;
+    if (msg.forward !== null && msg.forward !== undefined) {
+        forwardMessage = await Message.findOne({ id: msg.forward }).select("sender message file roomID").lean();
+        if(forwardMessage) {
+            const forwardFile = forwardMessage.file && forwardMessage.file!==null ? forwardMessage.file.map(file => file.fileType)[0] : null;
+            // The original sender may not be a member of the room this forward lands in,
+            // so resolve their display name here rather than relying on the client's member list.
+            const forwardSenderUser = await User.findById(forwardMessage.sender).select("first_name last_name username").lean().catch(() => null);
+            const forwardSenderName = forwardSenderUser
+                ? `${forwardSenderUser.first_name || ''} ${forwardSenderUser.last_name || ''}`.trim() || forwardSenderUser.username
+                : null;
+            forwardMessage = {
+                ...forwardMessage,
+                sender: forwardMessage?.sender,
+                senderName: forwardSenderName,
+                senderUsername: forwardSenderUser?.username || null,
+                message: socketDecrypt(forwardMessage?.message),
+                file: forwardFile??null,
+            }
+        }else{
+            forwardMessage = {
+                sender : '',
+                senderName : '',
+                senderUsername: null,
+                message : "This message has been deleted."
+            }
+        }
+    }
+
     return {
         ...msg,
         message: socketDecrypt(msg?.message), // رمزنگاری message
         // voice: msg?.voice ? socketDecrypt(msg.voice): null, // رمزنگاری message
         reply: replyMessage || null,
+        forward: forwardMessage || null,
         readUsers,
         readLine: false, // Mark unread messages with a readLine
     };
