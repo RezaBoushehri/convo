@@ -1,4 +1,3 @@
-
 let roomID = $('#roomID').text()??''
 localStorage.removeItem('last_room_joined_MC')
 
@@ -183,10 +182,10 @@ message.addEventListener('paste', (e) => {
         }
         
         // Sanitize the input while allowing table elements and Excel-specific attributes
-        // message.innerHTML = DOMPurify.sanitize(message.innerHTML, {
-        //     // ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br','img'],
-        //     ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type']
-        // });
+        message.innerHTML = DOMPurify.sanitize(message.innerHTML, {
+            // ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br','img'],
+            ALLOWED_ATTR: [ 'data-excel-formula', 'data-excel-value', 'data-excel-type','src','href']
+        });
     }, 0);
 });
 function join(newRoomID) {
@@ -3170,18 +3169,21 @@ function initTelegramAudioPlayers(){
 
 
         let audio = player.find('audio.voice-message').first()
-        if(!audio){
+        if(audio.length === 0){
             showAlert('X','info')
-        }else{
-            audio.removeClass('d-none');
-
+            return
         }
+        audio.removeClass('d-none');
         const btn = player.find(".tg-play")  
         const btn_playRate = player.find(".playRate")  
         const loader = player.find(".loader_voice")  
         const icon = btn.find("i")  
         const time = player.find(".tg-time")  
         const canvas = player.find(".tg-canvas")[0]
+        if(!canvas){
+            console.warn("tg-canvas element missing for player", file_id)
+            return
+        }
         const next_playRate={
             1:1.5,
             1.5:2,
@@ -3207,7 +3209,7 @@ function initTelegramAudioPlayers(){
         btn.addClass('d-none')
 
         // duration// رویداد بارگذاری متادیتا
-        audio.addEventListener("loadedmetadata", async function() {
+        audio.on("loadedmetadata", async function() {
             // محاسبه زمان
             let dm = Math.floor(audio.duration / 60);
             let ds = Math.floor(audio.duration % 60);
@@ -3226,10 +3228,9 @@ function initTelegramAudioPlayers(){
         
         
 
-        // resume state
+        // resume state (فقط موقعیت رو تنظیم کن، پخش خودکار نکن)
         if(btn.attr('data-ctime') != 0 ){
             audio.currentTime = btn.attr('data-ctime') ?? 0
-            audio.play()
         }
 
 
@@ -3247,24 +3248,13 @@ function initTelegramAudioPlayers(){
         let convert_on_err;
         let playTimeout; // متغیر برای ذخیره تایمر
 
-        btn.off("click").on("click", async function () {
+        btn.off("click").on("click", function () {
             try {
 
                 // پاک کردن تایمر قبلی اگر کاربر سریع کلیک کرد
                 if (playTimeout) {
                     clearTimeout(playTimeout);
                 }
-                await loadAudioBuffer();
-                console.log(buffer,audioCtx)
-                if(buffer.length>0 && audioCtx.length>0){
-                    // محاسبه ارتفاع نوارها (یک‌بار)
-                    bars = computeBars(buffer, audioCtx); // فرض بر این است که computeBars به audioCtx نیاز دارد
-                    
-                    draw();
-                    
-                    // مخفی کردن لودر و نمایش دکمه
-                }
-
 
                 // stop others
                 $("audio.voice-message").not(audio).each(function () {
@@ -3283,7 +3273,8 @@ function initTelegramAudioPlayers(){
                         socket.emit('voice_heared', { file_id });
                     }
                     let audio_now =audio.currentTime
-                    // شروع پخش
+                    // شروع پخش فوری، درست مثل یک پیام صوتی واقعی
+                    // (منتظر دانلود/دیکد کل فایل برای رسم موج نمی‌مونیم)
                     audio.play().then(() => {
                         // اگر پخش موفق بود، تایمر رو کنسل کن
                         if (playTimeout) {
@@ -3306,6 +3297,21 @@ function initTelegramAudioPlayers(){
                         playTimeout = null;
                     }, 2000);
 
+                    // موج صوتی رو در پس‌زمینه و فقط یک‌بار بارگذاری/دیکد کن،
+                    // بدون اینکه جلوی شروع پخش رو بگیره
+                    if (!buffer) {
+                        loadAudioBuffer().then(() => {
+                            if (buffer && buffer.length > 0) {
+                                bars = computeBars(buffer, audioCtx);
+                                renderFrame();
+                            }
+                        }).catch(error => {
+                            console.log("Waveform load failed:", error);
+                        });
+                    } else {
+                        renderFrame();
+                    }
+
                 } else {
                     audio.pause();
                     icon.attr("class", "bi bi-play-fill");
@@ -3322,11 +3328,11 @@ function initTelegramAudioPlayers(){
 
 
         // time update
-        audio.addEventListener("timeupdate",function(){
+        audio.on("timeupdate",function(){
             try {
                 
                    
-                draw()
+                // توجه: رسم موج صوتی دیگه اینجا انجام نمی‌شه — حلقه requestAnimationFrame (startDrawLoop) خودش این کار رو انجام می‌ده
 
                 let cm = Math.floor(audio.currentTime/60)    
                 let cs = Math.floor(audio.currentTime%60)
@@ -3411,6 +3417,7 @@ function initTelegramAudioPlayers(){
         }
 
         async function loadAudioBuffer() {
+            if (buffer) return; // موج قبلاً بارگذاری و کش شده، دوباره دانلود/دیکد نکن
             try {
                 const response = await fetch(audio.currentSrc);
                 if (!response.ok) throw new Error("فایل صوتی یافت نشد");
@@ -3431,7 +3438,7 @@ function initTelegramAudioPlayers(){
                     // 4. محاسبه و رسم نوارها
                     // فرض بر این است که computeBars و draw درست کار می‌کنند
                     bars = computeBars(buffer, ctx); 
-                    draw();
+                    renderFrame();
                     
                     // نمایش دکمه پخش
                     btn.removeClass("d-none");
@@ -3487,19 +3494,16 @@ function initTelegramAudioPlayers(){
 
        
 
-        /* ---------- 3️⃣ تابع رسم ---------- */
-        function draw() {
-            
-            requestAnimationFrame(draw);
+        /* ---------- 3️⃣ تابع رسم (بدون حلقه بی‌پایان requestAnimationFrame) ---------- */
+        let rafId = null;
 
-            // اگر آدیو یا بوم آماده نیستند، خارج شو
+        // فقط یک فریم را رسم می‌کند، هیچ زمانی خودش رو دوباره صدا نمی‌کنه
+        function renderFrame() {
             if (!audio || !canvas || !ctx) return;
-
-            // اگر آدیو پخش نمیشه، نیازی به رندر نیست (مگر اینکه بخواهید فریم ثابت بمونه)
-            if (audio.paused || audio.ended) return;
+            if (!bars.length) return;
 
             // جلوگیری از خطای تقسیم بر صفر
-            if (audio.duration === 0) return;
+            if (!audio.duration) return;
 
 
             const progress = audio.currentTime / audio.duration;
@@ -3534,6 +3538,32 @@ function initTelegramAudioPlayers(){
                 }
             }
         }
+
+        // شروع/توقف حلقه انیمیشن، دقیقاً همزمان با پخش/توقف واقعی صدا
+        function startDrawLoop() {
+            if (rafId) return; // قبلاً در حال اجراست، دوباره شروع نکن
+            const loop = () => {
+                renderFrame();
+                if (!audio.paused && !audio.ended) {
+                    rafId = requestAnimationFrame(loop);
+                } else {
+                    rafId = null;
+                }
+            };
+            rafId = requestAnimationFrame(loop);
+        }
+
+        function stopDrawLoop() {
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+            renderFrame(); // فریم نهایی رو هم بکش
+        }
+
+        // یک محل مرکزی برای شروع/توقف حلقه، هر چی هم باعث پخش/توقف بشه (کلیک، کنترل محلی مرورگر و...)
+        audio.on("play", startDrawLoop)
+        audio.on("pause ended", stopDrawLoop)
 
 
 
@@ -4354,7 +4384,7 @@ async function editMessage(messageId) {
         const text_old = $el_edit.html()
         $messageElement.data('old-content',text_old)
         Promise.resolve($el_edit.html(`
-            <div contenteditable="true" id="message_edit_form_${messageId}" onpaste="handlePaste(event)" class="edit_content form-control">
+            <div contenteditable="true" id="message_edit_form_${messageId}" class="edit_content form-control">
                 ${text_old}
             </div>
             <button class="btn btn-sm btn-success mt-1 save-edit-btn">
@@ -5023,4 +5053,3 @@ function update_user_status() {
 socket.on("pong", () => {
   console.log("✅ Server is alive!");
 });
-

@@ -102,7 +102,7 @@ function sanitizeMessage(message) {
             'br','img','a','span','p','pre'    
         ],    
         ALLOWED_ATTR: [      
-            'style',      
+            // 'style',      
             'data-excel-formula',      
             'data-excel-value',      
             'data-excel-type',      
@@ -284,7 +284,7 @@ app.use(async (req, res, next) => {
         `img-src 'self' data: https: blob:`,     // ✅ blob: رو اضافه کردم
         `font-src 'self'`,
         `connect-src 'self' https:`,              // ✅ برای ارسال فایل به سرور
-        `frame-ancestors 'none'`,
+        `frame-ancestors 'self' https://mc.farahoosh.ir`,
         `base-uri 'self'`,
         `form-action 'self'`
     ].join('; ');
