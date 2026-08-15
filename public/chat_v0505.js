@@ -602,6 +602,7 @@ function getForwardInfo(messageId) {
         // مخفی کردن بخش متن و تغییر ظاهر دکمه‌ها
         $('#chat_windowFooter #editable-message-text')
            .fadeOut()
+        $('#recordVideoBtn').prop('disabled', true)
 
         // گرفتن استریم میکروفن
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -743,6 +744,7 @@ function getForwardInfo(messageId) {
             .removeClass('animate__fadeOutLeft')
             .addClass('animate__fadeInLeft')
             .fadeIn();
+        $('#recordVideoBtn').prop('disabled', false)
 
         $('#chat_windowFooter #stopBtn')
             .prop('disabled', true)
@@ -1970,6 +1972,7 @@ socket.on("typing", (data) => {
             const isNearBottom =output.scrollHeight - output.scrollTop - output.clientHeight < 240
             const status_class={
                 'voice_record': '<span class=" p-1 placeholder-wave bg-secondary shadow rounded-pill ms-1"><i class="bi bi-mic fs-5 m-auto"></i></span>',
+                'video_record': '<span class=" p-1 placeholder-wave bg-secondary shadow rounded-pill ms-1"><i class="bi bi-camera-video fs-5 m-auto"></i></span>',
                 'typing': `در حال نوشتن <div class="typingLoader" style="--c:var(--color-peer-${username}) 90%,#0000;"></div>`,
             }
             if (isNearBottom) {
@@ -3001,6 +3004,32 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                 // <audio class="d-none" crossorigin="anonymous" src="${src}"></audio>
     }
 
+
+    const telegramVideoNote = (src,id) => {
+        return `
+        <div class="tg-video-note position-relative col-auto" data-ready="false" data-src="${src}" data-id="${id}" data-sender="${data.sender}">
+            <div class="tg-video-note-circle position-relative">
+                <video preload="metadata" src="${src}" playsinline muted class="tg-video-note-el"></video>
+                <div class="tg-video-note-loader loader_voice">
+                    <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
+                </div>
+                <button type="button" class="tg-video-note-play d-none">
+                    <i class="bi bi-play-fill"></i>
+                </button>
+                <svg class="tg-video-note-progress" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="47"></circle>
+                </svg>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-1 px-1">
+                <small class="text-muted tg-video-note-time">0:00</small>
+                ${Is_voice_heared? `` :`
+                    <i class="text-primary bi bi-dot fs-1"></i>
+                `}
+            </div>
+        </div>
+                `;
+    }
+
     // ${ownMessage? `right_box1 `:`left_box2 `}
     // دریافت صداهای دیگر کاربران 
     
@@ -3078,6 +3107,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                             </div>
 
                         ` : file.fileType.startsWith("video/") ? `
+                            ${(file.fileName || '').includes('videonote') ? telegramVideoNote(`https://mc.farahoosh.ir/metachat${file.file}`,`${file._id}`) : `
                             <div  class="col-12 position-relative" >
 
                                 <video class=" video-preview col-12 P-0 rounded" controls>
@@ -3086,6 +3116,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                                 </video>
                                 
                             </div>
+                            `}
 
                         ` : file.fileType.startsWith("audio/") ? `
                             ${file.fileType.split('/')[1] == 'webm'? telegramAudio(`https://mc.farahoosh.ir/metachat${file.file}`,`${file._id}`):`
@@ -3257,12 +3288,16 @@ function init_message_ui(){
 }
 const observer = new MutationObserver(mutations => {
     let hasNewPlayer = false;
+    let hasNewVideoNote = false;
     mutations.forEach(mutation => {
         if (mutation.addedNodes.length) {
             mutation.addedNodes.forEach((node) => {
                 // اگر خود نود پلیر باشه
                 if ($(node).hasClass('messageElm') && $(node).find('.tg-player').length) {
                     hasNewPlayer = true;
+                }
+                if ($(node).hasClass('messageElm') && $(node).find('.tg-video-note').length) {
+                    hasNewVideoNote = true;
                 }
 
             });
@@ -3271,6 +3306,7 @@ const observer = new MutationObserver(mutations => {
     // یک‌بار برای کل دسته صدا زده می‌شود، نه یک‌بار به ازای هر پلیر
     // (وگرنه هندلرهای loadedmetadata چندبار روی همون audio ثبت می‌شدن)
     if (hasNewPlayer) initTelegramAudioPlayers();
+    if (hasNewVideoNote) initTelegramVideoNotes();
 });
 
 observer.observe(document.body, {
@@ -3279,29 +3315,33 @@ observer.observe(document.body, {
 });
 
 function initTelegramAudioPlayers(){
-    $('.tg-player').not('[data-ready="true"]').each(async function(){
+    $('.tg-player').not('[data-ready="true"]').each(async function(){
 
 
-        const player = $(this)
-        const file_id = player.data('id')
-        const sender = player.data('sender')
+        const player = $(this)
+        const file_id = player.data('id')
+        const sender = player.data('sender')
 
 
-        $(`#file_menu_${file_id}`).remove()
+        $(`#file_menu_${file_id}`).remove()
 
 
 
-        let audio = player.find('audio.voice-message').first()
+        let audio = player.find('audio.voice-message').first()
         if(audio.length === 0){
             showAlert('X','info')
             return
         }
+        // مهم: توابع/خاصیت‌های بومی مدیا (play/pause/duration/currentTime/...)
+        // فقط روی خود المنت DOM کار می‌کنن، نه روی آبجکت jQuery — برای همینه
+        // که audio[0] رو جدا نگه می‌داریم و همه‌جا از audioEl استفاده می‌کنیم.
+        const audioEl = audio[0]
         audio.removeClass('d-none');
-        const btn = player.find(".tg-play")  
-        const btn_playRate = player.find(".playRate")  
-        const loader = player.find(".loader_voice")  
-        const icon = btn.find("i")  
-        const time = player.find(".tg-time")
+        const btn = player.find(".tg-play")
+        const btn_playRate = player.find(".playRate")
+        const loader = player.find(".loader_voice")
+        const icon = btn.find("i")
+        const time = player.find(".tg-time")
         const waveWrap = player.find(".tg-wave-wrap")
         const canvas = player.find(".tg-canvas")[0]
         if(!canvas){
@@ -3315,55 +3355,72 @@ function initTelegramAudioPlayers(){
         }
 
 
-        const ctx = canvas.getContext("2d")
+        const ctx = canvas.getContext("2d")
 
 
-        // تنظیم سایز فقط یکبار
-//         canvas.width = canvas.offsetWidth  
-        canvas.height = 100
+        // تنظیم سایز فقط یکبار
+//         canvas.width = canvas.offsetWidth
+        canvas.height = 100
 
         let audioCtx = null;
         let buffer = null;
-        let bars = []  
-        const maxBars = isMobileDevice ? 100 : 240
-        let isDragging = false
+        let bars = []
+        const maxBars = isMobileDevice ? 100 : 240
+        let isDragging = false
         loader.html(`
                 <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
             `)
         btn.addClass('d-none')
 
-        // duration// رویداد بارگذاری متادیتا
+        // مقدار درست duration رو برمی‌گردونه؛ فایل‌های webm ضبط‌شده با
+        // MediaRecorder اغلب Infinity گزارش می‌دن تا وقتی مرورگر مجبور به
+        // seek بشه — این یه باگ شناخته‌شدهٔ مرورگرهاست، نه سرور/آپلود
+        async function resolveDuration() {
+            if (isFinite(audioEl.duration)) return audioEl.duration
+            return await new Promise((resolve) => {
+                const onTimeUpdate = () => {
+                    audioEl.removeEventListener('timeupdate', onTimeUpdate)
+                    audioEl.currentTime = 0
+                    resolve(isFinite(audioEl.duration) ? audioEl.duration : 0)
+                }
+                audioEl.addEventListener('timeupdate', onTimeUpdate)
+                audioEl.currentTime = 1e101
+            })
+        }
+
+        // duration// رویداد بارگذاری متادیتا
         audio.off("loadedmetadata").on("loadedmetadata", async function() {
             // محاسبه زمان
-            let dm = Math.floor(audio.duration / 60);
-            let ds = Math.floor(audio.duration % 60);
+            const duration = await resolveDuration();
+            let dm = Math.floor(duration / 60);
+            let ds = Math.floor(duration % 60);
             if (ds < 10) ds = "0" + ds;
-            
+
             time.text(`${dm}:${ds}`);
             btn.removeClass("d-none");
             waveWrap.removeClass("d-none");
             player.attr("data-ready","true")
             loader.html("").addClass("d-none");
-            audio.playbackRate = voice_playbackRate
-            audio.currentTime = btn.attr('data-ctime') ?? 0;
+            audioEl.playbackRate = voice_playbackRate
+            audioEl.currentTime = btn.attr('data-ctime') ?? 0;
 
-            
+
         });
         // فراخوانی تابع بارگذاری
-        
-        
-
-        // resume state (فقط موقعیت رو تنظیم کن، پخش خودکار نکن)
-        if(btn.attr('data-ctime') != 0 ){
-            audio.currentTime = btn.attr('data-ctime') ?? 0
-        }
 
 
-        btn_playRate.off("click").on("click", function () {
+
+        // resume state (فقط موقعیت رو تنظیم کن، پخش خودکار نکن)
+        if(btn.attr('data-ctime') != 0 ){
+            audioEl.currentTime = btn.attr('data-ctime') ?? 0
+        }
+
+
+        btn_playRate.off("click").on("click", function () {
             const playRate = btn_playRate.attr('data-playrate')??1
             console.log(playRate)
             const speed = next_playRate[playRate]
-            audio.playbackRate = speed
+            audioEl.playbackRate = speed
             localStorage.setItem('voice_playbackRate',speed)
             voice_playbackRate = speed
 
@@ -3392,15 +3449,15 @@ function initTelegramAudioPlayers(){
                         .find(".tg-play");
                 });
 
-                if (audio.paused) {
+                if (audioEl.paused) {
                     const dot = player.find("i.bi.bi-dot");
                     if (dot.length > 0 && sender != currentUser._id) {
                         socket.emit('voice_heared', { file_id });
                     }
-                    let audio_now =audio.currentTime
+                    let audio_now = audioEl.currentTime
                     // شروع پخش فوری، درست مثل یک پیام صوتی واقعی
                     // (منتظر دانلود/دیکد کل فایل برای رسم موج نمی‌مونیم)
-                    audio.play().then(() => {
+                    audioEl.play().then(() => {
                         // اگر پخش موفق بود، تایمر رو کنسل کن
                         if (playTimeout) {
                             clearTimeout(playTimeout);
@@ -3416,7 +3473,7 @@ function initTelegramAudioPlayers(){
                     playTimeout = setTimeout(() => {
                         // چک کن که آیا ویس هنوز پخش نمیشه؟
                         // اگر ویس پخش نشده بود (paused یا error)، کلاس رو بردار
-                        if (audio.paused || audio.error || audio_now == audio.currentTime) {
+                        if (audioEl.paused || audioEl.error || audio_now == audioEl.currentTime) {
                             audio.removeClass('d-none');
                         }
                         playTimeout = null;
@@ -3438,7 +3495,7 @@ function initTelegramAudioPlayers(){
                     }
 
                 } else {
-                    audio.pause();
+                    audioEl.pause();
                     icon.attr("class", "bi bi-play-fill");
                     // اگر کاربر ویس رو متوقف کرد، تایمر قبلی رو هم پاک کن
                     if (playTimeout) {
@@ -3452,75 +3509,75 @@ function initTelegramAudioPlayers(){
         });
 
 
-        // time update
-        audio.on("timeupdate",function(){
+        // time update
+        audio.on("timeupdate",function(){
             try {
-                
-                   
+
+
                 // توجه: رسم موج صوتی دیگه اینجا انجام نمی‌شه — حلقه requestAnimationFrame (startDrawLoop) خودش این کار رو انجام می‌ده
 
-                let cm = Math.floor(audio.currentTime/60)    
-                let cs = Math.floor(audio.currentTime%60)
-                let dm = Math.floor(audio.duration/60)    
-                let ds = Math.floor(audio.duration%60)
+                let cm = Math.floor(audioEl.currentTime/60)
+                let cs = Math.floor(audioEl.currentTime%60)
+                let dm = Math.floor(audioEl.duration/60)
+                let ds = Math.floor(audioEl.duration%60)
 
 
-                if(cs < 10) cs = "0" + cs    
-                if(ds < 10) ds = "0" + ds
+                if(cs < 10) cs = "0" + cs
+                if(ds < 10) ds = "0" + ds
 
 
-                time.text(`${cm}:${cs} / ${dm}:${ds}`)
-                btn.attr('data-ctime',audio.currentTime)
+                time.text(`${cm}:${cs} / ${dm}:${ds}`)
+                btn.attr('data-ctime',audioEl.currentTime)
 
 
-                if(audio.currentTime >= audio.duration && !isDragging){
+                if(audioEl.currentTime >= audioEl.duration && !isDragging){
                     time.text(`${dm}:${ds}`)
                     btn.attr('data-ctime','0')
-                    audio.pause()
+                    audioEl.pause()
                     icon.attr("class", "bi bi-play-fill")
-                 }
+                 }
             } catch (error) {
                 time.text(error.message)
             }
-        })
+        })
 
 
-        // seek helpers
-        function getClientX(e){
-            if(e.touches) return e.touches[0].clientX    
-            return e.clientX
-        }
+        // seek helpers
+        function getClientX(e){
+            if(e.touches) return e.touches[0].clientX
+            return e.clientX
+        }
 
 
-        function seek(e) {
+        function seek(e) {
             const rect = canvas.getBoundingClientRect();
             const x = getClientX(e) - rect.left;
-            
+
             const percent = Math.max(0, Math.min(1, x / rect.width));
-            
-            const timeSeek = percent * audio.duration;
-            audio.currentTime = timeSeek;
+
+            const timeSeek = percent * audioEl.duration;
+            audioEl.currentTime = timeSeek;
         }
 
 
 
-        $(canvas).on("mousedown touchstart",function(e){
-            isDragging = true    
-            seek(e)
-        })
+        $(canvas).on("mousedown touchstart",function(e){
+            isDragging = true
+            seek(e)
+        })
 
 
-        $(canvas).on("mousemove touchmove",function(e){
-            if(isDragging) seek(e)
-        })
+        $(canvas).on("mousemove touchmove",function(e){
+            if(isDragging) seek(e)
+        })
 
 
-        // مهم: جلوگیری از چندبار bind شدن
-        $(window)
-            .off("mouseup.tg touchend.tg")
-            .on("mouseup.tg touchend.tg",function(){
-                isDragging = false
-            })
+        // مهم: جلوگیری از چندبار bind شدن
+        $(window)
+            .off("mouseup.tg touchend.tg")
+            .on("mouseup.tg touchend.tg",function(){
+                isDragging = false
+            })
 
 
 
@@ -3544,27 +3601,27 @@ function initTelegramAudioPlayers(){
         async function loadAudioBuffer() {
             if (buffer) return; // موج قبلاً بارگذاری و کش شده، دوباره دانلود/دیکد نکن
             try {
-                const response = await fetch(audio.currentSrc);
+                const response = await fetch(audioEl.currentSrc);
                 if (!response.ok) throw new Error("فایل صوتی یافت نشد");
-                
+
                 const arrayBuf = await response.arrayBuffer();
-                
+
                 // 1. ابتدا Context را آماده کن (اینجا باید بعد از تعامل کاربر باشد)
                 const ctx = await initAudioContext();
-                
+
                 // 2. دیکد کردن فایل صوتی
                 buffer = await ctx.decodeAudioData(arrayBuf);
-                
+
                 // 3. بررسی صحت بارگذاری (به جای .length از properties صحیح استفاده کن)
                 // buffer.length زمان کل فایل بر حسب ثانیه است
                 if (buffer && buffer.length > 0) {
                     player.attr("data-ready", "true");
-                    
+
                     // 4. محاسبه و رسم نوارها
                     // فرض بر این است که computeBars و draw درست کار می‌کنند
-                    bars = computeBars(buffer, ctx); 
+                    bars = computeBars(buffer, ctx);
                     renderFrame();
-                    
+
                     // نمایش دکمه پخش
                     btn.removeClass("d-none");
                     waveWrap.removeClass("d-none");
@@ -3572,7 +3629,7 @@ function initTelegramAudioPlayers(){
                     player.find('audio.voice-message').removeClass('d-none');
                     throw new Error("فایل صوتی خالی یا نامعتبر است");
                 }
-                
+
             } catch (error) {
                 console.error("خطا در بارگذاری صدا:", error);
                 showAlert(error.message);
@@ -3618,21 +3675,21 @@ function initTelegramAudioPlayers(){
             ctx.fill();
         }
 
-       
+
 
         /* ---------- 3️⃣ تابع رسم (بدون حلقه بی‌پایان requestAnimationFrame) ---------- */
         let rafId = null;
 
         // فقط یک فریم را رسم می‌کند، هیچ زمانی خودش رو دوباره صدا نمی‌کنه
         function renderFrame() {
-            if (!audio || !canvas || !ctx) return;
+            if (!audioEl || !canvas || !ctx) return;
             if (!bars.length) return;
 
             // جلوگیری از خطای تقسیم بر صفر
-            if (!audio.duration) return;
+            if (!audioEl.duration || !isFinite(audioEl.duration)) return;
 
 
-            const progress = audio.currentTime / audio.duration;
+            const progress = audioEl.currentTime / audioEl.duration;
             const playedBars = Math.floor(progress * bars.length);
             const barWidth = canvas.width / bars.length; // استفاده از طول واقعی آرایه
 
@@ -3648,7 +3705,7 @@ function initTelegramAudioPlayers(){
                 const barHeight = (bars[i] * 3)+4 >= canvas.height ?(canvas.height-4):(bars[i] * 3)+4;
                 const x = i * barWidth;
                 const y = centerY - (barHeight / 2); // محاسبه Y از مرکز
-                
+
                 fillRoundedRect(ctx, x, y, barWidth - 1, barHeight, 5); // 5 شعاع گوشه‌هاست
             }
 
@@ -3659,7 +3716,7 @@ function initTelegramAudioPlayers(){
                     const barHeight = (bars[i] * 3)+4 >= canvas.height ?(canvas.height-4):(bars[i] * 3)+4;
                     const x = i * barWidth;
                     const y = centerY - (barHeight / 2); // محاسبه Y از مرکز
-                    
+
                     fillRoundedRect(ctx, x, y, barWidth - 1, barHeight, 5);
                 }
             }
@@ -3670,7 +3727,7 @@ function initTelegramAudioPlayers(){
             if (rafId) return; // قبلاً در حال اجراست، دوباره شروع نکن
             const loop = () => {
                 renderFrame();
-                if (!audio.paused && !audio.ended) {
+                if (!audioEl.paused && !audioEl.ended) {
                     rafId = requestAnimationFrame(loop);
                 } else {
                     rafId = null;
@@ -3694,34 +3751,129 @@ function initTelegramAudioPlayers(){
 
 
 
-//         async function initialAudio(){
-           
-//             if (!audio._initialized) {
+//         async function initialAudio(){
+
+//             if (!audio._initialized) {
 
 
-//                 audio._initialized = true
+//                 audio._initialized = true
 
 
-//                 audio._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-//                 audio._source = audio._audioCtx.createMediaElementSource(audio)
-//                 audio._analyser = audio._audioCtx.createAnalyser()
+//                 audio._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+//                 audio._source = audio._audioCtx.createMediaElementSource(audio)
+//                 audio._analyser = audio._audioCtx.createAnalyser()
 
 
-//                 audio._analyser.fftSize = 128
+//                 audio._analyser.fftSize = 128
 
 
-//                 audio._source.connect(audio._analyser)
-//                 audio._analyser.connect(audio._audioCtx.destination)
+//                 audio._source.connect(audio._analyser)
+//                 audio._analyser.connect(audio._audioCtx.destination)
 
 
-//                 audio._bufferLength = audio._analyser.frequencyBinCount
-//                 audio._dataArray = new Uint8Array(audio._bufferLength)
+//                 audio._bufferLength = audio._analyser.frequencyBinCount
+//                 audio._dataArray = new Uint8Array(audio._bufferLength)
+
 
 //                 draw()
 //             }
-//         }
-    })
+//         }
+    })
 }
+
+function initTelegramVideoNotes(){
+    $('.tg-video-note').not('[data-ready="true"]').each(function(){
+        const player = $(this)
+        const file_id = player.data('id')
+        const sender = player.data('sender')
+
+        const videoJq = player.find('video.tg-video-note-el').first()
+        if(videoJq.length === 0) return
+        const videoEl = videoJq[0]
+        const playBtn = player.find('.tg-video-note-play')
+        const loader = player.find('.tg-video-note-loader')
+        const time = player.find('.tg-video-note-time')
+        const progressCircle = player.find('.tg-video-note-progress circle')[0]
+
+        const circumference = 2 * Math.PI * 47
+        if(progressCircle){
+            progressCircle.style.strokeDasharray = `${circumference}`
+            progressCircle.style.strokeDashoffset = `${circumference}`
+        }
+
+        // همون باگ شناخته‌شدهٔ duration=Infinity برای وبم‌های ضبط‌شده با
+        // MediaRecorder — دقیقاً مثل initTelegramAudioPlayers
+        async function resolveDuration() {
+            if (isFinite(videoEl.duration)) return videoEl.duration
+            return await new Promise((resolve) => {
+                const onTimeUpdate = () => {
+                    videoEl.removeEventListener('timeupdate', onTimeUpdate)
+                    videoEl.currentTime = 0
+                    resolve(isFinite(videoEl.duration) ? videoEl.duration : 0)
+                }
+                videoEl.addEventListener('timeupdate', onTimeUpdate)
+                videoEl.currentTime = 1e101
+            })
+        }
+
+        function formatTime(t){
+            let m = Math.floor(t / 60)
+            let s = Math.floor(t % 60)
+            if(s < 10) s = "0" + s
+            return `${m}:${s}`
+        }
+
+        videoJq.off('loadedmetadata').on('loadedmetadata', async function(){
+            const duration = await resolveDuration()
+            time.text(formatTime(duration))
+            playBtn.removeClass('d-none')
+            loader.addClass('d-none')
+            player.attr('data-ready', 'true')
+        })
+
+        playBtn.off('click').on('click', function(){
+            // مکث بقیهٔ پیام‌های صوتی/ویدیویی در حال پخش
+            $('.tg-video-note-el').not(videoEl).each(function(){ this.pause() })
+            $('audio.voice-message').each(function(){ this.pause() })
+
+            if(videoEl.paused){
+                const dot = player.find('i.bi.bi-dot')
+                if(dot.length > 0 && sender != currentUser._id){
+                    socket.emit('voice_heared', { file_id })
+                }
+                videoEl.play().catch(err => console.log('video note play failed', err))
+            } else {
+                videoEl.pause()
+            }
+        })
+
+        videoJq.off('play').on('play', function(){
+            playBtn.addClass('d-none')
+        })
+
+        videoJq.off('pause').on('pause', function(){
+            if(!videoEl.ended) playBtn.removeClass('d-none')
+        })
+
+        videoJq.off('timeupdate').on('timeupdate', function(){
+            if(isFinite(videoEl.duration)){
+                time.text(`${formatTime(videoEl.currentTime)} / ${formatTime(videoEl.duration)}`)
+                if(progressCircle && videoEl.duration > 0){
+                    const progress = videoEl.currentTime / videoEl.duration
+                    progressCircle.style.strokeDashoffset = `${circumference * (1 - progress)}`
+                }
+            }
+        })
+
+        videoJq.off('ended').on('ended', function(){
+            videoEl.currentTime = 0
+            playBtn.removeClass('d-none')
+            time.text(formatTime(videoEl.duration))
+            if(progressCircle) progressCircle.style.strokeDashoffset = `${circumference}`
+        })
+    })
+}
+
 socket.on('update_voice_heared',async(data)=>{
     const {messageId,username,file_id} = data
     $(`#read-info-${messageId} div[user-id="${username}"]`).append('<span class="jdate animate__animated animate__heartBeat" title="Heared the voice"><i class="bi bi-ear"></i></span>')
