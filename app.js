@@ -2119,7 +2119,7 @@ function serializeCallParticipants(call) {
 // notifies every joined participant plus everyone still being rung, on
 // whichever socket/device/room they're actually on.
 function notifyCall(call, event, payload, excludeSocketId = null) {
-    const targets = new Set([...call.participants.keys(), ...call.ringingSocketIds]);
+    const targets = new Set([...call.participants.keys(), ...call.ringingSocketIds.keys()]);
     if (excludeSocketId) targets.delete(excludeSocketId);
     targets.forEach(socketId => io.to(socketId).emit(event, payload));
 }
@@ -2147,18 +2147,46 @@ function removeParticipantFromCall(callId, socketId, reason) {
     notifyCall(call, "call:participant-left", { callId, socketId, reason });
 }
 
-function joinCall(callId, socket, callback) {
+// A person is one participant, not one per device/tab. If this user is
+// already in the call from a different socket, don't silently add a
+// second tile for them — make the caller confirm switching devices first.
+function joinCall(callId, socket, callback, { forceSwitch = false } = {}) {
     const call = activeCalls.get(callId);
     if (!call) {
         callback?.({ success: false, message: "Call has ended" });
         return;
     }
+
+    const userId = socket.user._id.toString();
+    const existingByUser = serializeCallParticipants(call).find(p => p.userId === userId);
+
+    if (existingByUser && existingByUser.socketId !== socket.id) {
+        if (!forceSwitch) {
+            callback?.({ success: false, code: "already-in-call", message: "You're already in this call on another device" });
+            return;
+        }
+        const oldSocketId = existingByUser.socketId;
+        call.participants.delete(oldSocketId);
+        io.to(oldSocketId).emit("call:device-switched", { callId });
+        notifyCall(call, "call:participant-left", { callId, socketId: oldSocketId, reason: "switched-device" }, socket.id);
+    }
+
     if (call.ringTimeout) {
         clearTimeout(call.ringTimeout);
         call.ringTimeout = null;
     }
     call.status = "active";
     call.ringingSocketIds.delete(socket.id);
+
+    // This user answered on this device — their other still-ringing
+    // devices can stop ringing, they can't join separately anymore.
+    Array.from(call.ringingSocketIds.entries()).forEach(([ringSocketId, ringUserId]) => {
+        if (ringUserId === userId && ringSocketId !== socket.id) {
+            call.ringingSocketIds.delete(ringSocketId);
+            io.to(ringSocketId).emit("call:ended", { callId, reason: "answered-elsewhere" });
+        }
+    });
+
     const existingParticipants = serializeCallParticipants(call);
     const participant = buildCallParticipant(socket);
     call.participants.set(socket.id, participant);
@@ -4297,7 +4325,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
         callback?.({ iceServers: buildIceServers() });
     });
 
-    socket.on("call:invite", async ({ callType } = {}, callback) => {
+    socket.on("call:invite", async ({ callType, forceSwitch } = {}, callback) => {
         try {
             if (callType !== "audio" && callType !== "video") {
                 return callback?.({ success: false, message: "Invalid call type" });
@@ -4310,7 +4338,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             const existingCallId = roomActiveCallId.get(Device_room);
             if (existingCallId && activeCalls.has(existingCallId)) {
-                return joinCall(existingCallId, socket, callback);
+                return joinCall(existingCallId, socket, callback, { forceSwitch });
             }
 
             const room = await Room.findOne({ roomID: Device_room });
@@ -4333,14 +4361,14 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 isDirect,
                 initiatorSocketId: socket.id,
                 participants: new Map([[socket.id, initiator]]),
-                ringingSocketIds: new Set(),
+                ringingSocketIds: new Map(), // socketId => userId
                 status: "ringing",
                 ringTimeout: null,
             };
 
             otherMembers.forEach(member => {
                 member.devices?.forEach(device => {
-                    if (device.socketID) call.ringingSocketIds.add(device.socketID);
+                    if (device.socketID) call.ringingSocketIds.set(device.socketID, member._id.toString());
                 });
             });
 
@@ -4354,7 +4382,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
             // Ring every device of every other member, regardless of which
             // room (or none) they currently have open.
-            call.ringingSocketIds.forEach(socketId => {
+            call.ringingSocketIds.forEach((memberUserId, socketId) => {
                 io.to(socketId).emit("call:incoming", { callId, callType, roomID: Device_room, caller: initiator });
             });
             callback?.({ success: true, callId });
@@ -4364,9 +4392,9 @@ async function getMessagesByDate(roomID, val ,limit, type) {
         }
     });
 
-    socket.on("call:accept", ({ callId } = {}, callback) => {
+    socket.on("call:accept", ({ callId, forceSwitch } = {}, callback) => {
         if (!callId) return callback?.({ success: false, message: "Missing callId" });
-        joinCall(callId, socket, callback);
+        joinCall(callId, socket, callback, { forceSwitch });
     });
 
     socket.on("call:decline", ({ callId } = {}) => {

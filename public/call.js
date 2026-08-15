@@ -486,6 +486,21 @@
         }
     });
 
+    async function confirmDeviceSwitch() {
+        const message = 'شما هم‌اکنون در این تماس از دستگاه دیگری حضور دارید. می‌خواهید به این دستگاه سوییچ کنید؟';
+        if (typeof Swal === 'undefined') return window.confirm(message);
+        const result = await Swal.fire({
+            icon: 'question',
+            title: 'تماس در دستگاه دیگر',
+            text: message,
+            showCancelButton: true,
+            confirmButtonText: 'سوییچ به این دستگاه',
+            cancelButtonText: 'انصراف',
+            customClass: { popup: 'backdrop-blur-chat-bg userFg-color' },
+        });
+        return result.isConfirmed;
+    }
+
     // ---------------- Outgoing call ----------------
     async function startOutgoingCall(callType) {
         if (currentCall) { showToast('در حال حاضر در یک تماس هستید'); return; }
@@ -517,31 +532,38 @@
         setLocalTile(stream, callType);
         startRingtone('outgoing');
 
-        socket.emit('call:invite', { callType }, (res) => {
-            if (!res || !res.success) {
-                if (currentCall) {
-                    showToast(res?.message || 'برقراری تماس ممکن نشد');
-                    teardownCall();
-                }
+        socket.emit('call:invite', { callType }, (res) => handleInviteAck(res, callType));
+    }
+
+    async function handleInviteAck(res, callType) {
+        if (!res || !res.success) {
+            if (res?.code === 'already-in-call' && await confirmDeviceSwitch()) {
+                if (!currentCall) return;
+                socket.emit('call:invite', { callType, forceSwitch: true }, (res2) => handleInviteAck(res2, callType));
                 return;
             }
-            if (!currentCall) {
-                // Hung up locally before the server responded — tell it to leave.
-                socket.emit('call:leave', { callId: res.callId });
-                return;
+            if (currentCall) {
+                showToast(res?.message || 'برقراری تماس ممکن نشد');
+                teardownCall();
             }
-            currentCall.callId = res.callId;
-            if (res.participants && res.participants.length) {
-                // Room already had an active call — we joined it directly.
-                stopRingtone();
-                startCallTimer();
-                setOverlayTitle('');
-                res.participants.forEach(p => {
-                    currentCall.participants.set(p.socketId, p);
-                    renderRemoteTile(p);
-                });
-            }
-        });
+            return;
+        }
+        if (!currentCall) {
+            // Hung up locally before the server responded — tell it to leave.
+            socket.emit('call:leave', { callId: res.callId });
+            return;
+        }
+        currentCall.callId = res.callId;
+        if (res.participants && res.participants.length) {
+            // Room already had an active call — we joined it directly.
+            stopRingtone();
+            startCallTimer();
+            setOverlayTitle('');
+            res.participants.forEach(p => {
+                currentCall.participants.set(p.socketId, p);
+                renderRemoteTile(p);
+            });
+        }
     }
 
     // ---------------- Incoming call ----------------
@@ -598,17 +620,24 @@
         setLocalTile(stream, callType);
         startCallTimer();
 
-        socket.emit('call:accept', { callId }, (res) => {
-            if (!currentCall) return;
-            if (!res || !res.success) {
-                showToast(res?.message || 'تماس دیگر در دسترس نیست');
-                teardownCall();
+        socket.emit('call:accept', { callId }, (res) => handleAcceptAck(res, callId));
+    }
+
+    async function handleAcceptAck(res, callId) {
+        if (!currentCall) return;
+        if (!res || !res.success) {
+            if (res?.code === 'already-in-call' && await confirmDeviceSwitch()) {
+                if (!currentCall) return;
+                socket.emit('call:accept', { callId, forceSwitch: true }, (res2) => handleAcceptAck(res2, callId));
                 return;
             }
-            (res.participants || []).forEach(p => {
-                currentCall.participants.set(p.socketId, p);
-                renderRemoteTile(p);
-            });
+            showToast(res?.message || 'تماس دیگر در دسترس نیست');
+            teardownCall();
+            return;
+        }
+        (res.participants || []).forEach(p => {
+            currentCall.participants.set(p.socketId, p);
+            renderRemoteTile(p);
         });
     }
 
@@ -646,11 +675,22 @@
         }
     });
 
+    // This device was replaced because the same account confirmed
+    // switching the call to a different device — clean up locally without
+    // telling the server (it already removed us).
+    socket.on('call:device-switched', ({ callId }) => {
+        if (currentCall && currentCall.callId === callId) {
+            showToast('این تماس به دستگاه دیگری منتقل شد');
+            teardownCall();
+        }
+    });
+
     function callEndMessage(reason) {
         switch (reason) {
             case 'declined': return 'تماس رد شد';
             case 'no-answer': return 'پاسخی داده نشد';
             case 'disconnected': return 'تماس قطع شد';
+            case 'answered-elsewhere': return 'در دستگاه دیگری پاسخ داده شد';
             default: return 'تماس پایان یافت';
         }
     }
