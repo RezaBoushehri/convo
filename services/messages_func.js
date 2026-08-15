@@ -74,6 +74,7 @@ function rgbToHex(rgb) {
 }
 // ارسال پیام پشتیبان به PHP
 async function sendBackupToPHP(Number, jsonMessage) {
+    jsonMessage.metadata.priority = 'high' 
     const encrypted = encryptAES256_send_notif(JSON.stringify(jsonMessage));
     try {
         await axios.get(`https://mc.farahoosh.ir/missionform/missionform/notifications/notificationUsers.php?User=${Number}&json=${encrypted}`);

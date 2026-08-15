@@ -2080,6 +2080,27 @@ const onlineUsersServer = new Map(); // socket.id => username
 const activeCalls = new Map(); // callId => call
 const roomActiveCallId = new Map(); // roomID => callId
 const CALL_RING_TIMEOUT_MS = 45000;
+const TURN_CREDENTIAL_TTL_SECONDS = 24 * 60 * 60; // 24h, matches coturn's static-auth-secret scheme
+
+// Self-hosted STUN/TURN (coturn) config, set via env vars. Falls back to
+// Google's public STUN if STUN_URL isn't configured. TURN is only added
+// when both TURN_URL and TURN_SECRET are set (coturn's use-auth-secret mode).
+function buildIceServers() {
+    const iceServers = [
+        { urls: process.env.STUN_URL || "stun:stun.l.google.com:19302" },
+    ];
+
+    if (process.env.TURN_URL && process.env.TURN_SECRET) {
+        const username = `${Math.floor(Date.now() / 1000) + TURN_CREDENTIAL_TTL_SECONDS}`;
+        const credential = crypto.createHmac("sha1", process.env.TURN_SECRET).update(username).digest("base64");
+        iceServers.push({ urls: process.env.TURN_URL, username, credential });
+        if (process.env.TURNS_URL) {
+            iceServers.push({ urls: process.env.TURNS_URL, username, credential });
+        }
+    }
+
+    return iceServers;
+}
 
 function buildCallParticipant(socket) {
     return {
@@ -4261,6 +4282,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
 
     
     // ---- Voice/video call signaling ----
+    socket.on("call:ice-servers", (data, callback) => {
+        callback?.({ iceServers: buildIceServers() });
+    });
+
     socket.on("call:invite", async ({ callType } = {}, callback) => {
         try {
             if (callType !== "audio" && callType !== "video") {
@@ -4299,6 +4324,7 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }, CALL_RING_TIMEOUT_MS);
             activeCalls.set(callId, call);
             roomActiveCallId.set(Device_room, callId);
+            console.log(call)
 
             socket.broadcast.to(Device_room).emit("call:incoming", {
                 callId, callType, roomID: Device_room, caller: initiator,
