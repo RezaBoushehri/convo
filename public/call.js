@@ -38,6 +38,22 @@
         return `/portal/profile/img/${username}`;
     }
 
+    function videoConstraints(callType) {
+        // Prefer the front/selfie camera by default, matching typical call UX.
+        return callType === 'video' ? { width: 640, height: 480, facingMode: { ideal: 'user' } } : false;
+    }
+
+    async function resetVideoZoom(stream) {
+        const track = stream.getVideoTracks()[0];
+        if (!track || typeof track.getCapabilities !== 'function') return;
+        try {
+            const caps = track.getCapabilities();
+            if (caps.zoom) {
+                await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min ?? 1 }] });
+            }
+        } catch (e) { /* zoom control not supported on this device/browser */ }
+    }
+
     function showToast(message) {
         if (typeof refToast === 'function') {
             refToast({ title: 'تماس', message });
@@ -109,7 +125,9 @@
                 <span id="callOverlayTitle"></span>
                 <span id="callOverlayTimer" class="call-timer d-none">00:00</span>
             </div>
-            <div id="callTilesGrid" class="call-tiles-grid"></div>
+            <div id="callStage" class="call-stage">
+                <div id="callRemoteGrid" class="call-tiles-grid"></div>
+            </div>
             <div class="call-controls">
                 <button type="button" id="callMuteBtn" class="call-btn" title="قطع/وصل میکروفون">
                     <i class="bi bi-mic-fill"></i>
@@ -174,43 +192,70 @@
     }
 
     // ---------------- Tiles ----------------
-    function buildTileElement(socketId, name, callType) {
+    function buildTileElement(socketId, name, username, callType) {
+        const isLocal = socketId === 'local';
         const tile = document.createElement('div');
-        tile.className = 'call-tile' + (callType !== 'video' ? ' audio-only' : '');
+        tile.className = 'call-tile' + (callType !== 'video' ? ' audio-only' : '') + (isLocal ? ' call-local-pip' : '');
         tile.dataset.socketId = socketId;
         tile.innerHTML = `
-            <video autoplay playsinline></video>
-            <div class="call-tile-avatar"><i class="bi bi-person-fill"></i></div>
+            <video autoplay playsinline${isLocal ? ' muted' : ''}></video>
+            <div class="call-tile-avatar"><img src="${avatarUrl(username)}" alt=""></div>
             <div class="call-tile-name">${safeText(name)}</div>
-            <div class="call-tile-status">${socketId === 'local' ? '' : 'در حال اتصال...'}</div>
+            <div class="call-tile-status">${isLocal ? '' : 'در حال اتصال...'}</div>
+            ${isLocal
+                ? `<div class="call-pip-resize-handle" title="تغییر اندازه"></div>`
+                : `<button type="button" class="call-tile-mute-btn" title="بی‌صدا کردن (فقط برای شما)"><i class="bi bi-volume-up-fill"></i></button>`
+            }
         `;
         return tile;
     }
 
     function setLocalTile(stream, callType) {
-        const grid = document.getElementById('callTilesGrid');
-        let tile = grid.querySelector('[data-socket-id="local"]');
+        const stage = document.getElementById('callStage');
+        let tile = stage.querySelector('[data-socket-id="local"]');
         if (!tile) {
-            tile = buildTileElement('local', 'شما', callType);
-            grid.appendChild(tile);
+            tile = buildTileElement('local', 'شما', (typeof currentUser !== 'undefined' && currentUser?.username) || '', callType);
+            stage.appendChild(tile);
+            makePipDraggable(tile);
+            makePipResizable(tile);
         }
         const video = tile.querySelector('video');
         video.srcObject = stream;
         video.muted = true;
         tile.classList.toggle('audio-only', callType !== 'video');
+        applyLocalMirror(tile, stream);
+    }
+
+    function applyLocalMirror(tile, stream) {
+        const videoTrack = stream.getVideoTracks()[0];
+        const facingMode = videoTrack?.getSettings?.().facingMode;
+        // Mirror the front/user-facing camera (the common case), not the back camera.
+        tile.classList.toggle('mirrored', facingMode !== 'environment');
     }
 
     function renderRemoteTile(participant) {
-        const grid = document.getElementById('callTilesGrid');
+        const grid = document.getElementById('callRemoteGrid');
         let tile = grid.querySelector(`[data-socket-id="${participant.socketId}"]`);
         if (!tile) {
-            tile = buildTileElement(participant.socketId, participant.fullName, currentCall.callType);
+            tile = buildTileElement(participant.socketId, participant.fullName, participant.username, currentCall.callType);
             grid.appendChild(tile);
+            const muteBtn = tile.querySelector('.call-tile-mute-btn');
+            if (muteBtn) muteBtn.addEventListener('click', () => toggleRemoteMute(participant.socketId));
         }
     }
 
+    function toggleRemoteMute(socketId) {
+        const tile = document.querySelector(`#callRemoteGrid [data-socket-id="${socketId}"]`);
+        if (!tile) return;
+        const video = tile.querySelector('video');
+        video.muted = !video.muted;
+        const btn = tile.querySelector('.call-tile-mute-btn');
+        btn.classList.toggle('active', video.muted);
+        btn.querySelector('i').className = video.muted ? 'bi bi-volume-mute-fill' : 'bi bi-volume-up-fill';
+    }
+
     function setRemoteTileStream(socketId, stream) {
-        const tile = document.querySelector(`#callTilesGrid [data-socket-id="${socketId}"]`);
+        const tile = document.querySelector(`#callRemoteGrid [data-socket-id="${socketId}"]`);
         if (!tile) return;
         const video = tile.querySelector('video');
         video.srcObject = stream;
@@ -219,7 +264,7 @@
     }
 
     function setTileConnectionState(socketId, state) {
-        const tile = document.querySelector(`#callTilesGrid [data-socket-id="${socketId}"]`);
+        const tile = document.querySelector(`#callRemoteGrid [data-socket-id="${socketId}"]`);
         if (!tile) return;
         const status = tile.querySelector('.call-tile-status');
         if (!status) return;
@@ -230,15 +275,90 @@
     }
 
     function removeTile(socketId) {
-        const tile = document.querySelector(`#callTilesGrid [data-socket-id="${socketId}"]`);
+        const tile = document.querySelector(`#callRemoteGrid [data-socket-id="${socketId}"]`);
         if (tile) tile.remove();
+    }
+
+    // ---------------- Local PiP: draggable + resizable ----------------
+    function makePipDraggable(tile) {
+        let dragging = false;
+        let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+        tile.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.call-pip-resize-handle')) return;
+            const stage = document.getElementById('callStage');
+            const stageRect = stage.getBoundingClientRect();
+            const tileRect = tile.getBoundingClientRect();
+            dragging = true;
+            tile.setPointerCapture(e.pointerId);
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = tileRect.left - stageRect.left;
+            startTop = tileRect.top - stageRect.top;
+            tile.classList.add('dragging');
+        });
+
+        tile.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const stage = document.getElementById('callStage');
+            const stageRect = stage.getBoundingClientRect();
+            const tileRect = tile.getBoundingClientRect();
+            let left = startLeft + (e.clientX - startX);
+            let top = startTop + (e.clientY - startY);
+            left = Math.max(0, Math.min(left, stageRect.width - tileRect.width));
+            top = Math.max(0, Math.min(top, stageRect.height - tileRect.height));
+            tile.style.left = `${left}px`;
+            tile.style.top = `${top}px`;
+            tile.style.right = 'auto';
+            tile.style.bottom = 'auto';
+        });
+
+        const endDrag = (e) => {
+            if (!dragging) return;
+            dragging = false;
+            tile.classList.remove('dragging');
+            try { tile.releasePointerCapture(e.pointerId); } catch (err) { /* noop */ }
+        };
+        tile.addEventListener('pointerup', endDrag);
+        tile.addEventListener('pointercancel', endDrag);
+    }
+
+    function makePipResizable(tile) {
+        const handle = tile.querySelector('.call-pip-resize-handle');
+        if (!handle) return;
+        let resizing = false;
+        let startX = 0, startWidth = 0;
+        const MIN_WIDTH = 90, MAX_WIDTH = 260;
+
+        handle.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            resizing = true;
+            handle.setPointerCapture(e.pointerId);
+            startX = e.clientX;
+            startWidth = tile.getBoundingClientRect().width;
+        });
+
+        handle.addEventListener('pointermove', (e) => {
+            if (!resizing) return;
+            e.stopPropagation();
+            const width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth + (e.clientX - startX)));
+            tile.style.width = `${width}px`;
+        });
+
+        const endResize = (e) => {
+            if (!resizing) return;
+            resizing = false;
+            try { handle.releasePointerCapture(e.pointerId); } catch (err) { /* noop */ }
+        };
+        handle.addEventListener('pointerup', endResize);
+        handle.addEventListener('pointercancel', endResize);
     }
 
     // ---------------- Overlay open/close ----------------
     function openCallOverlay() {
         buildOverlayDom();
         const overlay = document.getElementById('callOverlay');
-        document.getElementById('callTilesGrid').innerHTML = '';
+        document.getElementById('callRemoteGrid').innerHTML = '';
         overlay.classList.remove('d-none');
         document.getElementById('callCameraBtn').classList.toggle('d-none', currentCall.callType !== 'video');
         updateMuteBtn(false);
@@ -250,7 +370,9 @@
         const overlay = document.getElementById('callOverlay');
         if (!overlay) return;
         overlay.classList.add('d-none');
-        document.getElementById('callTilesGrid').innerHTML = '';
+        document.getElementById('callRemoteGrid').innerHTML = '';
+        const stage = document.getElementById('callStage');
+        stage.querySelectorAll('.call-local-pip').forEach(el => el.remove());
     }
 
     function setOverlayTitle(text) {
@@ -363,14 +485,12 @@
         const iceServersReady = refreshIceServers();
         let stream;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
-                video: callType === 'video' ? { width: 640, height: 480 } : false,
-            });
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: videoConstraints(callType) });
         } catch (e) {
             showToast('دسترسی به میکروفون/دوربین امکان‌پذیر نیست');
             return;
         }
+        await resetVideoZoom(stream);
         await iceServersReady;
 
         currentCall = {
@@ -448,13 +568,14 @@
         const iceServersReady = refreshIceServers();
         let stream;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callType === 'video' });
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: videoConstraints(callType) });
         } catch (e) {
             showToast('دسترسی به میکروفون/دوربین امکان‌پذیر نیست');
             socket.emit('call:decline', { callId });
             incomingCall = null;
             return;
         }
+        await resetVideoZoom(stream);
         await iceServersReady;
 
         currentCall = {
