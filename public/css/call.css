@@ -1,5 +1,58 @@
 /* Voice / video call UI */
 
+/* Liquid glass: an Apple-style frosted surface — vibrancy blur+saturate,
+   a bright rim highlight, and a soft specular sheen, instead of flat
+   blur+tint. The sheen is a ::before overlay clipped to the element's own
+   rounded bounds, so it's only added to leaf chrome (buttons, badges,
+   toasts) — anything holding a popup (e.g. the header pill's dropdown)
+   gets the base surface without the clipping sheen so its menu isn't cut
+   off. Applies on top of (and overrides) the legacy .backdrop-blur-chat-bg
+   look wherever both classes land on the same element. */
+.room-header-pill,
+.room-header-back-btn,
+.call-trigger-btn,
+.incoming-call-toast,
+.call-tile-name,
+.call-tile-status,
+.call-tile-mute-btn,
+.call-btn,
+#roomHeaderActions .dropdown-menu {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.room-header-back-btn,
+.call-trigger-btn,
+.incoming-call-toast,
+.call-tile-name,
+.call-tile-status,
+.call-tile-mute-btn,
+.call-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.room-header-back-btn::before,
+.call-trigger-btn::before,
+.incoming-call-toast::before,
+.call-tile-name::before,
+.call-tile-status::before,
+.call-tile-mute-btn::before,
+.call-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 30%);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+}
+
 .call-trigger-btn {
     width: 42px;
     height: 42px;
@@ -21,6 +74,7 @@
 }
 
 .room-header-pill {
+    position: relative;
     border-radius: 999px;
     padding: 4px 8px 4px 4px;
     min-width: 0;
@@ -68,9 +122,6 @@
     gap: 14px;
     padding: 12px 18px;
     border-radius: 16px;
-    background: rgba(20, 22, 28, 0.92);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
     color: #fff;
     animation: callToastIn 0.25s ease-out;
     max-width: 92vw;
@@ -204,7 +255,6 @@
     bottom: 8px;
     left: 10px;
     font-size: 0.85rem;
-    background: rgba(0, 0, 0, 0.45);
     padding: 2px 10px;
     border-radius: 20px;
     z-index: 1;
@@ -215,7 +265,6 @@
     top: 8px;
     right: 10px;
     font-size: 0.75rem;
-    background: rgba(0, 0, 0, 0.45);
     padding: 2px 10px;
     border-radius: 20px;
     z-index: 1;
@@ -267,14 +316,11 @@
 }
 
 .call-tile-mute-btn {
-    position: absolute;
     top: 8px;
     left: 10px;
     width: 30px;
     height: 30px;
-    border: none;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.45);
     color: #fff;
     display: flex;
     align-items: center;
@@ -299,8 +345,6 @@
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    border: none;
-    background: rgba(255, 255, 255, 0.12);
     color: #fff;
     font-size: 1.3rem;
     display: flex;
@@ -310,7 +354,7 @@
 }
 
 .call-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.28);
 }
 
 .call-btn:active {
@@ -318,7 +362,7 @@
 }
 
 .call-btn.active {
-    background: rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.4);
 }
 
 .call-btn-danger {
