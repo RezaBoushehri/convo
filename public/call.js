@@ -9,12 +9,20 @@
         return;
     }
 
-    // Public STUN only for now. Add TURN entries here (with credentials) for
-    // reliable connectivity behind restrictive/symmetric NATs.
-    const ICE_SERVERS = [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-    ];
+    // ICE servers come from the server (public STUN by default, or your own
+    // self-hosted coturn if STUN_URL/TURN_URL/TURN_SECRET are configured —
+    // see call:ice-servers in app.js). Refreshed before each call so TURN
+    // credentials (which expire) stay valid.
+    let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]; // fallback until the server responds
+
+    function refreshIceServers() {
+        return new Promise((resolve) => {
+            socket.emit('call:ice-servers', {}, (res) => {
+                if (res?.iceServers?.length) iceServers = res.iceServers;
+                resolve(iceServers);
+            });
+        });
+    }
 
     let currentCall = null;
     // currentCall = { callId, callType, roomID, isInitiator, localStream,
@@ -293,7 +301,7 @@
 
     // ---------------- WebRTC peer management ----------------
     function createPeerConnection(remoteSocketId) {
-        const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+        const pc = new RTCPeerConnection({ iceServers });
         currentCall.peers.set(remoteSocketId, pc);
         currentCall.localStream.getTracks().forEach(track => pc.addTrack(track, currentCall.localStream));
 
@@ -352,6 +360,7 @@
         if (incomingCall) { showToast('یک تماس ورودی در انتظار پاسخ است'); return; }
         if (typeof roomID === 'undefined' || !roomID) { showToast('ابتدا وارد یک گفتگو شوید'); return; }
 
+        const iceServersReady = refreshIceServers();
         let stream;
         try {
             stream = await navigator.mediaDevices.getUserMedia({
@@ -362,6 +371,7 @@
             showToast('دسترسی به میکروفون/دوربین امکان‌پذیر نیست');
             return;
         }
+        await iceServersReady;
 
         currentCall = {
             callId: null,
@@ -435,6 +445,7 @@
         stopRingtone();
         hideIncomingCallUI();
 
+        const iceServersReady = refreshIceServers();
         let stream;
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callType === 'video' });
@@ -444,6 +455,7 @@
             incomingCall = null;
             return;
         }
+        await iceServersReady;
 
         currentCall = {
             callId, callType, roomID: incomingCall.roomID,
@@ -564,6 +576,8 @@
     socket.on('leftRoom', () => {
         document.querySelectorAll('.call-trigger-group').forEach(el => el.remove());
     });
+    socket.on('connect', refreshIceServers);
+    refreshIceServers(); // warm up immediately in case connect already fired
 
     buildOverlayDom();
 })();
