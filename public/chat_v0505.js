@@ -575,161 +575,98 @@ function getForwardInfo(messageId) {
     let stream, mediaRecorder, startTime, timerInterval;
     let chunks = [];
 
-    // ---------- توابع کمکی ----------
-    function createBtn(id, iconClass, title) {
-        // دکمه‌ای با Bootstrap Icon می‌سازد
-        return $(`
-            <button id="${id}" type="button" class="btn btn-outline-secondary btn-color "
-                    data-bs-toggle="tooltip" title="${title}">
-                <i class="${iconClass}"></i>
-            </button>
-        `);
-    }
-
     function updateTimer(){
         const elapsed = Date.now()-startTime
         const minutes = Math.floor(elapsed/60000)
         const seconds = Math.floor((elapsed% 60000)/ 1000)
-        const centi = Math.floor((elapsed% 1000)/ 10)
-        
         const mm = String(minutes).padStart(2,'0')
         const ss = String(seconds).padStart(2,'0')
-        const cc = String(centi).padStart(2,'0')
-        $('#recordStatus #timer').text(`${mm}:${ss}.${cc}`)
+        if (typeof window.onRecordTimerTick === 'function') window.onRecordTimerTick(`${mm}:${ss}`)
     }
-    // ---------- شروع ضبط ----------
-    $('#chat_windowFooter #recordBtn').on('click', async () => {
-        // مخفی کردن بخش متن و تغییر ظاهر دکمه‌ها
-        $('#chat_windowFooter #editable-message-text')
-           .fadeOut()
-        $('#recordVideoBtn').prop('disabled', true)
 
-        // گرفتن استریم میکروفن
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // ---------- شروع ضبط صدا (با نگه‌داشتن دکمه، از recorder.js صدا زده می‌شه) ----------
+    window.startVoiceRecording = async function () {
+        $('#chat_windowFooter #editable-message-text').fadeOut()
+
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            $('#chat_windowFooter #editable-message-text').fadeIn()
+            return false
+        }
+
         mediaRecorder = new MediaRecorder(stream);
         chunks = [];
-
         mediaRecorder.ondataavailable = e => chunks.push(e.data);
-
-        
-
         mediaRecorder.start();
-        if(mediaRecorder){
-            // Emit "typing" event with correct property name
-            socket.emit("typing", { 
-                name: name.textContent.trim(), // Replace with your actual username variable
-                username: typeUsername, // Replace with your actual username variable
-                status: 'voice_record',
-                isTyping: true 
-            });
-        }
-        // ---------- UI ضبط ----------
-        // دکمه‌های Pause و Cancel را می‌سازیم
-        const $pauseBtn   = createBtn('pauseBtn',   'bi bi-pause-fill',   'مکث');
-        const $cancelBtn  = createBtn('cancelBtn',  'bi bi-x-circle',    'لغو');
 
-        $('#recordControls').empty().append($pauseBtn, $cancelBtn);
-        $('#recordStatus').removeClass('d-none').addClass('d-flex')
+        socket.emit("typing", {
+            name: name.textContent.trim(),
+            username: typeUsername,
+            status: 'voice_record',
+            isTyping: true
+        });
+
         startTime = Date.now()
-        timerInterval = setInterval(updateTimer, 10);
-        // حالت اولیه دکمه‌ها
-        $('#chat_windowFooter #recordBtn')
-            .prop('disabled', true)
-            .fadeOut()
-            .addClass('animate__fadeOutLeft')
-            .removeClass('animate__fadeInLeft');
+        timerInterval = setInterval(updateTimer, 200);
+        $('#chat_windowFooter .message_btn').addClass('d-none');
+        return true
+    }
 
-        $('#chat_windowFooter #stopBtn')
-            .prop('disabled', false)
-            .removeClass('animate__fadeOutRight d-none')
-            .addClass('animate__fadeInRight')
-            .show();
+    // ---------- توقف ضبط صدا؛ send=false یعنی لغو (بدون ارسال) ----------
+    window.stopVoiceRecording = function (send) {
+        return new Promise((resolve) => {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                releaseVoiceStream()
+                resolve()
+                return
+            }
+            mediaRecorder.onstop = () => {
+                const recordedChunks = chunks
+                chunks = []
+                releaseVoiceStream()
 
-        $('#chat_windowFooter .message_btn')
-            .addClass('d-none');
-    });
+                if (send && recordedChunks.length) {
+                    const replyBox = document.getElementById('replyBox');
+                    const quote = replyBox.getAttribute('reply-id') || null;
+                    let text = message.innerHTML.trim();
+                    text = DOMPurify.sanitize(text, {
+                        ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+                        ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type']
+                    });
 
-    // ---------- توقف ضبط (دکمه Stop) ----------
-    $('#chat_windowFooter #stopBtn').on('click', () => {
-        mediaRecorder.onstop = () => {
-            const replyBox = document.getElementById('replyBox');
-            const quote = replyBox.getAttribute('reply-id') || null;
-            let text = message.innerHTML.trim();
-            text = DOMPurify.sanitize(text, {
-                ALLOWED_TAGS: ['table','thead','tbody','tr','td','th','br'],
-                ALLOWED_ATTR: ['style','data-excel-formula',
-                            'data-excel-value','data-excel-type']
-            });
-            // (در صورت نیاز به پردازش data‑excel‑formula همانند کد قبلی)
-
-            const blob = new Blob(chunks, { type: 'audio/webm' });
-            chunks = [];
-
-            const reader = new FileReader();
-            reader.onload = () => voice_upload(text, quote, blob);
-            reader.readAsArrayBuffer(blob);
-        };
-        stopRecording();
-
-    });
-
-    // ---------- Pause ----------
-    $('#recordControls').on('click', '#pauseBtn', () => {
-        if (!mediaRecorder) return;
-
-        if (mediaRecorder.state === 'recording') {
-            mediaRecorder.pause();
-            // آیکون را به Play تغییر می‌دهیم
-            $('#pauseBtn i')
-                .removeClass('bi-pause-fill')
-                .addClass('bi-play-fill')
-                .parent()
-                .attr('title', 'ادامه');
-            clearInterval(timerInterval)
-        } else if (mediaRecorder.state === 'paused') {
-            mediaRecorder.resume();
-            $('#pauseBtn i')
-                .removeClass('bi-play-fill')
-                .addClass('bi-pause-fill')
-                .parent()
-                .attr('title', 'مکث');
-            timerInterval = setInterval(updateTimer, 10);
-
-        }
-    });
-
-    // ---------- Cancel ----------
-    $('#recordControls').on('click', '#cancelBtn', () => {  
-        stopRecording()
-    });
-
-    // ---------- تابع مشترک برای توقف (Stop یا Cancel) ----------
-    function stopRecording() {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();   // onstop اجرا می‌شود
-            socket.emit("typing", { 
-                name: name.textContent.trim(), // Replace with your actual username variable
-                username: typeUsername, // Replace with your actual username variable
+                    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.onload = () => { voice_upload(text, quote, blob); resolve() };
+                    reader.readAsArrayBuffer(blob);
+                } else {
+                    resolve()
+                }
+            };
+            mediaRecorder.stop();
+            socket.emit("typing", {
+                name: name.textContent.trim(),
+                username: typeUsername,
                 status: 'voice_record',
-                isTyping: false 
+                isTyping: false
             });
-        }
+        })
+    }
+
+    function releaseVoiceStream() {
         if (stream) {
             stream.getTracks().forEach(t => t.stop());
             stream = null;
         }
-        // Emit "typing" event with correct property name
-        
-        timer_reset()
-        resetUI();
+        if (timerInterval) {
+            clearInterval(timerInterval)
+            timerInterval = null
+        }
+        resetVoiceUI()
     }
-    function timer_reset(){
-        $('#recordStatus #Timer').text('00:00.00')
-        $('#recordStatus').removeClass('d-flex').addClass('d-none')
-        timerInterval = null
-    }
+
     // ---------- بازگرداندن UI به حالت اولیه ----------
-    function resetUI() {
+    function resetVoiceUI() {
         checkShowSendBtn()
 
         $('#chat_windowFooter #editable-message-text')
@@ -738,21 +675,6 @@ function getForwardInfo(messageId) {
             .removeClass('d-none animate__fadeOut')
             .addClass('animate__animated animate__fadeIn')
             .show();
-
-        $('#chat_windowFooter #recordBtn')
-            .prop('disabled', false)
-            .removeClass('animate__fadeOutLeft')
-            .addClass('animate__fadeInLeft')
-            .fadeIn();
-        $('#recordVideoBtn').prop('disabled', false)
-
-        $('#chat_windowFooter #stopBtn')
-            .prop('disabled', true)
-            .removeClass('animate__fadeInLeft')
-            .addClass('animate__fadeOutRight')
-            .fadeOut()
-
-        $('#recordControls').empty();   // حذف دکمه‌های Pause/Cancel
     }
 
     function createUploadUI(username) {

@@ -1,7 +1,8 @@
 // Telegram-style round video messages: record + upload.
-// Depends on globals from chat_v0505.js (`socket`, `currentUser`, `roomID`,
-// `message`, `clearInputFields`, `sendMessage`) and jQuery. Loaded after
-// chat_v0505.js.
+// Depends on globals from chat_v0505.js (`socket`, `currentUser`, `message`,
+// `clearInputFields`, `sendMessage`) and jQuery. Recording is started/
+// stopped by recorder.js's press-and-hold gesture controller, not by a
+// click handler here. Loaded after chat_v0505.js.
 (function () {
     'use strict';
 
@@ -16,48 +17,17 @@
     let startTime = 0;
     let timerInterval = null;
 
-    function buildOverlayDom() {
-        if (document.getElementById('videoNoteRecorder')) return;
-
-        const overlay = document.createElement('div');
-        overlay.id = 'videoNoteRecorder';
-        overlay.className = 'video-note-overlay d-none';
-        overlay.innerHTML = `
-            <div class="video-note-circle-wrap">
-                <video id="videoNotePreview" autoplay muted playsinline class="video-note-preview"></video>
-                <svg class="video-note-ring" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="48"></circle>
-                </svg>
-            </div>
-            <div class="video-note-timer" id="videoNoteTimer">00:00</div>
-            <div class="video-note-controls">
-                <button type="button" id="videoNoteCancelBtn" class="call-btn call-btn-danger" title="لغو">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-                <button type="button" id="videoNoteStopBtn" class="call-btn call-btn-success" title="ارسال">
-                    <i class="bi bi-check-lg"></i>
-                </button>
-            </div>
-        `;
-        document.body.appendChild(overlay);
-
-        document.getElementById('videoNoteCancelBtn').addEventListener('click', () => stopRecording(false));
-        document.getElementById('videoNoteStopBtn').addEventListener('click', () => stopRecording(true));
-    }
-
     function updateTimer() {
         const elapsed = Date.now() - startTime;
         const minutes = Math.floor(elapsed / 60000);
         const seconds = Math.floor((elapsed % 60000) / 1000);
         const mm = String(minutes).padStart(2, '0');
         const ss = String(seconds).padStart(2, '0');
-        const el = document.getElementById('videoNoteTimer');
-        if (el) el.textContent = `${mm}:${ss}`;
+        if (typeof window.onRecordTimerTick === 'function') window.onRecordTimerTick(`${mm}:${ss}`);
     }
 
-    async function startRecording() {
-        if (mediaRecorder) return; // already recording
-
+    // Started when the record button is held down in video mode.
+    window.startVideoRecording = async function () {
         try {
             stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
@@ -65,16 +35,17 @@
             });
         } catch (e) {
             if (typeof showAlert === 'function') showAlert('دسترسی به دوربین/میکروفون امکان‌پذیر نیست', 'danger');
-            return;
+            return false;
         }
 
-        buildOverlayDom();
-        const overlay = document.getElementById('videoNoteRecorder');
-        const preview = document.getElementById('videoNotePreview');
-        preview.srcObject = stream;
-        overlay.classList.remove('d-none');
+        $('#chat_windowFooter #editable-message-text').fadeOut();
+        $('#chat_windowFooter .message_btn').addClass('d-none');
 
-        $('#chat_windowFooter #recordBtn').prop('disabled', true);
+        const preview = document.getElementById('videoPreviewBubble');
+        if (preview) {
+            preview.srcObject = stream;
+            preview.classList.remove('d-none');
+        }
 
         chunks = [];
         mediaRecorder = new MediaRecorder(stream);
@@ -91,9 +62,10 @@
             status: 'video_record',
             isTyping: true,
         });
-    }
+        return true;
+    };
 
-    function releaseStream() {
+    function releaseVideoStream() {
         if (stream) {
             stream.getTracks().forEach(t => t.stop());
             stream = null;
@@ -102,11 +74,18 @@
             clearInterval(timerInterval);
             timerInterval = null;
         }
-        $('#chat_windowFooter #recordBtn').prop('disabled', false);
-        const overlay = document.getElementById('videoNoteRecorder');
-        if (overlay) overlay.classList.add('d-none');
-        const preview = document.getElementById('videoNotePreview');
-        if (preview) preview.srcObject = null;
+        const preview = document.getElementById('videoPreviewBubble');
+        if (preview) {
+            preview.classList.add('d-none');
+            preview.srcObject = null;
+        }
+
+        if (typeof checkShowSendBtn === 'function') checkShowSendBtn();
+        $('#chat_windowFooter #editable-message-text').fadeIn();
+        $('#chat_windowFooter .message_btn')
+            .removeClass('d-none animate__fadeOut')
+            .addClass('animate__animated animate__fadeIn')
+            .show();
 
         socket.emit('typing', {
             name: (typeof name !== 'undefined' && name?.textContent?.trim()) || '',
@@ -116,22 +95,29 @@
         });
     }
 
-    function stopRecording(send) {
-        if (!mediaRecorder) { releaseStream(); return; }
-        const recorder = mediaRecorder;
-        mediaRecorder = null;
-
-        recorder.onstop = () => {
-            releaseStream();
-            if (send && chunks.length) {
-                const blob = new Blob(chunks, { type: 'video/webm' });
-                chunks = [];
-                videoNote_upload(blob);
+    // send=false means discard (cancel) instead of uploading.
+    window.stopVideoRecording = function (send) {
+        return new Promise((resolve) => {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                releaseVideoStream();
+                resolve();
+                return;
             }
-            chunks = [];
-        };
-        if (recorder.state !== 'inactive') recorder.stop();
-    }
+            const recorder = mediaRecorder;
+            mediaRecorder = null;
+
+            recorder.onstop = () => {
+                const recordedChunks = chunks;
+                chunks = [];
+                releaseVideoStream();
+                if (send && recordedChunks.length) {
+                    videoNote_upload(new Blob(recordedChunks, { type: 'video/webm' }));
+                }
+                resolve();
+            };
+            recorder.stop();
+        });
+    };
 
     function videoNote_upload(blob) {
         if (!blob) return;
@@ -188,14 +174,4 @@
 
         xhr.send(formData);
     }
-
-    document.getElementById('recordVideoBtn')?.addEventListener('click', () => {
-        if (mediaRecorder) {
-            stopRecording(true);
-        } else {
-            startRecording();
-        }
-    });
-
-    buildOverlayDom();
 })();

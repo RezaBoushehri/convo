@@ -1,0 +1,183 @@
+/* Press-and-hold voice/video recorder (Telegram-style): the record button,
+   slide-to-cancel / lock gesture hints, and their animations. */
+
+#recordWrap {
+    touch-action: none;
+}
+
+.record-main-btn {
+    width: 54px;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.record-main-btn.record-active {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 8px rgba(220, 53, 69, 0.18);
+    animation: record-pulse 1.4s ease-in-out infinite;
+}
+
+.record-main-btn.record-locking {
+    animation: none;
+    box-shadow: 0 0 0 6px rgba(13, 110, 253, 0.2);
+}
+
+.record-main-btn.record-canceling {
+    transform: scale(0.5) translateX(-40px);
+    opacity: 0;
+}
+
+.record-main-btn.record-mode-flip {
+    animation: record-mode-flip 0.2s ease;
+}
+
+@keyframes record-pulse {
+    0%, 100% { box-shadow: 0 0 0 8px rgba(220, 53, 69, 0.18); }
+    50% { box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.3); }
+}
+
+@keyframes record-mode-flip {
+    0% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(0.85) rotate(-15deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+
+/* ---- Slide-to-cancel + timer, floating beside the button ---- */
+.slide-to-cancel-hint {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 8px);
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: var(--user-fg-color, #ccc);
+    opacity: 0.85;
+    pointer-events: none;
+    transition: opacity 0.1s linear;
+}
+
+.record-timer-badge {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 130px);
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+    pointer-events: none;
+}
+
+.record-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #dc3545;
+    animation: record-dot-blink 1s ease-in-out infinite;
+}
+
+@keyframes record-dot-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+}
+
+/* ---- Lock hint + video preview, floating above the button ---- */
+.record-lock-hint {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 6px 8px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px) saturate(180%);
+    -webkit-backdrop-filter: blur(10px) saturate(180%);
+    color: #fff;
+    pointer-events: none;
+    transition: transform 0.1s linear;
+}
+
+.record-lock-chevron {
+    font-size: 0.7rem;
+    animation: record-chevron-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes record-chevron-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+.is-locked .record-lock-hint {
+    background: rgba(13, 110, 253, 0.35);
+}
+
+.video-preview-bubble {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 46px);
+    transform: translateX(-50%);
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    z-index: 3;
+    transform-origin: center bottom;
+}
+.video-preview-bubble:not(.d-none) {
+    animation: record-bubble-in 0.2s ease;
+}
+
+@keyframes record-bubble-in {
+    from { transform: translateX(-50%) scale(0.6); opacity: 0; }
+    to { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+/* ---- Locked recording controls (cancel / send), beside the button ---- */
+.record-locked-controls {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 8px);
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: record-bubble-in 0.15s ease;
+}
+
+.record-locked-controls .call-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+}
+
+@media (max-width: 576px) {
+    .slide-to-cancel-hint span {
+        display: none; /* keep just the chevron on very small screens */
+    }
+    .record-timer-badge {
+        right: calc(100% + 40px);
+    }
+    .video-preview-bubble {
+        width: 90px;
+        height: 90px;
+    }
+}
