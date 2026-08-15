@@ -1453,35 +1453,36 @@ socket.on('member_update',(data)=>{
     })
 
 })
+const user_status_badge = {
+    'online': ` <span class="badge border border-2 border-success text-success shadow-sm col-auto m-auto" title="Online">
+                        <span class="online-dot" title="Online"></span>
+                        <i class="">Online</i>
+                    </span>
+                    `,
+    'sleep': ` <span class="badge border border-2 border-warning text-warning shadow-sm col-auto m-auto" title="Sleeping">
+                        <i class="bi bi-moon-stars-fill text-warning"> Sleeping</i>
+                    </span>
+                    `,
+    'offline': ` <span class="badge border border-2 border-secondary text-muted shadow-sm col-auto m-auto" title="Offline">
+                        <span class="offline-dot" title="Offline"></span>
+                        <i class="text-muted">Offline</i>
+                    </span>
+                    `
+};
+
 function update_member_room_info_modal(member_data,members){
     if(!member_data || !members) return
     const $membersList = $('#roomInfo_modal #membersList')
     const $roomInfoForm = $('#roomInfo_modal #roomInfoForm')
 
-    
+
     $membersList.html('')
     members.map(mem=>{
         const mem_data = member_data?.filter(m=> m.id == mem._id)[0]
         console.log("mem_data",mem_data)
         const is_admin = $roomInfoForm.find('[name="admin"]').data('username') == mem.username
         const is_User_admin = $roomInfoForm.find('[name="admin"]').data('username') == currentUser.username || mem.username== '09173121943'
-        const is_self = mem.username== currentUser.username 
-        const user_status_badge={
-        'online':` <span class="badge border border-2 border-success text-success shadow-sm col-auto m-auto" title="Online">
-                            <span class="online-dot" title="Online"></span>
-                            <i class="">Online</i>
-                        </span>
-                        `,
-        'sleep':` <span class="badge border border-2 border-warning text-warning shadow-sm col-auto m-auto" title="Sleeping">
-                            <i class="bi bi-moon-stars-fill text-warning"> Sleeping</i>
-                        </span>
-                        `,
-        'offline':` <span class="badge border border-2 border-secondary text-muted shadow-sm col-auto m-auto" title="Offline">
-                            <span class="offline-dot" title="Offline"></span>
-                            <i class="text-muted">Offline</i>
-                        </span>
-                        `
-    }
+        const is_self = mem.username== currentUser.username
         const show_joinLeave_span=(status)=>{
             if(status == 'join'){
                 return`
@@ -1586,12 +1587,12 @@ function update_member_room_info_modal(member_data,members){
                                         <i class="bi bi-star-fill"> Admin</i>
                                     </span>
                                     `:''}
-                                    ${mem?.status ?user_status_badge[mem?.status]:''}
+                                    <span class="user-status" data-phone="${mem.username}">${mem?.status ? user_status_badge[mem?.status] : ''}</span>
                                     ${admin_access()}             
                                 </div>
                             </li>   `)
     })
-   
+    update_user_status();
 }
 function room_settings_initialize(setting){
     // const $membersList = $('#roomInfo_modal #membersList')
@@ -1695,14 +1696,14 @@ socket.on("joined", (data) => {
                 <div class=" d-flex col backdrop-blur-chat-bg shadow-sm border border-1 border-secondary text-start pe-3  rounded-5 border" style="padding:1px;">
                     <div class="position-relative col-auto">
                         <img src="/portal/profile/img/${data.otherUser.username}" alt="Avatar" class=" profile-avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
-                        <span class="status-dot ${data.otherUser.status} position-absolute bottom-0 end-0"></span>
+                        <span class="status-dot ${data.otherUser.status} position-absolute bottom-0 end-0" data-phone="${data.otherUser.username}"></span>
                     </div>
                     <div class="d-flex ps-2 col align-items-center gap-2">
                         <div class="row col-12">
                             <strong class="col-auto">${escapeHtml(data.otherUser.first_name)} ${escapeHtml(data.otherUser.last_name)}</strong><br>
                             <small class="text-muted col">
-                                @${escapeHtml(data.otherUser.username)} • 
-                                <span class="user-status status-${data.otherUser.status}">${data.otherUser.status}</span>
+                                @${escapeHtml(data.otherUser.username)} •
+                                <span class="user-status status-${data.otherUser.status}" data-phone="${data.otherUser.username}">${data.otherUser.status}</span>
                             </small>
                             <div class="col-12 small  text-muted mt-1">
                                 ${new Date(data.otherUser.lastActive).toLocaleString("fa-IR")}
@@ -1720,6 +1721,7 @@ socket.on("joined", (data) => {
         
         </div>
         `);
+        update_user_status();
         Promise.resolve($("#room_modal_div_placement").removeClass('d-none').html(`
             <div class="modal fade" id="roomInfo_modal" tabindex="-1" role="dialog" aria-labelledby="" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg" role="document">
@@ -5270,73 +5272,30 @@ socket.on("onlineUsers", (onlineUsernames) => {
 
 
 
-function update_user_status() {
+function user_status_for(phone) {
     const onlineUsernames = JSON.parse(localStorage.getItem("onlineUsernames") || "[]");
-    onlineUsernames.forEach(username => {
-        // console.log("Online user:", username);
-        $(`.user-status[data-phone="${username}"]`).each(function () {
-            const $statusEl = $(this);
-            const phone = $statusEl.data("phone");
+    if (!onlineUsernames.includes(phone)) return 'offline';
+    const sleepingUsers = JSON.parse(localStorage.getItem("userSleep") || "[]");
+    return sleepingUsers.includes(phone) ? 'sleep' : 'online';
+}
 
-            if (!phone) return;
-
-            if (onlineUsernames.includes(phone)) {
-                const sleepingUsers = JSON.parse(localStorage.getItem("userSleep") || "[]");
-
-                if (sleepingUsers.includes(phone)) {
-                    $statusEl.html(`${user_status_badge['sleeping']}`);
-                } else {
-                    $statusEl.html(`${user_status_badge['online']}`);
-                }
-            } else {
-                $statusEl.html('');
-            }
-        });
-
+// Updates every status indicator on the page (room header, chat lists,
+// member modal, ...) for whichever user changed. Elements opt in by
+// carrying a data-phone="<username>" attribute.
+function update_user_status() {
+    $('.user-status[data-phone]').each(function () {
+        const $statusEl = $(this);
+        const phone = $statusEl.data("phone");
+        if (!phone) return;
+        $statusEl.html(user_status_badge[user_status_for(phone)]);
     });
-    
-    // document.querySelectorAll('#roomList .room-item').forEach(li => {
-    //     const phone = li.getAttribute("data-username");
-    //     const statusEl = li.querySelector(`#online-${phone}`);
-    //     if (!statusEl) return;
 
-    //     if (onlineUsernames.includes(phone)) {
-    //         statusEl.innerHTML = localStorage.getItem(`userSleep`) && JSON.parse(localStorage.getItem(`userSleep`)).includes(phone) ? '<span class="sleep-dot text-warning" title="Sleeping"><i class="bi bi-moon-stars-fill"></i></span><i>Sleeping</i>' : '<span class="online-dot" title="Online"></span><i>Online</i>';
-    //     } else {
-    //         statusEl.innerHTML = '';
-    //     }
-    // });
-    // $(`#${div_ID}_userCheckboxList .user-row`).each(function () {
-    //     const $row = $(this);
-    //     const phone = $row.data("phone");
-    //     const $statusEl = $row.find(".user-status");
-
-    //     if (!$statusEl.length) return;
-
-    //     if (onlineUsernames.includes(phone)) {
-    //         const sleepingUsers = JSON.parse(localStorage.getItem("userSleep") || "[]");
-
-    //         if (sleepingUsers.includes(phone)) {
-    //             $statusEl.html(
-    //                 `
-    //                 <span class="sleep-dot badge bg-white col-auto m-auto" title="Sleeping">
-    //                     <i class="bi bi-moon-stars-fill text-warning"></i>
-    //                     <i class="text-muted">Sleeping</i>
-    //                 </span>`
-    //             );
-    //         } else {
-    //             $statusEl.html(
-    //                 '<span class="badge bg-white col-auto m-auto" title="Online"><span class="online-dot" title="Online"></span> <i class="text-muted">Online</i></span>'
-    //             );
-    //         }
-    //     } else {
-    //         // optional: offline state
-    //         $statusEl.html(
-    //             ''
-    //             // '<span class="offline-dot badge bg-secondary col-auto m-auto" title="Offline"></span><i>Offline</i>'
-    //         );
-    //     }
-    // });
+    $('.status-dot[data-phone]').each(function () {
+        const $dot = $(this);
+        const phone = $dot.data("phone");
+        if (!phone) return;
+        $dot.removeClass('online offline sleep').addClass(user_status_for(phone));
+    });
 }
 // socket.on("connect", () => {
 //     console.log("🟢 Reconnected to server!");

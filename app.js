@@ -2115,6 +2115,15 @@ function serializeCallParticipants(call) {
     return Array.from(call.participants.values());
 }
 
+// Calls aren't scoped to whoever currently has the chat room open — a call
+// notifies every joined participant plus everyone still being rung, on
+// whichever socket/device/room they're actually on.
+function notifyCall(call, event, payload, excludeSocketId = null) {
+    const targets = new Set([...call.participants.keys(), ...call.ringingSocketIds]);
+    if (excludeSocketId) targets.delete(excludeSocketId);
+    targets.forEach(socketId => io.to(socketId).emit(event, payload));
+}
+
 function endCall(callId, reason) {
     const call = activeCalls.get(callId);
     if (!call) return;
@@ -2123,18 +2132,19 @@ function endCall(callId, reason) {
     if (roomActiveCallId.get(call.roomID) === callId) {
         roomActiveCallId.delete(call.roomID);
     }
-    io.to(call.roomID).emit("call:ended", { callId, reason });
+    notifyCall(call, "call:ended", { callId, reason });
 }
 
 function removeParticipantFromCall(callId, socketId, reason) {
     const call = activeCalls.get(callId);
     if (!call || !call.participants.has(socketId)) return;
     call.participants.delete(socketId);
-    if (call.participants.size <= 1) {
+    call.ringingSocketIds.delete(socketId);
+    if (call.participants.size === 0 || (call.participants.size <= 1 && call.ringingSocketIds.size === 0)) {
         endCall(callId, reason);
         return;
     }
-    io.to(call.roomID).emit("call:participant-left", { callId, socketId, reason });
+    notifyCall(call, "call:participant-left", { callId, socketId, reason });
 }
 
 function joinCall(callId, socket, callback) {
@@ -2148,12 +2158,13 @@ function joinCall(callId, socket, callback) {
         call.ringTimeout = null;
     }
     call.status = "active";
+    call.ringingSocketIds.delete(socket.id);
     const existingParticipants = serializeCallParticipants(call);
     const participant = buildCallParticipant(socket);
     call.participants.set(socket.id, participant);
 
     callback?.({ success: true, callId, callType: call.callType, roomID: call.roomID, participants: existingParticipants });
-    socket.broadcast.to(call.roomID).emit("call:participant-joined", { callId, participant });
+    notifyCall(call, "call:participant-joined", { callId, participant }, socket.id);
 }
 
 io.on("connection", async (socket) => {
@@ -4303,7 +4314,15 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             }
 
             const room = await Room.findOne({ roomID: Device_room });
-            const isDirect = room?.setting?.[0]?.type === "PV_chat";
+            if (!room) {
+                return callback?.({ success: false, message: "Room not found" });
+            }
+            const isDirect = room.setting?.[0]?.type === "PV_chat";
+
+            const memberObjectIds = room.members
+                .filter(id => id !== currentUser._id.toString())
+                .map(id => new mongoose.Types.ObjectId(id));
+            const otherMembers = await User.find({ _id: { $in: memberObjectIds } });
 
             const callId = uuidv4();
             const initiator = buildCallParticipant(socket);
@@ -4314,9 +4333,17 @@ async function getMessagesByDate(roomID, val ,limit, type) {
                 isDirect,
                 initiatorSocketId: socket.id,
                 participants: new Map([[socket.id, initiator]]),
+                ringingSocketIds: new Set(),
                 status: "ringing",
                 ringTimeout: null,
             };
+
+            otherMembers.forEach(member => {
+                member.devices?.forEach(device => {
+                    if (device.socketID) call.ringingSocketIds.add(device.socketID);
+                });
+            });
+
             call.ringTimeout = setTimeout(() => {
                 if (activeCalls.get(callId)?.status === "ringing") {
                     endCall(callId, "no-answer");
@@ -4325,8 +4352,10 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             activeCalls.set(callId, call);
             roomActiveCallId.set(Device_room, callId);
 
-            socket.broadcast.to(Device_room).emit("call:incoming", {
-                callId, callType, roomID: Device_room, caller: initiator,
+            // Ring every device of every other member, regardless of which
+            // room (or none) they currently have open.
+            call.ringingSocketIds.forEach(socketId => {
+                io.to(socketId).emit("call:incoming", { callId, callType, roomID: Device_room, caller: initiator });
             });
             callback?.({ success: true, callId });
         } catch (error) {
@@ -4344,7 +4373,8 @@ async function getMessagesByDate(roomID, val ,limit, type) {
         const call = activeCalls.get(callId);
         if (!call) return;
         const decliner = buildCallParticipant(socket);
-        io.to(call.roomID).emit("call:declined", { callId, by: decliner });
+        call.ringingSocketIds.delete(socket.id);
+        notifyCall(call, "call:declined", { callId, by: decliner });
         if (call.isDirect && call.participants.size <= 1) {
             endCall(callId, "declined");
         }
@@ -4402,6 +4432,11 @@ async function getMessagesByDate(roomID, val ,limit, type) {
             for (const call of Array.from(activeCalls.values())) {
                 if (call.participants.has(socket.id)) {
                     removeParticipantFromCall(call.callId, socket.id, "disconnected");
+                } else if (call.ringingSocketIds.has(socket.id)) {
+                    call.ringingSocketIds.delete(socket.id);
+                    if (call.participants.size === 0 && call.ringingSocketIds.size === 0) {
+                        endCall(call.callId, "disconnected");
+                    }
                 }
             }
         } catch (error) {

@@ -629,7 +629,7 @@ function displayPrivateChats(privateChats) {
                                     style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
                                 <i class="bi bi-person-circle fs-1" style="display: none;"></i>
-                                <span class="status-dot ${chat.otherUser.status} position-absolute bottom-0 end-0"></span>
+                                <span class="status-dot ${chat.otherUser.status} position-absolute bottom-0 end-0" data-phone="${chat.otherUser.username}"></span>
                             </div>
                         </div>
                         <div class="col">
@@ -640,9 +640,9 @@ function displayPrivateChats(privateChats) {
                                 <small class="text-muted">${formatDate(chat.lastMessage?.timestamp || chat.lastUpdated)}</small>
                             </div>
                             <small class="text-muted d-block text-truncate" style="max-width: 200px;">
-                                ${chat.lastMessage ? 
-                                    (chat.lastMessage.sender === 'You' ? 'شما: ' : '') + 
-                                    escapeHtml(chat.lastMessage.content.substring(0, 50)) : 
+                                ${chat.lastMessage ?
+                                    (chat.lastMessage.sender === 'You' ? 'شما: ' : '') +
+                                    escapeHtml(chat.lastMessage.content.substring(0, 50)) :
                                     'شروع پیام خصوصی'}
                             </small>
                         </div>
@@ -656,6 +656,7 @@ function displayPrivateChats(privateChats) {
         $privateListUl.append($li);
     });
     $loadingElement.addClass('d-none').removeClass('show');
+    if (typeof update_user_status === 'function') update_user_status();
 }
 
 // Filter private chats by search term
@@ -727,7 +728,7 @@ function displayUserSearchResults(users) {
                                     style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
                                 <i class="bi bi-person-circle fs-1" style="display: none;"></i>
-                                <span class="status-dot ${user.status} position-absolute bottom-0 end-0"></span>
+                                <span class="status-dot ${user.status} position-absolute bottom-0 end-0" data-phone="${user.username}"></span>
                             </div>
                         </div>
                         <div class="col">
@@ -735,8 +736,8 @@ function displayUserSearchResults(users) {
                             <small class="text-muted">@${escapeHtml(user.username)}</small>
                         </div>
                         <div class="col-auto">
-                            ${user.hasPrivateChat ? 
-                                '<i class="bi bi-chat-dots-fill text-primary" title="ادامه گفتگو"></i>' : 
+                            ${user.hasPrivateChat ?
+                                '<i class="bi bi-chat-dots-fill text-primary" title="ادامه گفتگو"></i>' :
                                 '<i class="bi bi-plus-circle text-success" title="شروع گفتگو"></i>'}
                         </div>
                     </div>
@@ -745,9 +746,10 @@ function displayUserSearchResults(users) {
             $userSearchListUl.append($li);
         });
     }
-    
+
     $userSearchResults.removeClass('d-none');
     $privateListUl.addClass('d-none');
+    if (typeof update_user_status === 'function') update_user_status();
 }
 // Hide user search results
 function hideUserSearchResults() {
@@ -811,7 +813,7 @@ function displayUserSelectList(users) {
                                 style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;"
                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                             <i class="bi bi-person-circle fs-1" style="display: none;"></i>
-                            <span class="status-dot ${user.status} position-absolute bottom-0 end-0"></span>
+                            <span class="status-dot ${user.status} position-absolute bottom-0 end-0" data-phone="${user.username}"></span>
                         </div>
                         <div>
                             <strong>${escapeHtml(user.fullName)}</strong>
@@ -820,8 +822,8 @@ function displayUserSelectList(users) {
                         </div>
                     </div>
                     <div>
-                        ${user.hasPrivateChat ? 
-                            '<span class="badge bg-info">ادامه گفتگو</span>' : 
+                        ${user.hasPrivateChat ?
+                            '<span class="badge bg-info">ادامه گفتگو</span>' :
                             '<span class="badge bg-success">شروع گفتگو</span>'}
                     </div>
                 </div>
@@ -829,6 +831,7 @@ function displayUserSelectList(users) {
         `);
         $userSelectList.append($li);
     });
+    if (typeof update_user_status === 'function') update_user_status();
 }
 
 // Start or open existing private chat
