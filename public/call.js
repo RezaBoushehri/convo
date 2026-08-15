@@ -171,24 +171,34 @@
 
     // ---------------- Call trigger buttons in the room header ----------------
     function injectCallTriggers() {
-        const roomInfo = document.getElementById('roomInfo');
-        if (!roomInfo) return;
-        roomInfo.querySelectorAll('.call-trigger-group').forEach(el => el.remove());
+        // 1:1 chats render a dedicated slot inside the compact header pill;
+        // group rooms fall back to the plain room-info bar.
+        const target = document.getElementById('roomHeaderActions') || document.getElementById('roomInfo');
+        if (!target) return;
+        target.querySelectorAll('.call-trigger-group').forEach(el => el.remove());
 
         const group = document.createElement('div');
-        group.className = 'call-trigger-group col-auto d-flex gap-2 my-auto';
+        group.className = 'call-trigger-group col-auto d-flex gap-1 align-items-center';
         group.innerHTML = `
             <button type="button" class="btn btn-outline-light rounded-circle backdrop-blur-chat-bg call-trigger-btn" id="startVoiceCallBtn" title="تماس صوتی">
                 <i class="bi bi-telephone-fill"></i>
             </button>
-            <button type="button" class="btn btn-outline-light rounded-circle backdrop-blur-chat-bg call-trigger-btn" id="startVideoCallBtn" title="تماس تصویری">
-                <i class="bi bi-camera-video-fill"></i>
-            </button>
+            <div class="dropdown">
+                <button type="button" class="btn btn-outline-light rounded-circle backdrop-blur-chat-bg call-trigger-btn" data-bs-toggle="dropdown" aria-expanded="false" title="گزینه‌های بیشتر">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" id="startVideoCallBtn"><i class="bi bi-camera-video-fill me-2"></i>تماس تصویری</a></li>
+                </ul>
+            </div>
         `;
-        roomInfo.appendChild(group);
+        target.appendChild(group);
 
         document.getElementById('startVoiceCallBtn').addEventListener('click', () => startOutgoingCall('audio'));
-        document.getElementById('startVideoCallBtn').addEventListener('click', () => startOutgoingCall('video'));
+        document.getElementById('startVideoCallBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            startOutgoingCall('video');
+        });
     }
 
     // ---------------- Tiles ----------------

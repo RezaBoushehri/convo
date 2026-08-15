@@ -1681,39 +1681,32 @@ socket.on("joined", (data) => {
     if(document.querySelector(".close")) document.querySelector(".close").click();
         $("#roomInfo").removeClass('d-none').html(`
         <!-- roomInfo -->
-        <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-1 mt-1">
-        
+        <div class="z-1 col-12 justify-content-between mx-1 d-flex gap-2 mt-1 align-items-center">
+
             <!-- Back button (always visible) -->
-            <button type='button'  
-            class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary' 
+            <button type='button'
+            class='col-auto my-auto btn position-sticky start-0 rounded-circle backdrop-blur-chat-bg btn-outline-secondary room-header-back-btn'
             onclick='leaveRoom()'>
             <i class='bi fs-bold bi-arrow-left'></i>
-            </button>    
+            </button>
 
             ${
             data.otherUser
-                ? `<!-- Show other user info as a DIV (no modal) -->
-                <div class=" d-flex col backdrop-blur-chat-bg shadow-sm border border-1 border-secondary text-start pe-3  rounded-5 border" style="padding:1px;">
+                ? `<!-- Show other user info as a compact pill (no modal) -->
+                <div class="d-flex col backdrop-blur-chat-bg shadow-sm align-items-center room-header-pill">
                     <div class="position-relative col-auto">
-                        <img src="/portal/profile/img/${data.otherUser.username}" alt="Avatar" class=" profile-avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
+                        <img src="/portal/profile/img/${data.otherUser.username}" alt="Avatar" class="room-header-avatar">
                         <span class="status-dot ${data.otherUser.status} position-absolute bottom-0 end-0" data-phone="${data.otherUser.username}"></span>
                     </div>
-                    <div class="d-flex ps-2 col align-items-center gap-2">
-                        <div class="row col-12">
-                            <strong class="col-auto">${escapeHtml(data.otherUser.first_name)} ${escapeHtml(data.otherUser.last_name)}</strong><br>
-                            <small class="text-muted col">
-                                @${escapeHtml(data.otherUser.username)} •
-                                <span class="user-status status-${data.otherUser.status}" data-phone="${data.otherUser.username}">${data.otherUser.status}</span>
-                            </small>
-                            <div class="col-12 small  text-muted mt-1">
-                                ${new Date(data.otherUser.lastActive).toLocaleString("fa-IR")}
-                            </div>
-                        </div>
+                    <div class="col overflow-hidden">
+                        <div class="room-header-name text-truncate">${escapeHtml(data.otherUser.first_name)} ${escapeHtml(data.otherUser.last_name)}</div>
+                        <div class="room-header-status user-status" data-phone="${data.otherUser.username}">${data.otherUser.status ? (user_status_badge[data.otherUser.status] || '') : ''}</div>
                     </div>
+                    <div id="roomHeaderActions" class="col-auto d-flex gap-1 room-header-actions"></div>
                 </div>`
                 : `<!-- Original button for groups / normal rooms -->
-                <button class="btn btn-secondary col-auto text-warning" type="button" 
-                    data-bs-toggle="modal" data-bs-target="#roomInfo_modal" 
+                <button class="btn btn-secondary col-auto text-warning" type="button"
+                    data-bs-toggle="modal" data-bs-target="#roomInfo_modal"
                     aria-expanded="false" aria-controls="roomControls">
                     <i class="bi bi-info-circle"></i> ${escapeHtml(data.roomName)}
                 </button>`

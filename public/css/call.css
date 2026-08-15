@@ -9,6 +9,54 @@
     font-size: 1.1rem;
 }
 
+/* Compact 1:1 chat header pill (avatar + name + live status + call/menu
+   buttons), replacing the old bulky card-style header. */
+.room-header-back-btn {
+    width: 42px;
+    height: 42px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.room-header-pill {
+    border-radius: 999px;
+    padding: 4px 8px 4px 4px;
+    min-width: 0;
+    gap: 8px;
+}
+
+.room-header-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.room-header-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
+.room-header-status {
+    line-height: 1.1;
+    min-height: 1em;
+}
+
+.room-header-status .badge {
+    font-size: 0.68rem;
+    font-weight: 500;
+}
+
+.room-header-actions .call-trigger-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
+}
+
 .incoming-call-toast {
     position: fixed;
     top: 16px;
