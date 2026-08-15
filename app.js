@@ -94,8 +94,8 @@ const SECRET_KEY_RTSP = process.env.SECRETKEY_RTSP;
 const SECRET_KEY_TOKEN_AUTOLOGIN = process.env.SECRETKEY_LOGIN;
 const SSO_SECRET_TOKEN = process.env.SSO_SECRET_TOKEN
 
-function sanitizeMessage(message) {  
-    const withBreaks = message.replace(/\n/g, '<br>');
+function sanitizeMessage(message) {
+    const withBreaks = (message || '').replace(/\n/g, '<br>');
   const clean = DOMPurify.sanitize(withBreaks, {    
         ALLOWED_TAGS: [      
             'div','table','thead','tbody','tr','td','th',      

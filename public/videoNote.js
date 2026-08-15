@@ -139,6 +139,18 @@
         const replyBox = document.getElementById('replyBox');
         const quote = replyBox ? replyBox.getAttribute('reply-id') : null;
 
+        // Same convention as voice messages: whatever caption text is
+        // still in the composer goes along with the recording. Must send
+        // a string (even empty), never null/undefined — the server
+        // doesn't guard against that.
+        let text = (typeof message !== 'undefined' && message?.innerHTML) ? message.innerHTML.trim() : '';
+        if (typeof DOMPurify !== 'undefined') {
+            text = DOMPurify.sanitize(text, {
+                ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'td', 'th', 'br'],
+                ALLOWED_ATTR: ['style', 'data-excel-formula', 'data-excel-value', 'data-excel-type'],
+            });
+        }
+
         if (typeof clearInputFields === 'function') clearInputFields();
 
         const xhr = new XMLHttpRequest();
@@ -159,7 +171,7 @@
                 try {
                     const response = JSON.parse(xhr.responseText);
                     const fileData = response.fileData || response;
-                    sendMessage(null, fileData, quote);
+                    sendMessage(text, fileData, quote);
                 } catch (err) {
                     console.error('Bad JSON from upload server', err);
                     if (typeof showAlert === 'function') showAlert('پیام ویدیویی آپلود شد اما پاسخ سرور نامعتبر بود', 'warning');
