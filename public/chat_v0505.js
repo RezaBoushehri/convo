@@ -1677,7 +1677,6 @@ socket.on("joined", (data) => {
     //     console.error("Invalid data received in 'joined' event:", data);
     //     return;
     // }
-    console.log(data.otherUser)
     if(document.querySelector(".close")) document.querySelector(".close").click();
         $("#roomInfo").removeClass('d-none').html(`
         <!-- roomInfo -->
@@ -2978,7 +2977,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                     <i class="bi bi-play-fill"></i>
                 </button>
                 
-                <div class="d-none col px-2 row m-auto">
+                <div class="d-none tg-wave-wrap col px-2 row m-auto">
                     <div class="flex-grow-1 col-12 overflow-hidden m-auto">
                         <canvas class="tg-canvas brder-bottom col-12" width="1080"></canvas>
                     </div>
@@ -3256,19 +3255,21 @@ function init_message_ui(){
    
 }
 const observer = new MutationObserver(mutations => {
+    let hasNewPlayer = false;
     mutations.forEach(mutation => {
         if (mutation.addedNodes.length) {
             mutation.addedNodes.forEach((node) => {
                 // اگر خود نود پلیر باشه
                 if ($(node).hasClass('messageElm') && $(node).find('.tg-player').length) {
-                    $(node).find('.tg-player').each(function() {
-                        initTelegramAudioPlayers();
-                    });
+                    hasNewPlayer = true;
                 }
 
             });
         }
     });
+    // یک‌بار برای کل دسته صدا زده می‌شود، نه یک‌بار به ازای هر پلیر
+    // (وگرنه هندلرهای loadedmetadata چندبار روی همون audio ثبت می‌شدن)
+    if (hasNewPlayer) initTelegramAudioPlayers();
 });
 
 observer.observe(document.body, {
@@ -3299,8 +3300,9 @@ function initTelegramAudioPlayers(){
         const btn_playRate = player.find(".playRate")  
         const loader = player.find(".loader_voice")  
         const icon = btn.find("i")  
-        const time = player.find(".tg-time")  
-        const canvas = player.find(".tg-canvas")[0]
+        const time = player.find(".tg-time")
+        const waveWrap = player.find(".tg-wave-wrap")
+        const canvas = player.find(".tg-canvas")[0]
         if(!canvas){
             console.warn("tg-canvas element missing for player", file_id)
             return
@@ -3330,7 +3332,7 @@ function initTelegramAudioPlayers(){
         btn.addClass('d-none')
 
         // duration// رویداد بارگذاری متادیتا
-        audio.on("loadedmetadata", async function() {
+        audio.off("loadedmetadata").on("loadedmetadata", async function() {
             // محاسبه زمان
             let dm = Math.floor(audio.duration / 60);
             let ds = Math.floor(audio.duration % 60);
@@ -3338,6 +3340,7 @@ function initTelegramAudioPlayers(){
             
             time.text(`${dm}:${ds}`);
             btn.removeClass("d-none");
+            waveWrap.removeClass("d-none");
             player.attr("data-ready","true")
             loader.html("").addClass("d-none");
             audio.playbackRate = voice_playbackRate
@@ -3563,6 +3566,7 @@ function initTelegramAudioPlayers(){
                     
                     // نمایش دکمه پخش
                     btn.removeClass("d-none");
+                    waveWrap.removeClass("d-none");
                 } else {
                     player.find('audio.voice-message').removeClass('d-none');
                     throw new Error("فایل صوتی خالی یا نامعتبر است");
