@@ -111,6 +111,11 @@
     async function startRecording() {
         if (mediaRecorder) return; // already recording
 
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+            if (typeof showAlert === 'function') showAlert('پیام ویدیویی در این مرورگر/آدرس در دسترس نیست (نیاز به HTTPS دارد)', 'danger');
+            return;
+        }
+
         currentFacingMode = 'user';
         try {
             stream = await navigator.mediaDevices.getUserMedia({
@@ -118,6 +123,7 @@
                 video: { facingMode: currentFacingMode, width: { ideal: 480 }, height: { ideal: 480 } },
             });
         } catch (e) {
+            console.error('getUserMedia (video note) failed', e);
             if (typeof showAlert === 'function') showAlert('دسترسی به دوربین/میکروفون امکان‌پذیر نیست', 'danger');
             return;
         }

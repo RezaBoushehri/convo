@@ -599,19 +599,34 @@ function getForwardInfo(messageId) {
     }
     // ---------- شروع ضبط ----------
     $('#chat_windowFooter #recordBtn').on('click', async () => {
+        if (mediaRecorder) return; // already recording
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+            showAlert('ضبط صدا در این مرورگر/آدرس در دسترس نیست (نیاز به HTTPS دارد)', 'danger');
+            return;
+        }
+
+        // گرفتن استریم میکروفن - قبل از تغییر UI، تا در صورت خطا
+        // (رد شدن دسترسی، عدم HTTPS و ...) کادر پیام مخفی نماند
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            console.error('getUserMedia (audio) failed', e);
+            showAlert('دسترسی به میکروفون امکان‌پذیر نیست', 'danger');
+            return;
+        }
+
         // مخفی کردن بخش متن و تغییر ظاهر دکمه‌ها
         $('#chat_windowFooter #editable-message-text')
            .fadeOut()
         $('#recordVideoBtn').prop('disabled', true)
 
-        // گرفتن استریم میکروفن
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         chunks = [];
 
         mediaRecorder.ondataavailable = e => chunks.push(e.data);
 
-        
+
 
         mediaRecorder.start();
         if(mediaRecorder){
