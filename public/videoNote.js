@@ -15,6 +15,8 @@
     let chunks = [];
     let startTime = 0;
     let timerInterval = null;
+    let currentFacingMode = 'user';
+    let flipping = false;
 
     function buildOverlayDom() {
         if (document.getElementById('videoNoteRecorder')) return;
@@ -24,10 +26,14 @@
         overlay.className = 'video-note-overlay d-none';
         overlay.innerHTML = `
             <div class="video-note-circle-wrap">
+                <video id="videoNoteBgPreview" autoplay muted playsinline class="video-note-preview-bg"></video>
                 <video id="videoNotePreview" autoplay muted playsinline class="video-note-preview"></video>
                 <svg class="video-note-ring" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="48"></circle>
                 </svg>
+                <button type="button" id="videoNoteFlipBtn" class="video-note-flip-btn" title="تغییر دوربین">
+                    <i class="bi bi-arrow-repeat"></i>
+                </button>
             </div>
             <div class="video-note-timer" id="videoNoteTimer">00:00</div>
             <div class="video-note-controls">
@@ -43,6 +49,53 @@
 
         document.getElementById('videoNoteCancelBtn').addEventListener('click', () => stopRecording(false));
         document.getElementById('videoNoteStopBtn').addEventListener('click', () => stopRecording(true));
+        document.getElementById('videoNoteFlipBtn').addEventListener('click', () => flipCamera());
+    }
+
+    function applyMirroring() {
+        const mirrored = currentFacingMode === 'user';
+        const preview = document.getElementById('videoNotePreview');
+        const bgPreview = document.getElementById('videoNoteBgPreview');
+        if (preview) preview.style.transform = mirrored ? 'scaleX(-1)' : 'none';
+        if (bgPreview) bgPreview.style.transform = mirrored ? 'scaleX(-1)' : 'none';
+    }
+
+    async function flipCamera() {
+        if (!stream || flipping) return;
+        flipping = true;
+        const flipBtn = document.getElementById('videoNoteFlipBtn');
+        if (flipBtn) flipBtn.disabled = true;
+
+        const nextFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: { facingMode: nextFacingMode, width: { ideal: 480 }, height: { ideal: 480 } },
+            });
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            const oldVideoTrack = stream.getVideoTracks()[0];
+
+            // Swap the track in-place on the same MediaStream the
+            // MediaRecorder was started with, so the recording keeps
+            // running (with the new camera) instead of being restarted.
+            if (oldVideoTrack) {
+                stream.removeTrack(oldVideoTrack);
+                oldVideoTrack.stop();
+            }
+            stream.addTrack(newVideoTrack);
+            currentFacingMode = nextFacingMode;
+
+            const preview = document.getElementById('videoNotePreview');
+            const bgPreview = document.getElementById('videoNoteBgPreview');
+            if (preview) { preview.srcObject = null; preview.srcObject = stream; }
+            if (bgPreview) { bgPreview.srcObject = null; bgPreview.srcObject = stream; }
+            applyMirroring();
+        } catch (e) {
+            if (typeof showAlert === 'function') showAlert('تغییر دوربین ممکن نشد', 'warning');
+        } finally {
+            flipping = false;
+            if (flipBtn) flipBtn.disabled = false;
+        }
     }
 
     function updateTimer() {
@@ -58,10 +111,11 @@
     async function startRecording() {
         if (mediaRecorder) return; // already recording
 
+        currentFacingMode = 'user';
         try {
             stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
-                video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } },
+                video: { facingMode: currentFacingMode, width: { ideal: 480 }, height: { ideal: 480 } },
             });
         } catch (e) {
             if (typeof showAlert === 'function') showAlert('دسترسی به دوربین/میکروفون امکان‌پذیر نیست', 'danger');
@@ -71,7 +125,10 @@
         buildOverlayDom();
         const overlay = document.getElementById('videoNoteRecorder');
         const preview = document.getElementById('videoNotePreview');
+        const bgPreview = document.getElementById('videoNoteBgPreview');
         preview.srcObject = stream;
+        if (bgPreview) bgPreview.srcObject = stream;
+        applyMirroring();
         overlay.classList.remove('d-none');
 
         $('#chat_windowFooter #recordBtn').prop('disabled', true);
@@ -107,6 +164,9 @@
         if (overlay) overlay.classList.add('d-none');
         const preview = document.getElementById('videoNotePreview');
         if (preview) preview.srcObject = null;
+        const bgPreview = document.getElementById('videoNoteBgPreview');
+        if (bgPreview) bgPreview.srcObject = null;
+        currentFacingMode = 'user';
 
         socket.emit('typing', {
             name: (typeof name !== 'undefined' && name?.textContent?.trim()) || '',

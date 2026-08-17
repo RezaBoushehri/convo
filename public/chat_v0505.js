@@ -3009,7 +3009,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
         return `
         <div class="tg-video-note position-relative col-auto" data-ready="false" data-src="${src}" data-id="${id}" data-sender="${data.sender}">
             <div class="tg-video-note-circle position-relative">
-                <video preload="metadata" src="${src}" playsinline muted class="tg-video-note-el"></video>
+                <video preload="metadata" src="${src}" playsinline class="tg-video-note-el"></video>
                 <div class="tg-video-note-loader loader_voice">
                     <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
                 </div>

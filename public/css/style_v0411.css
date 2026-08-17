@@ -384,10 +384,18 @@ html, body {
     align-items: baseline;
     justify-content: center;
     /* justify-content: space-between; */
+    min-height: 46px; /* keeps footer height (and button row) stable when the text box is hidden while recording */
 }
 .messageInputDiv .button-container{
         transition: all 0.1s ease; /* Smooth transition for hover effect */
-
+        /* Pinned to the right edge instead of flowing next to #editable-message-text.
+           Otherwise hiding the text box (during voice/video recording) removes it
+           from the flex row and #recordSection re-centers, jumping position. */
+        position: absolute;
+        top: 50%;
+        right: 0;
+        transform: translateY(-50%);
+        z-index: 2;
 }
 #editable-message-text:focus {
     border: none !important;
@@ -932,7 +940,7 @@ width: max-content;
     position: relative; /* To position buttons within it */
     overflow-y: auto; /* Enable scrolling when content exceeds max height */
     /* padding-right: 100px; */
-    width: calc(100% - 100px);
+    width: calc(100% - 140px); /* leave room for the pinned button-container (file/send/record cluster) */
     align-items: flex-start; /* Align items to the top of the container */
     height: auto; /* Allow the height to grow based on the content */
     max-height: 100px;
