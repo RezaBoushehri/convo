@@ -48,6 +48,17 @@
     z-index: 1;
 }
 
+/* Hidden source feed the canvas above draws from — kept in the layout
+   (not display:none) so browsers don't throttle/pause its decoding. */
+.video-note-camera-feed {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .video-note-ring {
     position: absolute;
     inset: -6px;

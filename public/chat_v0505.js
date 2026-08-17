@@ -601,6 +601,26 @@ function getForwardInfo(messageId) {
     const RECORD_HOLD_THRESHOLD = 150; // ms
     let pressTimeoutId = null;
 
+    // دکمه ضبط صدا/ویدیو با هم ادغام شده: یک تپ ساده بین دو حالت
+    // جابه‌جا می‌کند، نگه‌داشتن ضبط را در حالت فعلی شروع می‌کند.
+    let recordMode = 'voice'; // 'voice' | 'video'
+
+    function swapRecordMode() {
+        // در حین ضبط (صدا یا ویدیو) اجازهٔ تعویض حالت نیست
+        if (mediaRecorder || (window.videoNoteRecorder && window.videoNoteRecorder.isRecording())) return;
+
+        recordMode = recordMode === 'voice' ? 'video' : 'voice';
+        $('#recordBtnIcon')
+            .toggleClass('bi-mic-fill', recordMode === 'voice')
+            .toggleClass('bi-camera-video-fill', recordMode === 'video');
+        $('#chat_windowFooter #recordBtn').attr(
+            'title',
+            recordMode === 'voice'
+                ? 'برای تعویض به ویدیو بزنید، برای ضبط صدا نگه دارید'
+                : 'برای تعویض به صدا بزنید، برای ضبط ویدیو نگه دارید'
+        );
+    }
+
     // ---------- شروع ضبط (با نگه‌داشتن دکمه) ----------
     function onRecordPointerDown(e) {
         if (mediaRecorder || isRecordPressed) return;
@@ -619,7 +639,17 @@ function getForwardInfo(messageId) {
     }
 
     async function beginRecordPress() {
-        if (!isRecordPressed || mediaRecorder) return; // already released or already recording
+        if (!isRecordPressed) return; // released before the hold threshold fired
+
+        if (recordMode === 'video') {
+            // ضبط ویدیو با نگه‌داشتن شروع می‌شود اما با رها کردن دکمه متوقف
+            // نمی‌شود؛ ادامه‌اش با دکمه‌های خود پنجرهٔ تمام‌صفحه (لغو/ارسال) است
+            isRecordPressed = false;
+            if (window.videoNoteRecorder) window.videoNoteRecorder.start();
+            return;
+        }
+
+        if (mediaRecorder) return; // already recording
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
             showAlert('ضبط صدا در این مرورگر/آدرس در دسترس نیست (نیاز به HTTPS دارد)', 'danger');
@@ -649,7 +679,6 @@ function getForwardInfo(messageId) {
         // مخفی کردن بخش متن و تغییر ظاهر دکمه‌ها
         $('#chat_windowFooter #editable-message-text')
            .fadeOut()
-        $('#recordVideoBtn').prop('disabled', true)
 
         mediaRecorder = new MediaRecorder(stream);
         chunks = [];
@@ -717,14 +746,17 @@ function getForwardInfo(messageId) {
     // ---------- رها کردن دکمه: اگر قفل/لغو نشده بود، ارسال کن ----------
     function endRecordPress() {
         if (pressTimeoutId) {
-            // تپ ساده: قبل از رسیدن به آستانهٔ نگه‌داشتن رها شد، پس اصلاً ضبطی شروع نشده
+            // تپ ساده: قبل از رسیدن به آستانهٔ نگه‌داشتن رها شد، پس اصلاً ضبطی
+            // شروع نشده - این یعنی کاربر می‌خواهد بین صدا/ویدیو تعویض کند
             clearTimeout(pressTimeoutId);
             pressTimeoutId = null;
             isRecordPressed = false;
+            swapRecordMode();
             return;
         }
         if (!isRecordPressed) return;
         isRecordPressed = false;
+        if (recordMode === 'video') return; // با دکمه‌های خود پنجرهٔ ویدیو تمام می‌شود
         if (!mediaRecorder) return; // دسترسی هنوز آماده نشده یا رد شده بود
         if (isRecordLocked || recordCanceled) return; // منتظر دکمه‌های حالت قفل
         finishRecording(true);
@@ -816,7 +848,6 @@ function getForwardInfo(messageId) {
             .removeClass('animate__fadeOutLeft d-none')
             .addClass('animate__fadeInLeft')
             .fadeIn();
-        $('#recordVideoBtn').prop('disabled', false)
 
         $('#recordSlideCancel').addClass('d-none').removeClass('d-flex')
         $('#recordLockHint').addClass('d-none')

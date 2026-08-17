@@ -10,13 +10,18 @@
         return;
     }
 
-    let stream = null;
+    const CANVAS_SIZE = 480;
+
+    let cameraStream = null;   // video-only, swapped on camera flip
+    let audioTrack = null;     // constant for the whole recording session
+    let canvasTrack = null;    // constant for the whole recording session
     let mediaRecorder = null;
     let chunks = [];
     let startTime = 0;
     let timerInterval = null;
     let currentFacingMode = 'user';
     let flipping = false;
+    let drawing = false;
 
     function buildOverlayDom() {
         if (document.getElementById('videoNoteRecorder')) return;
@@ -27,7 +32,8 @@
         overlay.innerHTML = `
             <div class="video-note-circle-wrap">
                 <video id="videoNoteBgPreview" autoplay muted playsinline class="video-note-preview-bg"></video>
-                <video id="videoNotePreview" autoplay muted playsinline class="video-note-preview"></video>
+                <canvas id="videoNoteCanvas" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}" class="video-note-preview"></canvas>
+                <video id="videoNoteCameraFeed" autoplay muted playsinline class="video-note-camera-feed"></video>
                 <svg class="video-note-ring" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="48"></circle>
                 </svg>
@@ -53,49 +59,102 @@
     }
 
     function applyMirroring() {
-        const mirrored = currentFacingMode === 'user';
-        const preview = document.getElementById('videoNotePreview');
         const bgPreview = document.getElementById('videoNoteBgPreview');
-        if (preview) preview.style.transform = mirrored ? 'scaleX(-1)' : 'none';
-        if (bgPreview) bgPreview.style.transform = mirrored ? 'scaleX(-1)' : 'none';
+        if (bgPreview) bgPreview.style.transform = currentFacingMode === 'user' ? 'scaleX(-1)' : 'none';
+        // Canvas mirroring is handled per-frame in the draw loop (drawFrame).
+    }
+
+    // object-fit: cover — crop the source video into a dw×dh square.
+    function drawCover(ctx, video, dw, dh) {
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        if (!vw || !vh) return;
+        const scale = Math.max(dw / vw, dh / vh);
+        const sw = dw / scale;
+        const sh = dh / scale;
+        const sx = (vw - sw) / 2;
+        const sy = (vh - sh) / 2;
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, dw, dh);
+    }
+
+    // Continuously paints the live camera feed onto the canvas that the
+    // MediaRecorder is actually bound to. Because the recorder only ever
+    // sees this one unchanging canvas track (plus the mic track), swapping
+    // which camera feeds the canvas — see flipCamera() — never touches the
+    // recorder's own stream, so the recording is never interrupted.
+    function startDrawLoop() {
+        drawing = true;
+        const canvas = document.getElementById('videoNoteCanvas');
+        const cameraFeedEl = document.getElementById('videoNoteCameraFeed');
+        const ctx = canvas.getContext('2d');
+
+        function draw() {
+            if (!drawing) return;
+            if (cameraFeedEl.readyState >= 2) {
+                ctx.save();
+                if (currentFacingMode === 'user') {
+                    ctx.translate(CANVAS_SIZE, 0);
+                    ctx.scale(-1, 1);
+                }
+                drawCover(ctx, cameraFeedEl, CANVAS_SIZE, CANVAS_SIZE);
+                ctx.restore();
+            }
+            requestAnimationFrame(draw);
+        }
+        requestAnimationFrame(draw);
+    }
+
+    function stopDrawLoop() {
+        drawing = false;
     }
 
     async function flipCamera() {
-        if (!stream || flipping) return;
+        if (!cameraStream || flipping) return;
         flipping = true;
         const flipBtn = document.getElementById('videoNoteFlipBtn');
         if (flipBtn) flipBtn.disabled = true;
 
         const nextFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+        // Release the current camera before requesting the new facing
+        // mode — most phones only allow one open camera stream per page,
+        // so asking for the back camera while the front one is still live
+        // can otherwise fail outright.
+        cameraStream.getTracks().forEach(t => t.stop());
+
+        const cameraFeedEl = document.getElementById('videoNoteCameraFeed');
+        const bgPreview = document.getElementById('videoNoteBgPreview');
+
         try {
-            const newStream = await navigator.mediaDevices.getUserMedia({
+            cameraStream = await navigator.mediaDevices.getUserMedia({
                 audio: false,
                 video: { facingMode: nextFacingMode, width: { ideal: 480 }, height: { ideal: 480 } },
             });
-            const newVideoTrack = newStream.getVideoTracks()[0];
-            const oldVideoTrack = stream.getVideoTracks()[0];
-
-            // Swap the track in-place on the same MediaStream the
-            // MediaRecorder was started with, so the recording keeps
-            // running (with the new camera) instead of being restarted.
-            if (oldVideoTrack) {
-                stream.removeTrack(oldVideoTrack);
-                oldVideoTrack.stop();
-            }
-            stream.addTrack(newVideoTrack);
             currentFacingMode = nextFacingMode;
-
-            const preview = document.getElementById('videoNotePreview');
-            const bgPreview = document.getElementById('videoNoteBgPreview');
-            if (preview) { preview.srcObject = null; preview.srcObject = stream; }
-            if (bgPreview) { bgPreview.srcObject = null; bgPreview.srcObject = stream; }
-            applyMirroring();
         } catch (e) {
+            console.error('flip camera failed', e);
             if (typeof showAlert === 'function') showAlert('تغییر دوربین ممکن نشد', 'warning');
-        } finally {
-            flipping = false;
-            if (flipBtn) flipBtn.disabled = false;
+            // Try to restore the camera we just released so the preview
+            // (and the recording) doesn't end up with no video source at all.
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: { facingMode: currentFacingMode, width: { ideal: 480 }, height: { ideal: 480 } },
+                });
+            } catch (e2) {
+                console.error('failed to restore camera after failed flip', e2);
+                cameraStream = null;
+            }
         }
+
+        if (cameraStream) {
+            if (cameraFeedEl) cameraFeedEl.srcObject = cameraStream;
+            if (bgPreview) bgPreview.srcObject = cameraStream;
+        }
+        applyMirroring();
+
+        flipping = false;
+        if (flipBtn) flipBtn.disabled = false;
     }
 
     function updateTimer() {
@@ -117,30 +176,44 @@
         }
 
         currentFacingMode = 'user';
+        let audioStream;
+        let videoStream;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
+            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            videoStream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
                 video: { facingMode: currentFacingMode, width: { ideal: 480 }, height: { ideal: 480 } },
             });
         } catch (e) {
             console.error('getUserMedia (video note) failed', e);
             if (typeof showAlert === 'function') showAlert('دسترسی به دوربین/میکروفون امکان‌پذیر نیست', 'danger');
+            if (audioStream) audioStream.getTracks().forEach(t => t.stop());
+            if (videoStream) videoStream.getTracks().forEach(t => t.stop());
             return;
         }
 
+        audioTrack = audioStream.getAudioTracks()[0];
+        cameraStream = videoStream;
+
         buildOverlayDom();
         const overlay = document.getElementById('videoNoteRecorder');
-        const preview = document.getElementById('videoNotePreview');
+        const canvas = document.getElementById('videoNoteCanvas');
+        const cameraFeedEl = document.getElementById('videoNoteCameraFeed');
         const bgPreview = document.getElementById('videoNoteBgPreview');
-        preview.srcObject = stream;
-        if (bgPreview) bgPreview.srcObject = stream;
+
+        cameraFeedEl.srcObject = cameraStream;
+        if (bgPreview) bgPreview.srcObject = cameraStream;
         applyMirroring();
         overlay.classList.remove('d-none');
+        startDrawLoop();
 
         $('#chat_windowFooter #recordBtn').prop('disabled', true);
 
+        canvasTrack = canvas.captureStream(30).getVideoTracks()[0];
+        const recordStream = new MediaStream([canvasTrack, audioTrack]);
+
         chunks = [];
-        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder = new MediaRecorder(recordStream);
         mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
         mediaRecorder.start();
 
@@ -157,9 +230,18 @@
     }
 
     function releaseStream() {
-        if (stream) {
-            stream.getTracks().forEach(t => t.stop());
-            stream = null;
+        stopDrawLoop();
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(t => t.stop());
+            cameraStream = null;
+        }
+        if (audioTrack) {
+            audioTrack.stop();
+            audioTrack = null;
+        }
+        if (canvasTrack) {
+            canvasTrack.stop();
+            canvasTrack = null;
         }
         if (timerInterval) {
             clearInterval(timerInterval);
@@ -168,8 +250,8 @@
         $('#chat_windowFooter #recordBtn').prop('disabled', false);
         const overlay = document.getElementById('videoNoteRecorder');
         if (overlay) overlay.classList.add('d-none');
-        const preview = document.getElementById('videoNotePreview');
-        if (preview) preview.srcObject = null;
+        const cameraFeedEl = document.getElementById('videoNoteCameraFeed');
+        if (cameraFeedEl) cameraFeedEl.srcObject = null;
         const bgPreview = document.getElementById('videoNoteBgPreview');
         if (bgPreview) bgPreview.srcObject = null;
         currentFacingMode = 'user';
@@ -255,13 +337,13 @@
         xhr.send(formData);
     }
 
-    document.getElementById('recordVideoBtn')?.addEventListener('click', () => {
-        if (mediaRecorder) {
-            stopRecording(true);
-        } else {
-            startRecording();
-        }
-    });
-
     buildOverlayDom();
+
+    // Exposed to chat_v0505.js's merged record button: tapping the button
+    // swaps between voice/video mode, holding it starts recording in
+    // whichever mode is currently active.
+    window.videoNoteRecorder = {
+        start: startRecording,
+        isRecording: () => !!mediaRecorder,
+    };
 })();
