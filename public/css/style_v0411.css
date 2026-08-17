@@ -397,6 +397,58 @@ html, body {
         transform: translateY(-50%);
         z-index: 2;
 }
+
+/* ---------- Hold-to-record voice message (swipe left = cancel, swipe up = lock) ---------- */
+.record-slide-cancel {
+    white-space: nowrap;
+    font-size: 0.85rem;
+    transition: transform 0.05s linear, opacity 0.05s linear;
+    user-select: none;
+}
+
+.record-lock-hint {
+    position: absolute;
+    top: -54px;
+    right: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 8px;
+    border-radius: 16px;
+    background: rgb(var(--user-bg-color));
+    color: #fff;
+    font-size: 0.9rem;
+    animation: recordLockHintBounce 1.4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes recordLockHintBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+.record-locked-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.2rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.record-locked-cancel {
+    background: #dc3545;
+}
+
+.record-locked-send {
+    background: #28a745;
+}
+
 #editable-message-text:focus {
     border: none !important;
     outline: none; /* Removes focus outline */

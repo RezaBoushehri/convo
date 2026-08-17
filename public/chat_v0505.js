@@ -575,16 +575,15 @@ function getForwardInfo(messageId) {
     let stream, mediaRecorder, startTime, timerInterval;
     let chunks = [];
 
-    // ---------- توابع کمکی ----------
-    function createBtn(id, iconClass, title) {
-        // دکمه‌ای با Bootstrap Icon می‌سازد
-        return $(`
-            <button id="${id}" type="button" class="btn btn-outline-secondary btn-color "
-                    data-bs-toggle="tooltip" title="${title}">
-                <i class="${iconClass}"></i>
-            </button>
-        `);
-    }
+    // وضعیت حالت نگه‌داشتن برای ضبط: نگه‌داشتن = شروع، رها کردن = ارسال،
+    // کشیدن به چپ = لغو، کشیدن به بالا = قفل
+    let isRecordPressed = false;
+    let isRecordLocked = false;
+    let recordCanceled = false;
+    let pressStartX = 0;
+    let pressStartY = 0;
+    const RECORD_CANCEL_THRESHOLD = 80; // px به چپ برای لغو
+    const RECORD_LOCK_THRESHOLD = 60;   // px به بالا برای قفل
 
     function updateTimer(){
         const elapsed = Date.now()-startTime
@@ -597,24 +596,55 @@ function getForwardInfo(messageId) {
         const cc = String(centi).padStart(2,'0')
         $('#recordStatus #timer').text(`${mm}:${ss}.${cc}`)
     }
-    // ---------- شروع ضبط ----------
-    $('#chat_windowFooter #recordBtn').on('click', async () => {
-        if (mediaRecorder) return; // already recording
+    // یک تپ ساده نباید ضبط را شروع کند - فقط بعد از نگه‌داشتن واقعی
+    // (بیشتر از این آستانه) درخواست دسترسی به میکروفون ارسال می‌شود
+    const RECORD_HOLD_THRESHOLD = 150; // ms
+    let pressTimeoutId = null;
+
+    // ---------- شروع ضبط (با نگه‌داشتن دکمه) ----------
+    function onRecordPointerDown(e) {
+        if (mediaRecorder || isRecordPressed) return;
+
+        const point = e.touches ? e.touches[0] : e;
+        pressStartX = point.clientX;
+        pressStartY = point.clientY;
+        isRecordPressed = true;
+        isRecordLocked = false;
+        recordCanceled = false;
+
+        pressTimeoutId = setTimeout(() => {
+            pressTimeoutId = null;
+            beginRecordPress();
+        }, RECORD_HOLD_THRESHOLD);
+    }
+
+    async function beginRecordPress() {
+        if (!isRecordPressed || mediaRecorder) return; // already released or already recording
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
             showAlert('ضبط صدا در این مرورگر/آدرس در دسترس نیست (نیاز به HTTPS دارد)', 'danger');
+            isRecordPressed = false;
             return;
         }
 
         // گرفتن استریم میکروفن - قبل از تغییر UI، تا در صورت خطا
         // (رد شدن دسترسی، عدم HTTPS و ...) کادر پیام مخفی نماند
+        let newStream;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (e) {
-            console.error('getUserMedia (audio) failed', e);
+            newStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e2) {
+            console.error('getUserMedia (audio) failed', e2);
             showAlert('دسترسی به میکروفون امکان‌پذیر نیست', 'danger');
+            isRecordPressed = false;
             return;
         }
+
+        // اگر کاربر خیلی سریع دکمه را رها کرده (قبل از آماده شدن دسترسی)
+        if (!isRecordPressed) {
+            newStream.getTracks().forEach(t => t.stop());
+            return;
+        }
+        stream = newStream;
 
         // مخفی کردن بخش متن و تغییر ظاهر دکمه‌ها
         $('#chat_windowFooter #editable-message-text')
@@ -623,129 +653,157 @@ function getForwardInfo(messageId) {
 
         mediaRecorder = new MediaRecorder(stream);
         chunks = [];
-
-        mediaRecorder.ondataavailable = e => chunks.push(e.data);
-
-
-
+        mediaRecorder.ondataavailable = e2 => chunks.push(e2.data);
         mediaRecorder.start();
-        if(mediaRecorder){
-            // Emit "typing" event with correct property name
-            socket.emit("typing", { 
-                name: name.textContent.trim(), // Replace with your actual username variable
-                username: typeUsername, // Replace with your actual username variable
-                status: 'voice_record',
-                isTyping: true 
-            });
-        }
-        // ---------- UI ضبط ----------
-        // دکمه‌های Pause و Cancel را می‌سازیم
-        const $pauseBtn   = createBtn('pauseBtn',   'bi bi-pause-fill',   'مکث');
-        const $cancelBtn  = createBtn('cancelBtn',  'bi bi-x-circle',    'لغو');
 
-        $('#recordControls').empty().append($pauseBtn, $cancelBtn);
+        socket.emit("typing", {
+            name: name.textContent.trim(),
+            username: typeUsername,
+            status: 'voice_record',
+            isTyping: true
+        });
+
+        // ---------- UI ضبط ----------
         $('#recordStatus').removeClass('d-none').addClass('d-flex')
+        $('#recordSlideCancel').removeClass('d-none').addClass('d-flex').css({ transform: 'translateX(0)', opacity: 1 })
+        $('#recordLockHint').removeClass('d-none')
         startTime = Date.now()
         timerInterval = setInterval(updateTimer, 10);
-        // حالت اولیه دکمه‌ها
+
         $('#chat_windowFooter #recordBtn')
-            .prop('disabled', true)
-            .fadeOut()
             .addClass('animate__fadeOutLeft')
             .removeClass('animate__fadeInLeft');
 
-        $('#chat_windowFooter #stopBtn')
-            .prop('disabled', false)
-            .removeClass('animate__fadeOutRight d-none')
-            .addClass('animate__fadeInRight')
-            .show();
-
         $('#chat_windowFooter .message_btn')
             .addClass('d-none');
-    });
-
-    // ---------- توقف ضبط (دکمه Stop) ----------
-    $('#chat_windowFooter #stopBtn').on('click', () => {
-        mediaRecorder.onstop = () => {
-            const replyBox = document.getElementById('replyBox');
-            const quote = replyBox.getAttribute('reply-id') || null;
-            let text = message.innerHTML.trim();
-            text = DOMPurify.sanitize(text, {
-                ALLOWED_TAGS: ['table','thead','tbody','tr','td','th','br'],
-                ALLOWED_ATTR: ['style','data-excel-formula',
-                            'data-excel-value','data-excel-type']
-            });
-            // (در صورت نیاز به پردازش data‑excel‑formula همانند کد قبلی)
-
-            const blob = new Blob(chunks, { type: 'audio/webm' });
-            chunks = [];
-
-            const reader = new FileReader();
-            reader.onload = () => voice_upload(text, quote, blob);
-            reader.readAsArrayBuffer(blob);
-        };
-        stopRecording();
-
-    });
-
-    // ---------- Pause ----------
-    $('#recordControls').on('click', '#pauseBtn', () => {
-        if (!mediaRecorder) return;
-
-        if (mediaRecorder.state === 'recording') {
-            mediaRecorder.pause();
-            // آیکون را به Play تغییر می‌دهیم
-            $('#pauseBtn i')
-                .removeClass('bi-pause-fill')
-                .addClass('bi-play-fill')
-                .parent()
-                .attr('title', 'ادامه');
-            clearInterval(timerInterval)
-        } else if (mediaRecorder.state === 'paused') {
-            mediaRecorder.resume();
-            $('#pauseBtn i')
-                .removeClass('bi-play-fill')
-                .addClass('bi-pause-fill')
-                .parent()
-                .attr('title', 'مکث');
-            timerInterval = setInterval(updateTimer, 10);
-
-        }
-    });
-
-    // ---------- Cancel ----------
-    $('#recordControls').on('click', '#cancelBtn', () => {  
-        stopRecording()
-    });
-
-    // ---------- تابع مشترک برای توقف (Stop یا Cancel) ----------
-    function stopRecording() {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();   // onstop اجرا می‌شود
-            socket.emit("typing", { 
-                name: name.textContent.trim(), // Replace with your actual username variable
-                username: typeUsername, // Replace with your actual username variable
-                status: 'voice_record',
-                isTyping: false 
-            });
-        }
-        if (stream) {
-            stream.getTracks().forEach(t => t.stop());
-            stream = null;
-        }
-        // Emit "typing" event with correct property name
-        
-        timer_reset()
-        resetUI();
     }
+
+    // ---------- کشیدن انگشت/موس حین ضبط: لغو به چپ، قفل به بالا ----------
+    function onRecordMove(e) {
+        if (!isRecordPressed || isRecordLocked) return;
+        const point = e.touches ? e.touches[0] : e;
+        const dx = point.clientX - pressStartX;
+        const dy = point.clientY - pressStartY;
+
+        if (dy < -RECORD_LOCK_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
+            lockRecording();
+            return;
+        }
+
+        if (dx < 0) {
+            const progress = Math.min(1, Math.abs(dx) / RECORD_CANCEL_THRESHOLD);
+            $('#recordSlideCancel').css({
+                transform: `translateX(${dx}px)`,
+                opacity: 1 - progress * 0.7
+            });
+            if (Math.abs(dx) >= RECORD_CANCEL_THRESHOLD) {
+                recordCanceled = true;
+                finishRecording(false);
+            }
+        } else {
+            $('#recordSlideCancel').css({ transform: 'translateX(0)', opacity: 1 });
+        }
+    }
+
+    // ---------- قفل کردن ضبط: می‌توان دکمه را رها کرد و ضبط ادامه پیدا می‌کند ----------
+    function lockRecording() {
+        isRecordLocked = true;
+        $('#recordSlideCancel').addClass('d-none').removeClass('d-flex');
+        $('#recordLockHint').addClass('d-none');
+        $('#recordLockedControls').removeClass('d-none').addClass('d-flex');
+        $('#chat_windowFooter #recordBtn').addClass('d-none');
+    }
+
+    // ---------- رها کردن دکمه: اگر قفل/لغو نشده بود، ارسال کن ----------
+    function endRecordPress() {
+        if (pressTimeoutId) {
+            // تپ ساده: قبل از رسیدن به آستانهٔ نگه‌داشتن رها شد، پس اصلاً ضبطی شروع نشده
+            clearTimeout(pressTimeoutId);
+            pressTimeoutId = null;
+            isRecordPressed = false;
+            return;
+        }
+        if (!isRecordPressed) return;
+        isRecordPressed = false;
+        if (!mediaRecorder) return; // دسترسی هنوز آماده نشده یا رد شده بود
+        if (isRecordLocked || recordCanceled) return; // منتظر دکمه‌های حالت قفل
+        finishRecording(true);
+    }
+
+    $('#chat_windowFooter #recordBtn')
+        .on('pointerdown', function (e) {
+            const ev = e.originalEvent || e;
+            if (this.setPointerCapture && ev.pointerId != null) {
+                try { this.setPointerCapture(ev.pointerId); } catch (err) { /* noop */ }
+            }
+            onRecordPointerDown(ev);
+        })
+        .on('pointermove', function (e) { onRecordMove(e.originalEvent || e); })
+        .on('pointerup pointercancel', function () { endRecordPress(); });
+
+    $('#recordLockedCancelBtn').on('click', () => finishRecording(false));
+    $('#recordLockedSendBtn').on('click', () => finishRecording(true));
+
+    // ---------- پایان ضبط: ارسال (send=true) یا لغو/حذف (send=false) ----------
+    function finishRecording(send) {
+        if (!mediaRecorder) { resetRecordUI(); return; }
+        const recorder = mediaRecorder;
+        mediaRecorder = null;
+
+        recorder.onstop = () => {
+            if (send && chunks.length) {
+                const replyBox = document.getElementById('replyBox');
+                const quote = replyBox.getAttribute('reply-id') || null;
+                let text = message.innerHTML.trim();
+                text = DOMPurify.sanitize(text, {
+                    ALLOWED_TAGS: ['table','thead','tbody','tr','td','th','br'],
+                    ALLOWED_ATTR: ['style','data-excel-formula',
+                                'data-excel-value','data-excel-type']
+                });
+
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                chunks = [];
+
+                const reader = new FileReader();
+                reader.onload = () => voice_upload(text, quote, blob);
+                reader.readAsArrayBuffer(blob);
+            } else {
+                chunks = [];
+            }
+
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+            socket.emit("typing", {
+                name: name.textContent.trim(),
+                username: typeUsername,
+                status: 'voice_record',
+                isTyping: false
+            });
+
+            timer_reset();
+            resetRecordUI();
+        };
+
+        if (recorder.state !== 'inactive') recorder.stop();
+        else recorder.onstop();
+    }
+
     function timer_reset(){
-        $('#recordStatus #Timer').text('00:00.00')
+        $('#recordStatus #timer').text('00:00.00')
         $('#recordStatus').removeClass('d-flex').addClass('d-none')
+        if (timerInterval) clearInterval(timerInterval)
         timerInterval = null
     }
+
     // ---------- بازگرداندن UI به حالت اولیه ----------
-    function resetUI() {
+    function resetRecordUI() {
         checkShowSendBtn()
+
+        isRecordPressed = false;
+        isRecordLocked = false;
+        recordCanceled = false;
 
         $('#chat_windowFooter #editable-message-text')
             .fadeIn()
@@ -755,19 +813,14 @@ function getForwardInfo(messageId) {
             .show();
 
         $('#chat_windowFooter #recordBtn')
-            .prop('disabled', false)
-            .removeClass('animate__fadeOutLeft')
+            .removeClass('animate__fadeOutLeft d-none')
             .addClass('animate__fadeInLeft')
             .fadeIn();
         $('#recordVideoBtn').prop('disabled', false)
 
-        $('#chat_windowFooter #stopBtn')
-            .prop('disabled', true)
-            .removeClass('animate__fadeInLeft')
-            .addClass('animate__fadeOutRight')
-            .fadeOut()
-
-        $('#recordControls').empty();   // حذف دکمه‌های Pause/Cancel
+        $('#recordSlideCancel').addClass('d-none').removeClass('d-flex')
+        $('#recordLockHint').addClass('d-none')
+        $('#recordLockedControls').addClass('d-none').removeClass('d-flex')
     }
 
     function createUploadUI(username) {

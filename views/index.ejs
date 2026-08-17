@@ -232,20 +232,41 @@
                                         <button class="btn  btn btn-primary  rounded-circle send-button message_btn d-none " type="submit" id="button">
                                             <i class="bi bi-send-fill"></i>
                                         </button>
-                                        <div id="recordSection" class="  col-auto d-flex">
+                                        <div id="recordSection" class="  col-auto d-flex position-relative">
                                             <!-- در انتهای footer چت (یک مکان مناسب برای دکمه‌های جدید) -->
                                             <div id="recordStatus" class="d-none me-1 gap-1 align-items-center">
                                                 <span id="timer" class="text-secondary">00:00.00</span>
                                                 <span id="blinker" class="blinker"></span>
                                             </div>
-                                            <div id="recordControls" class="d-flex me-1 col-auto m-auto btn-group align-items-center"></div>
+
+                                            <!-- برای لغو ضبط، دکمه را به چپ بکشید -->
+                                            <div id="recordSlideCancel" class="d-none me-2 align-items-center gap-1 text-secondary record-slide-cancel">
+                                                <i class="bi bi-chevron-left"></i>
+                                                <span>برای لغو بکشید</span>
+                                            </div>
+
+                                            <!-- راهنمای قفل: برای ضبط دست‌آزاد به بالا بکشید -->
+                                            <div id="recordLockHint" class="d-none record-lock-hint">
+                                                <i class="bi bi-lock-fill"></i>
+                                                <i class="bi bi-chevron-up"></i>
+                                            </div>
+
+                                            <!-- دکمه‌های حالت قفل: لغو (سطل زباله) و ارسال (تیک) -->
+                                            <div id="recordLockedControls" class="d-none me-1 align-items-center gap-2">
+                                                <button type="button" id="recordLockedCancelBtn" class="record-locked-btn record-locked-cancel" title="لغو">
+                                                    <i class="bi bi-trash-fill"></i>
+                                                </button>
+                                                <button type="button" id="recordLockedSendBtn" class="record-locked-btn record-locked-send" title="ارسال">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                            </div>
+
                                             <div class="col-auto m-auto overflow-hidden rounded">
 
                                                 <!-- دکمه ویدیو پیام -->  <button id="recordVideoBtn" type="button" class="col-auto animate__animated btn btn-primary rounded-circle" title="پیام ویدیویی">  <i class="bi bi-camera-video-fill m-auto"></i> </button>
-                                                <!-- دکمه ضبط -->  <button id="recordBtn" class="col-auto animate__animated  btn btn-primary rounded-circle">  <i class="bi bi-mic-fill m-auto"></i> </button>
-                                                <!-- دکمه توقف -->  <button id="stopBtn" class="col-auto animate__animated border backdrop-blur shadow text-danger btn   d-none" disabled=""> <i class="bi bi-square-fill m-auto"></i>  </button>
+                                                <!-- دکمه ضبط: برای ضبط نگه دارید -->  <button id="recordBtn" type="button" class="col-auto animate__animated  btn btn-primary rounded-circle" style="touch-action:none;" title="برای ضبط نگه دارید">  <i class="bi bi-mic-fill m-auto"></i> </button>
                                             </div>
-            
+
                                         </div>
                                     </div>
                                 </div>
