@@ -30,6 +30,22 @@ export interface RoomSummary {
   unreadCount?: number;
 }
 
+export interface MessageFile {
+  _id: string;
+  file: string;
+  fileType: string;
+  fileName?: string | null;
+  /** User ids who have played this voice/video note — client-tracked from `update_voice_heared` events. */
+  heardBy?: string[];
+}
+
+export interface ReadEntry {
+  username: string;
+  reaction?: string;
+  voice_heared?: boolean;
+  time: string;
+}
+
 export interface ChatMessage {
   _id?: string;
   id: string;
@@ -37,12 +53,22 @@ export interface ChatMessage {
   sender: string;
   message: string;
   quote?: string | null;
-  forward?: { senderName?: string; message?: string } | null;
+  forward?: { senderName?: string; senderUsername?: string | null; message?: string; file?: string | null } | null;
   reply?: { sender?: string; message?: string; file?: string | null } | null;
-  file?: Array<{ file: string; fileType: string; fileName?: string | null }> | null;
+  file?: MessageFile[] | null;
   timestamp: string;
-  readUsers?: Array<{ username: string; time: string }>;
+  edited?: string | null;
+  read?: ReadEntry[];
+  readUsers?: ReadEntry[];
   readLine?: boolean;
+}
+
+// Uploaded-file shape returned by POST /api/upload, before it's attached
+// to a sent message.
+export interface UploadedFile {
+  file: string;
+  fileName: string;
+  fileType: string;
 }
 
 export interface TypingPayload {
@@ -72,4 +98,41 @@ export interface RoomListPayload {
   users: RoomMember[];
   nextCursor: string | null;
   cache?: unknown;
+}
+
+export interface EditPayload {
+  messageId: string;
+  new_message: string;
+}
+
+export interface DeletePayload {
+  messageId: string;
+}
+
+export interface DeleteFilePayload {
+  fileId: string;
+  messageId: string;
+}
+
+export interface ReactionAddedPayload {
+  messageId: string;
+  username: string;
+  reaction: string;
+}
+
+export interface VoiceHearedPayload {
+  file_id: string;
+  username: string;
+  messageId: string;
+}
+
+export interface ReadMessageUpdatePayload {
+  id: string;
+  readUsers: ReadEntry[];
+}
+
+export interface AckResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
 }

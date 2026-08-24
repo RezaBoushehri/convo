@@ -15,6 +15,7 @@ const { Server } = require('socket.io');
 const { connectDB } = require('./server/db');
 const { sessionMiddleware, passport } = require('./server/session');
 const { registerSsoRoute } = require('./server/ssoRoute');
+const { registerUploadRoutes } = require('./server/uploadRoute');
 const { registerChatEvents } = require('./server/chatEvents');
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -34,6 +35,7 @@ async function main() {
   app.use(express.json());
 
   registerSsoRoute(app);
+  registerUploadRoutes(app);
 
   // Minimal "who am I" endpoint the client chat shell calls once on
   // mount to get the logged-in user's id/name before opening the socket.

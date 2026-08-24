@@ -11,16 +11,10 @@ const Message = require('../../../../models/message');
 const { socketEncrypt, socketDecrypt } = require('../../../../services/encryption');
 const { processMessage } = require('./processMessage');
 const { sanitizeMessage } = require('./sanitize');
+const { authenticateRoom } = require('./roomAccess');
+const { deleteFile } = require('./fileStore');
 
 const onlineUsersServer = new Map(); // socket.id -> username
-
-async function authenticateRoom(roomID, uid) {
-  const room = await Room.findOne({ roomID });
-  if (!room) return false;
-  if (!room?.setting?.[0]?.Joinable_url) return true;
-  if (room.setting[0].Joinable_url === 'private' && !room.members.includes(uid)) return false;
-  return true;
-}
 
 async function addUserToRoom(uid, roomID) {
   await User.findOneAndUpdate({ _id: uid }, { $set: { roomID } });
@@ -67,6 +61,15 @@ async function getAttachmentsSummary(roomID) {
     }
   }
   return summary;
+}
+
+// Most handlers need "the user's current device record" + "which room
+// that device is in" — this is the recurring lookup from app.js
+// (currentUser.devices.find(d => d.token === socket.token).roomID).
+async function getCurrentDeviceRoom(socket) {
+  const currentUser = await User.findOne({ _id: socket.user._id, 'devices.token': socket.token });
+  const device = currentUser?.devices.find((d) => d.token === socket.token);
+  return { currentUser, roomID: device?.roomID || null };
 }
 
 function registerChatEvents(io) {
@@ -352,6 +355,182 @@ function registerChatEvents(io) {
         console.error('chat error', err);
         if (typeof callback === 'function') callback({ success: false, messageId: tempId, message: err.message });
         socket.emit('error', { message: err.message });
+      }
+    });
+
+    // ---- pagination: load messages older than the oldest one currently shown ----
+    socket.on('requestOlderMessages', async ({ roomID, beforeId } = {}) => {
+      try {
+        if (!roomID || !beforeId) return socket.emit('error', { message: 'Missing roomID/beforeId.' });
+        const allowed = await authenticateRoom(roomID, socket.user._id.toString());
+        if (!allowed) return socket.emit('error', { message: 'No access.' });
+
+        const older = await Message.find({ roomID, id: { $lt: beforeId } })
+          .sort({ timestamp: -1 })
+          .limit(50)
+          .lean();
+
+        if (!older.length) return socket.emit('noMoreMessages', { roomID });
+
+        const processed = await Promise.all(older.reverse().map((msg) => processMessage(msg)));
+        socket.emit('restoreMessages', { roomID, messages: processed, prepend: true });
+      } catch (err) {
+        console.error('requestOlderMessages error', err);
+        socket.emit('error', { message: err.message });
+      }
+    });
+
+    // ---- edit / delete / delete_file ----
+    socket.on('edit', async ({ messageId, new_message } = {}, callback) => {
+      try {
+        if (!messageId) throw new Error('Invalid messageId.');
+        const { currentUser, roomID } = await getCurrentDeviceRoom(socket);
+        if (!currentUser || !roomID) throw new Error('User not authenticated or not in a room.');
+
+        const message = await Message.findOne({ id: messageId });
+        if (!message) throw new Error('Message not found.');
+        if (message.roomID !== roomID) throw new Error('Message does not belong to your current room.');
+        if (message.sender !== currentUser._id.toString()) throw new Error('You can only edit your own messages.');
+
+        const clean = sanitizeMessage(new_message);
+        await Message.updateOne({ id: messageId }, { $set: { message: socketEncrypt(clean), edited: new Date() } });
+
+        io.in(roomID).emit('edit', { messageId, new_message: clean });
+        if (typeof callback === 'function') callback({ success: true });
+      } catch (err) {
+        console.error('edit error', err);
+        if (typeof callback === 'function') callback({ success: false, error: err.message });
+      }
+    });
+
+    socket.on('delete', async ({ messageId } = {}, callback) => {
+      try {
+        if (!messageId) throw new Error('Invalid messageId.');
+        const { currentUser, roomID } = await getCurrentDeviceRoom(socket);
+        if (!currentUser || !roomID) throw new Error('User not authenticated or not in a room.');
+
+        const message = await Message.findOne({ id: messageId });
+        if (!message) throw new Error('Message not found.');
+        if (message.roomID !== roomID) throw new Error('Message does not belong to your current room.');
+        if (message.sender !== currentUser._id.toString()) throw new Error('You can only delete your own messages.');
+
+        for (const f of message.file || []) {
+          if (f.file) await deleteFile(f.file.split('/').pop());
+        }
+        await Message.deleteOne({ id: messageId });
+        await Room.findOneAndUpdate({ roomID }, { $set: { lastUpdated: new Date() } });
+
+        io.in(roomID).emit('delete', { messageId });
+        if (typeof callback === 'function') callback({ success: true });
+      } catch (err) {
+        console.error('delete error', err);
+        if (typeof callback === 'function') callback({ success: false, error: err.message });
+      }
+    });
+
+    socket.on('delete_file', async ({ fileId } = {}, callback) => {
+      try {
+        if (!fileId) throw new Error('Invalid fileId.');
+        const { currentUser, roomID } = await getCurrentDeviceRoom(socket);
+        if (!currentUser || !roomID) throw new Error('User not authenticated or not in a room.');
+
+        const message = await Message.findOne({ 'file._id': fileId });
+        const file = message?.file.find((f) => f._id.toString() === fileId);
+        if (!message || !file) throw new Error('File not found.');
+        if (message.roomID !== roomID) throw new Error('Message does not belong to your current room.');
+        if (message.sender !== currentUser._id.toString()) throw new Error('You can only delete your own files.');
+
+        await deleteFile(file.file.split('/').pop());
+        await Message.updateOne({ 'file._id': fileId }, { $pull: { file: { _id: fileId } } });
+
+        io.in(roomID).emit('delete_file', { fileId, messageId: message.id });
+        if (typeof callback === 'function') callback({ success: true });
+      } catch (err) {
+        console.error('delete_file error', err);
+        if (typeof callback === 'function') callback({ success: false, error: err.message });
+      }
+    });
+
+    // ---- reactions ----
+    socket.on('addReaction', async ({ messageId, reaction } = {}) => {
+      try {
+        const { currentUser, roomID } = await getCurrentDeviceRoom(socket);
+        if (!currentUser || !roomID) throw new Error('User not found or not part of a room.');
+
+        const message = await Message.findOne({ id: messageId });
+        if (!message) throw new Error('Message not found');
+
+        const uid = currentUser._id.toString();
+        const existing = message.read.find((r) => r.username === uid);
+        if (existing) existing.reaction = reaction;
+        else message.read.push({ username: uid, reaction, time: new Date() });
+        await message.save();
+
+        io.in(message.roomID).emit('reactionAdded', { messageId, username: uid, reaction });
+      } catch (err) {
+        console.error('addReaction error', err);
+        socket.emit('error', { message: 'Failed to add reaction.' });
+      }
+    });
+
+    // ---- voice-note "heard" marker ----
+    socket.on('voice_heared', async ({ file_id } = {}) => {
+      try {
+        const { currentUser, roomID } = await getCurrentDeviceRoom(socket);
+        if (!currentUser || !roomID) throw new Error('User not found or not in a room.');
+
+        const uid = currentUser._id.toString();
+        // Flip voice_heared on the user's existing read entry if they have
+        // one; otherwise push a fresh entry. Doing this as one atomic
+        // $addToSet keyed only on username would risk a duplicate read
+        // entry for the same user, so it's two explicit steps instead.
+        const setResult = await Message.updateOne(
+          { roomID, 'file._id': file_id, 'read.username': uid },
+          { $set: { 'read.$.voice_heared': true } }
+        );
+        if (setResult.matchedCount === 0) {
+          await Message.updateOne(
+            { roomID, 'file._id': file_id },
+            { $push: { read: { username: uid, time: new Date(), voice_heared: true } } }
+          );
+        }
+        const updated = await Message.findOne({ roomID, 'file._id': file_id }).select('id');
+        if (updated) io.in(roomID).emit('update_voice_heared', { file_id, username: uid, messageId: updated.id });
+      } catch (err) {
+        console.error('voice_heared error', err);
+      }
+    });
+
+    // ---- read receipts ----
+    socket.on('markMessagesRead', async ({ messageIds, roomID } = {}) => {
+      try {
+        if (!roomID || !Array.isArray(messageIds) || !messageIds.length) return;
+        const currentUser = await User.findOne({ _id: socket.user._id, 'devices.token': socket.token });
+        if (!currentUser) return;
+        const uid = currentUser._id.toString();
+
+        await Message.updateMany(
+          { id: { $in: messageIds }, roomID, 'read.username': { $ne: uid } },
+          { $addToSet: { read: { username: uid, time: new Date() } } }
+        );
+
+        const updated = await Message.find({ id: { $in: messageIds } }).select('id read').lean();
+        updated.forEach((msg) => {
+          socket.broadcast.to(roomID).emit('readMessageUpdate', { id: msg.id, readUsers: msg.read });
+        });
+      } catch (err) {
+        console.error('markMessagesRead error', err);
+      }
+    });
+
+    // ---- relays another member's live upload progress to the room ----
+    socket.on('uploadProgress', async ({ progress, loaded, total } = {}) => {
+      try {
+        const { currentUser, roomID } = await getCurrentDeviceRoom(socket);
+        if (!currentUser || !roomID || typeof progress !== 'number') return;
+        io.in(roomID).emit('uploadProgress', { user: currentUser.username, progress, loaded, total });
+      } catch (err) {
+        console.error('uploadProgress error', err);
       }
     });
 
