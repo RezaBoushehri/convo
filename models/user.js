@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
-const passportLocalMongoose = require('passport-local-mongoose').default;
+// Support both plain-CJS (`module.exports = plugin`) and ESM-interop
+// (`module.exports.default = plugin`) shapes of the installed package —
+// the standard npm "passport-local-mongoose" package exports a plain
+// function (no .default), so a bare `.default` here was always undefined
+// on a fresh install.
+const passportLocalMongoosePkg = require('passport-local-mongoose');
+const passportLocalMongoose = passportLocalMongoosePkg.default || passportLocalMongoosePkg;
 
 const userSchema = new mongoose.Schema({
     username: {

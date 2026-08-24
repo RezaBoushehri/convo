@@ -1,5 +1,12 @@
 # MetaChat — React + React Native rewrite
 
+> **Note:** `apps/web-next` is a separate, newer Next.js rewrite that talks
+> directly to the real backend's actual socket/event contract (not the
+> `packages/core` contract described below, which is intentionally a
+> from-scratch design — see `apps/web-next/README.md`). `apps/web` and
+> `apps/mobile` below are still prototypes against that from-scratch
+> contract.
+
 This is a monorepo starter that ports the core chat flow (rooms, messages,
 socket connection) from the old jQuery/socket.io app to React (web) and
 React Native/Expo (mobile), sharing all non-visual logic.

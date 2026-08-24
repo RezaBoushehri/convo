@@ -2,17 +2,17 @@ node_modules
 .env
 .vscode
 
-package-lock.json
-package.json
-package-lock.json
-package.json
+# Only the root manifest/lockfile — a bare (non-rooted) pattern here would
+# silently ignore every nested package.json too (react/apps/*/package.json
+# included), which is why those never got committed before.
+/package-lock.json
+/package.json
+
 /DB
 /uploads
 .codegpt
-.git
-/DB
-/DB
 /public/bootstrap-4.4.1-dist
 /public/css/bootstrap-icons-1.11.3
-/public/css/bootstrap-icons-1.11.3
 /public/vendor
+.next
+*.tsbuildinfo
