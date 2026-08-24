@@ -3093,7 +3093,7 @@ function addMessageToChatUI(data, prepend = false , isFirstMessage=false, isLast
                         `}
                     </span>
                 </div>
-                <audio preload="metadata" src="${src}"  crossorigin="anonymous" controls class="d-none col controls voice-message"></audio>
+                <audio preload="metadata" src="${src}"  crossorigin="anonymous" class="d-none col controls voice-message"></audio>
                 <span class="playRate cursor-pointer border border-primary text-primary border-1 small mt-3  px-1 col-auto m-auto rounded" data-playrate='${voice_playbackRate}'>
                     X${voice_playbackRate}
                 </span>
