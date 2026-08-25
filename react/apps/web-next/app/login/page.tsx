@@ -1,3 +1,5 @@
+const SSO_PORTAL_LOGIN_URL = process.env.SSO_PORTAL_LOGIN_URL || '/portal/login?domain=metachat';
+
 const ERROR_MESSAGES: Record<string, string> = {
   no_sso_token: 'No login token was provided.',
   invalid_sso_token: 'That login link is invalid or has expired.',
@@ -11,8 +13,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   callback_error: 'Something went wrong during login. Please try again.',
 };
 
-export default function LoginPage({ searchParams }: { searchParams: { error?: string } }) {
-  const message = searchParams.error ? ERROR_MESSAGES[searchParams.error] ?? 'Login failed.' : null;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const params = await searchParams;
+  const message = params.error ? ERROR_MESSAGES[params.error] ?? 'Login failed.' : null;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas px-4">
@@ -22,14 +25,18 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
         </div>
         <h1 className="text-lg font-semibold">Sign in to MetaChat</h1>
         <p className="mt-2 text-sm text-slate-500">
-          MetaChat is signed into through your organization&apos;s single sign-on. Open MetaChat from your usual
-          portal to continue.
+          MetaChat is signed into through your organization&apos;s single sign-on.
         </p>
         {message && (
           <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600" role="alert">
             {message}
           </p>
         )}
+        <a href={SSO_PORTAL_LOGIN_URL} className="sso-login-btn mt-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/portal/svg/logo.svg" alt="" height={24} />
+          Login with PORTAL
+        </a>
       </div>
     </main>
   );
