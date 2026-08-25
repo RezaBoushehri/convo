@@ -34,10 +34,10 @@ function connectDB() {
   // TEMP: readyState heartbeat every 5s so we can see whether the
   // connection is ever NOT "connected" between requests, even when no
   // disconnected/reconnected event fires for it.
-  setInterval(() => {
-    const state = mongoose.connection.readyState;
-    console.log('[web-next][diag] mongo readyState=%s (%s)', state, READY_STATE_NAMES[state] || 'unknown');
-  }, 5000).unref();
+  // setInterval(() => {
+  //   const state = mongoose.connection.readyState;
+  //   console.log('[web-next][diag] mongo readyState=%s (%s)', state, READY_STATE_NAMES[state] || 'unknown');
+  // }, 5000).unref();
 
   connectPromise = mongoose
     .connect(uri, {})
