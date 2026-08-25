@@ -2,6 +2,7 @@
 // — the external SSO service redirects here with a signed JWT, we verify
 // it, log the user in via passport, and mint the same long-lived
 // `autoLogin` cookie the root app uses so socket auth works identically.
+const mongoose = require('mongoose');
 const User = require('../../../../models/user');
 const { verifySSOToken, encryptAES256 } = require('../../../../services/encryption');
 
@@ -25,7 +26,14 @@ function registerSsoRoute(app, basePath = '') {
       if (!userId || !domain) return loginRedirect(res, '?error=invalid_token_data');
       if (domain !== 'metachat') return loginRedirect(res, '?error=invalid_domain');
 
+      // TEMP diagnostics for the live "buffering timed out" investigation.
+      console.log(
+        '[web-next][diag] about to User.findById, mongo readyState=%s',
+        mongoose.connection.readyState
+      );
+      const findStart = Date.now();
       const user = await User.findById(userId);
+      console.log('[web-next][diag] User.findById took %sms', Date.now() - findStart);
       if (!user) return loginRedirect(res, '?error=user_not_found');
       if (user.isActive === false) return loginRedirect(res, '?error=account_disabled');
 
@@ -85,7 +93,11 @@ function registerSsoRoute(app, basePath = '') {
         });
       });
     } catch (err) {
-      console.error('SSO callback error', err);
+      console.error(
+        '[web-next][diag] SSO callback error, mongo readyState=%s —',
+        mongoose.connection.readyState,
+        err
+      );
       loginRedirect(res, '?error=callback_error');
     }
   });
