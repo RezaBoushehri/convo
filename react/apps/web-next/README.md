@@ -1,8 +1,8 @@
-# MetaChat — Next.js rewrite (Phases 1–3)
+# MetaChat — Next.js rewrite (Phases 1–4)
 
 A Next.js rewrite of the MetaChat frontend, built to match the "Hatypo
 Studio" reference UI (rounded card layout, icon rail, member/attachments
-side panel). This is **Phases 1–3 of a multi-phase rewrite** — see "Scope"
+side panel). This is **Phases 1–4 of a multi-phase rewrite** — see "Scope"
 below for exactly what works today.
 
 ## Architecture
@@ -132,9 +132,58 @@ against your actual DB/SSO as the real smoke test.
   `/portal/profile/img/:username` image endpoint (which isn't part of
   this app).
 
+### Done (Phase 4 — admin/security surface)
+- **Security middleware** (`utils/security.js`, required directly rather
+  than duplicated — it's side-effect-free, unlike some of the other
+  root-level services): Helmet (CSP/HSTS/frameguard/etc.), XSS
+  sanitization on `req.body`/`req.query`, per-IP connection tracking, and
+  a security event logger, all applied globally.
+- **Rate limiting**, sized to what each route actually is rather than a
+  blind port of the original's blanket `/api/` prefix match: `authLimiter`
+  on `/sso/callback`, `standardLimiter` on the regular chat-traffic
+  endpoints (`/api/me`, `/api/upload`, `/uploads/:file`), and
+  `extremeLimiter` reserved for the one genuinely sensitive admin route.
+  (Porting the original's literal `/api/` blanket rule would have rate-limited
+  ordinary file uploads to 5-per-hour — that's a config mismatch created by
+  this app's own URL scheme, not something to carry forward.)
+- **Bulk user import** (`POST /api/users/bulk-register`,
+  `server/bulkRegisterRoute.js`) — imports users with a pre-computed
+  passport-local-mongoose salt/hash, IP-allowlisted
+  (`ALLOWED_PROFILE_IPS`). Two real fixes over the original: it had
+  `return res.status(400)...` as the literal first line inside the route's
+  try block, before the IP check and everything else — permanently
+  disabling it regardless of input or caller. Read as a debug leftover
+  rather than an intentional kill switch (see the comment in the file for
+  the reasoning) and removed. It also cleaned the response with
+  `delete userResponse.password`, but the schema field is `hash`/`salt`,
+  not `password` — so the response was leaking the imported password hash
+  and salt back to the caller. Fixed to delete the actual fields.
+- **RTSP/device webhook ingestion** (`POST /rtsp/upload`,
+  `server/rtspRoute.js`) — ported from `/upload_rtsp` +
+  `services/log.js`'s `Log_message()`: IP-allowlisted, decrypts an
+  encrypted payload, writes a message (with any attached files) into a
+  room, and broadcasts it live over the socket to anyone with that room
+  open. The target room id and the "sender" display name were hardcoded
+  in the original — made configurable (`RTSP_ROOM_ID`, `RTSP_USERNAME`),
+  defaulting to the same values.
+
+### Deliberately simplified (Phase 4)
+- The legacy PHP notification-backup pipeline (`sendBackupToPHP`, hitting
+  an external `missionform/...notificationUsers.php` endpoint) isn't
+  ported — out of scope for this rewrite, same reasoning as the other
+  legacy-integration pieces skipped earlier.
+- The original's `/SSO/admin/import-users` route (push all users to an
+  external admin SSO service) isn't ported — unlike bulk-register, that
+  one actually is intentionally disabled in the original (its own
+  IP-restricted, always-403 guard), so there was no working behavior to
+  restore.
+- IP allowlisting for both new routes shares one list
+  (`ALLOWED_PROFILE_IPS`) rather than the original's three separately
+  hardcoded IP arrays (profile images, RTSP, bulk-register each had
+  slightly different lists) — simpler to operate, at the cost of not
+  being able to allow different callers per route.
+
 ### Deliberately not ported yet (later phases)
-- Admin/security surface: rate limiting, IP allowlisting, bulk user import,
-  RTSP ingestion, the legacy PHP notification backup pipeline.
 - Room creation/management UI, private-chat search/start flow, message
   search, notifications (toast/browser Notification API), link previews.
 
@@ -143,5 +192,11 @@ against your actual DB/SSO as the real smoke test.
   is `undefined` for a normal install of that package (no default export) —
   this would crash on a fresh `npm install` for the existing app too. Fixed
   with a defensive fallback that accepts either shape.
-- `passport-local-mongoose` was required by `models/user.js` but missing
-  from the root `package.json` — added it.
+- `passport-local-mongoose`, and (found while wiring up Phase 4)
+  `express-rate-limit`, `express-slow-down`, `helmet`, `express-validator`,
+  and `xss`, were all required by root-level shared files (`models/user.js`,
+  `utils/security.js`) but missing from the root `package.json` — a fresh
+  `npm install` wouldn't have pulled them for the existing app either.
+  Added all of them.
+- `app.js`'s `/api/users/bulk-register` and the response-cleanup bug in it
+  — see "Done (Phase 4)" above.

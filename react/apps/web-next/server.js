@@ -12,10 +12,14 @@ const cookieParser = require('cookie-parser');
 const next = require('next');
 const { Server } = require('socket.io');
 
+const security = require('../../../utils/security');
+
 const { connectDB } = require('./server/db');
 const { sessionMiddleware, passport } = require('./server/session');
 const { registerSsoRoute } = require('./server/ssoRoute');
 const { registerUploadRoutes } = require('./server/uploadRoute');
+const { registerBulkRegisterRoute } = require('./server/bulkRegisterRoute');
+const { registerRtspRoute } = require('./server/rtspRoute');
 const { registerChatEvents } = require('./server/chatEvents');
 const { registerCallEvents } = require('./server/callEvents');
 
@@ -35,8 +39,26 @@ async function main() {
   app.use(passport.session());
   app.use(express.json());
 
+  // Shared security middleware (utils/security.js — same module app.js
+  // uses, required directly rather than duplicated).
+  app.use(security.helmet);
+  app.use(security.xssProtection);
+  app.use(security.trackConnections);
+  app.use(security.securityLogger);
+
+  // Rate limits, sized to what each route actually is rather than a blind
+  // port of the original's `/api/` prefix match — this app's own /api/me
+  // and /api/upload are normal per-message chat traffic, not admin
+  // operations, so they get the general limiter; only the two genuinely
+  // sensitive admin/device endpoints get the strict one.
+  app.use('/sso/callback', security.authLimiter);
+  app.use(['/api/me', '/api/upload', '/uploads'], security.standardLimiter);
+  app.use('/api/users/bulk-register', security.restrictToAllowedIPs, security.extremeLimiter);
+  app.use('/rtsp/upload', security.restrictToAllowedIPs);
+
   registerSsoRoute(app);
   registerUploadRoutes(app);
+  registerBulkRegisterRoute(app);
 
   // Minimal "who am I" endpoint the client chat shell calls once on
   // mount to get the logged-in user's id/name before opening the socket.
@@ -58,8 +80,6 @@ async function main() {
     next();
   });
 
-  app.all('*', (req, res) => handle(req, res));
-
   const server = http.createServer(app);
   const io = new Server(server, {
     cors: {
@@ -69,6 +89,12 @@ async function main() {
     },
     transports: ['websocket', 'polling'],
   });
+
+  // Registered before the Next.js catch-all below, since it needs `io` to
+  // broadcast the messages it ingests.
+  registerRtspRoute(app, io);
+
+  app.all('*', (req, res) => handle(req, res));
 
   // Let socket.io see the same session/cookies the HTTP layer parsed.
   io.engine.use(cookieParser());
