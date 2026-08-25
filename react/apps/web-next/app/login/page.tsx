@@ -25,18 +25,24 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </div>
         <h1 className="text-lg font-semibold">Sign in to MetaChat</h1>
         <p className="mt-2 text-sm text-slate-500">
-          MetaChat is signed into through your organization&apos;s single sign-on.
+          MetaChat is signed into through PORTAL.
         </p>
         {message && (
           <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600" role="alert">
             {message}
           </p>
         )}
-        <a href={SSO_PORTAL_LOGIN_URL} className="sso-login-btn mt-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/portal/svg/logo.svg" alt="" />
-          Login with PORTAL
-        </a>
+        {false && (
+          <a href={SSO_PORTAL_LOGIN_URL}  className="sso-login-btn mt-6">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/portal/svg/logo.svg" alt="" height={12} />
+            Login with PORTAL
+          </a>
+         
+        )}
+        <p className="mt-4 rounded-lg bg-yellow-50 px-3 py-2 text-sm text-yellow-600" role="alert">
+          This is a demo version of MetaChat. We are currently in the process of integrating with PORTAL for authentication. Thanks for your patience while we work on this! 
+        </p>
       </div>
     </main>
   );
