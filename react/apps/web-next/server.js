@@ -36,6 +36,23 @@ function loadSslOptions() {
   }
 }
 
+// Mounting under a URL sub-path behind a reverse proxy (e.g. nginx
+// forwarding https://host/metachat/* here). Must match next.config.js's
+// basePath (same env var, read there too) so page routing, redirects,
+// and the routes below all agree on where the app actually lives. Empty
+// string serves at the domain root, matching local/dev.
+//
+// Requires the proxy to forward the FULL request path, not strip the
+// prefix — e.g. nginx's proxy_pass needs no trailing path component
+// (`proxy_pass https://127.0.0.1:4000;`, not `.../4000/;`), so Express
+// sees `${BASE_PATH}/login` etc. rather than a stripped `/login` that
+// would collide with whatever else lives at that path on the same
+// domain. Socket.io is the one exception: it keeps its default
+// `/socket.io/` path server-side, since nginx's dedicated
+// `/metachat/socket.io/` location already rewrites that one sub-path
+// back to bare `/socket.io/` before it reaches this process.
+const BASE_PATH = process.env.BASE_PATH || '';
+
 const { connectDB } = require('./server/db');
 const { sessionMiddleware, passport } = require('./server/session');
 const { registerSsoRoute } = require('./server/ssoRoute');
@@ -78,23 +95,34 @@ async function main() {
   app.use(security.trackConnections);
   app.use(security.securityLogger);
 
+  // Everything path-specific is registered on a router mounted at
+  // BASE_PATH rather than on `app` directly, so route matching stays
+  // written the same simple bare-path way (`/sso/callback`, not
+  // `${BASE_PATH}/sso/callback`) regardless of whether BASE_PATH is set —
+  // Express resolves paths relative to the router's mount point. Redirects
+  // (`res.redirect(...)`) are the one thing this doesn't cover, since a
+  // Location header is browser-absolute, not router-relative — those are
+  // built with BASE_PATH explicitly (see ssoRoute.js and the auth gate
+  // below).
+  const router = express.Router();
+
   // Rate limits, sized to what each route actually is rather than a blind
   // port of the original's `/api/` prefix match — this app's own /api/me
   // and /api/upload are normal per-message chat traffic, not admin
   // operations, so they get the general limiter; only the two genuinely
   // sensitive admin/device endpoints get the strict one.
-  app.use('/sso/callback', security.authLimiter);
-  app.use(['/api/me', '/api/upload', '/uploads'], security.standardLimiter);
-  app.use('/api/users/bulk-register', security.restrictToAllowedIPs, security.extremeLimiter);
-  app.use('/rtsp/upload', security.restrictToAllowedIPs);
+  router.use('/sso/callback', security.authLimiter);
+  router.use(['/api/me', '/api/upload', '/uploads'], security.standardLimiter);
+  router.use('/api/users/bulk-register', security.restrictToAllowedIPs, security.extremeLimiter);
+  router.use('/rtsp/upload', security.restrictToAllowedIPs);
 
-  registerSsoRoute(app);
-  registerUploadRoutes(app);
-  registerBulkRegisterRoute(app);
+  registerSsoRoute(router, BASE_PATH);
+  registerUploadRoutes(router);
+  registerBulkRegisterRoute(router);
 
   // Minimal "who am I" endpoint the client chat shell calls once on
   // mount to get the logged-in user's id/name before opening the socket.
-  app.get('/api/me', (req, res) => {
+  router.get('/api/me', (req, res) => {
     if (!req.isAuthenticated || !req.isAuthenticated()) {
       return res.status(401).json({ error: 'unauthenticated' });
     }
@@ -102,12 +130,19 @@ async function main() {
     res.json({ id: _id, username, first_name, last_name });
   });
 
-  // Gate the chat shell behind auth the same way middleware/index.js's
-  // isLoggedIn does; everything else (including client bundles/HMR)
-  // passes through to Next.js.
-  app.get(['/metachat', '/metachat/*'], (req, res, next) => {
+  // Gate every page render behind auth the same way middleware/index.js's
+  // isLoggedIn does, except the login page itself and Next.js's own
+  // internal asset requests. The chat shell lives at the router's root
+  // (app/page.tsx) — i.e. at exactly BASE_PATH externally — rather than a
+  // /chat or /metachat sub-route, so this has to be an exclusion list
+  // instead of the narrower prefix match a nested route would allow.
+  const PUBLIC_PAGE_PATHS = new Set(['/login']);
+  router.use((req, res, next) => {
+    if (PUBLIC_PAGE_PATHS.has(req.path) || req.path.startsWith('/_next/')) {
+      return next();
+    }
     if (!req.isAuthenticated || !req.isAuthenticated()) {
-      return res.redirect('/login');
+      return res.redirect(`${BASE_PATH}/login`);
     }
     next();
   });
@@ -125,8 +160,17 @@ async function main() {
 
   // Registered before the Next.js catch-all below, since it needs `io` to
   // broadcast the messages it ingests.
-  registerRtspRoute(app, io);
+  registerRtspRoute(router, io);
 
+  // No catch-all inside the router — leaving it unmatched routes here
+  // falls through to the app-level handler below with req.url restored to
+  // its original, unstripped value. Next.js's own basePath handling
+  // (next.config.js) expects that full value, not the router-relative one
+  // Express would otherwise still have in scope here (mounting a router
+  // strips its mount prefix from req.url only while a request is inside
+  // it) — routing Next.js's handler from inside the router double-strips
+  // BASE_PATH and 404s every page once BASE_PATH is actually set.
+  app.use(BASE_PATH || '/', router);
   app.all('*', (req, res) => handle(req, res));
 
   // Let socket.io see the same session/cookies the HTTP layer parsed.

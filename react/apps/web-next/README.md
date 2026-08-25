@@ -29,6 +29,20 @@ below for exactly what works today.
   also 301-redirects `x-forwarded-proto: http` requests to `https`, same
   check `app.js` does, for the case where this sits behind a proxy that
   terminates TLS itself.
+- **URL sub-path deployment (`BASE_PATH`).** In production this app is
+  reverse-proxied under `https://mc.farahoosh.ir/metachat/` — nginx forwards
+  the full path to this process rather than stripping the prefix, and both
+  `next.config.js` (Next.js's own `basePath`) and `server.js` (an Express
+  `Router` mounted at `BASE_PATH`, plus explicit `BASE_PATH`-prefixed
+  redirects) agree on where the app actually lives, so page routing,
+  `res.redirect(...)`, `fetch()` calls, the socket.io-client path, and
+  uploaded-file URLs all resolve correctly through the proxy. See the
+  `BASE_PATH` comment in `.env.example` for the one nginx-side requirement
+  this depends on. The chat shell itself now lives at the app's root
+  (`app/page.tsx`, not a `/chat` sub-route) specifically so that `BASE_PATH`
+  alone — `/metachat` — is the whole externally visible URL, with no
+  redundant nested route name. Leave `BASE_PATH` unset for local/dev; it
+  serves at the domain root exactly as before.
 
 ## Running it
 

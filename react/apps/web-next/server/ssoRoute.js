@@ -8,30 +8,32 @@ const { verifySSOToken, encryptAES256 } = require('../../../../services/encrypti
 const SSO_SECRET_TOKEN = process.env.SSO_SECRET_TOKEN;
 const AUTOLOGIN_KEY = process.env.SECRETKEY_LOGIN || process.env.SOCKET_SECRET_KEY;
 
-function registerSsoRoute(app) {
+function registerSsoRoute(app, basePath = '') {
+  const loginRedirect = (res, query = '') => res.redirect(`${basePath}/login${query}`);
+
   app.get('/sso/callback', async (req, res) => {
     try {
       const token = req.query.token;
-      if (!token) return res.redirect('/login?error=no_sso_token');
+      if (!token) return loginRedirect(res, '?error=no_sso_token');
 
       const verification = verifySSOToken(token, SSO_SECRET_TOKEN);
-      if (!verification.valid) return res.redirect('/login?error=invalid_sso_token');
+      if (!verification.valid) return loginRedirect(res, '?error=invalid_sso_token');
 
       const { payload } = verification;
       const userId = payload.uid;
       const domain = payload.domain;
-      if (!userId || !domain) return res.redirect('/login?error=invalid_token_data');
-      if (domain !== 'metachat') return res.redirect('/login?error=invalid_domain');
+      if (!userId || !domain) return loginRedirect(res, '?error=invalid_token_data');
+      if (domain !== 'metachat') return loginRedirect(res, '?error=invalid_domain');
 
       const user = await User.findById(userId);
-      if (!user) return res.redirect('/login?error=user_not_found');
-      if (user.isActive === false) return res.redirect('/login?error=account_disabled');
+      if (!user) return loginRedirect(res, '?error=user_not_found');
+      if (user.isActive === false) return loginRedirect(res, '?error=account_disabled');
 
       req.session.regenerate((regenerateErr) => {
-        if (regenerateErr) return res.redirect('/login?error=session_error');
+        if (regenerateErr) return loginRedirect(res, '?error=session_error');
 
         req.login(user, async (loginErr) => {
-          if (loginErr) return res.redirect('/login?error=login_failed');
+          if (loginErr) return loginRedirect(res, '?error=login_failed');
 
           req.session.sso_logged_in = true;
           req.session.sso_uid = userId;
@@ -68,26 +70,30 @@ function registerSsoRoute(app) {
             });
           } catch (err) {
             console.error('SSO device token error', err);
-            return res.redirect('/login?error=session_error');
+            return loginRedirect(res, '?error=session_error');
           }
 
           req.session.save((saveErr) => {
-            if (saveErr) return res.redirect('/login?error=session_save_error');
+            if (saveErr) return loginRedirect(res, '?error=session_save_error');
+            // '/' means "app root" from the SSO issuer's point of view — map
+            // that to our actual root (basePath, since the chat shell lives
+            // there). Any other explicit redirectPath is an external
+            // contract with the SSO issuer and is left as-is.
             const redirectPath = payload.redirectPath || req.query.redirect || '/';
-            res.redirect(redirectPath === '/' ? '/metachat' : redirectPath);
+            res.redirect(redirectPath === '/' ? basePath || '/' : redirectPath);
           });
         });
       });
     } catch (err) {
       console.error('SSO callback error', err);
-      res.redirect('/login?error=callback_error');
+      loginRedirect(res, '?error=callback_error');
     }
   });
 
   app.get('/logout', (req, res) => {
     req.logout(() => {
       req.session.destroy(() => {
-        res.redirect('/login');
+        loginRedirect(res);
       });
     });
   });

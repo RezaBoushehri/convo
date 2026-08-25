@@ -1,6 +1,7 @@
 'use client';
 
 import type { UploadedFile } from './types';
+import { withBasePath } from './basePath';
 
 // Plain XHR (not fetch) because we want upload progress events, which
 // fetch still doesn't expose for request bodies.
@@ -10,7 +11,7 @@ export function uploadFiles(files: File[], onProgress?: (percent: number) => voi
     files.forEach((f) => formData.append('files', f));
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload', true);
+    xhr.open('POST', withBasePath('/api/upload'), true);
     xhr.withCredentials = true;
 
     xhr.upload.onprogress = (e) => {

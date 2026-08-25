@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ChatMessage, MessageFile, RoomMember } from '@/lib/types';
+import { withBasePath } from '@/lib/basePath';
 import AudioPlayer from './AudioPlayer';
 import VideoNotePlayer from './VideoNotePlayer';
 import ReactionPicker from './ReactionPicker';
@@ -36,19 +37,20 @@ function FileAttachment({
   isOwn: boolean;
   onVoiceHeard: () => void;
 }) {
-  if (isVideoNote(file)) return <VideoNotePlayer src={file.file} />;
+  const src = withBasePath(file.file);
+  if (isVideoNote(file)) return <VideoNotePlayer src={src} />;
   if (file.fileType.startsWith('image/')) {
     return (
-      <a href={file.file} target="_blank" rel="noreferrer">
+      <a href={src} target="_blank" rel="noreferrer">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={file.file} alt={file.fileName || 'image'} className="max-h-64 max-w-xs rounded-xl object-cover" />
+        <img src={src} alt={file.fileName || 'image'} className="max-h-64 max-w-xs rounded-xl object-cover" />
       </a>
     );
   }
   if (file.fileType.startsWith('audio/')) {
     return (
       <div onClick={onVoiceHeard} className="flex items-center gap-1.5">
-        <AudioPlayer src={file.file} tone={tone} />
+        <AudioPlayer src={src} tone={tone} />
         {isOwn && file.heardBy && file.heardBy.length > 0 && (
           <span title="Heard">
             <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 shrink-0 ${tone === 'dark' ? 'text-white/70' : 'text-brand'}`} fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -60,11 +62,11 @@ function FileAttachment({
     );
   }
   if (file.fileType.startsWith('video/')) {
-    return <video src={file.file} controls preload="metadata" className="max-h-64 max-w-xs rounded-xl" />;
+    return <video src={src} controls preload="metadata" className="max-h-64 max-w-xs rounded-xl" />;
   }
   return (
     <a
-      href={file.file}
+      href={src}
       target="_blank"
       rel="noreferrer"
       className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${tone === 'dark' ? 'bg-white/15 text-white' : 'bg-slate-50 text-slate-600'}`}

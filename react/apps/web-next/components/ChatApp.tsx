@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { getSocket } from '@/lib/socket';
 import { uploadFiles } from '@/lib/upload';
+import { withBasePath } from '@/lib/basePath';
 import type {
   AckResponse,
   ChatMessage,
@@ -56,11 +57,11 @@ export default function ChatApp() {
 
   // ---- bootstrap: who am I, then open the socket ----
   useEffect(() => {
-    fetch('/api/me')
+    fetch(withBasePath('/api/me'))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('unauthenticated'))))
       .then((me) => setCurrentUser({ id: me.id, username: me.username, first_name: me.first_name, last_name: me.last_name }))
       .catch(() => {
-        window.location.href = '/login';
+        window.location.href = withBasePath('/login');
       });
   }, []);
 
