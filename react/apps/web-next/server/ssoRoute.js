@@ -27,9 +27,18 @@ function registerSsoRoute(app, basePath = '') {
       if (domain !== 'metachat') return loginRedirect(res, '?error=invalid_domain');
 
       // TEMP diagnostics for the live "buffering timed out" investigation.
+      // Specifically: is the User model actually bound to the SAME
+      // connection object server/db.js connected (readyState checked
+      // above), or a different one entirely (e.g. a second, never-connected
+      // mongoose instance from a duplicate nested node_modules/mongoose) —
+      // that would explain "connected" here but the query still buffering.
       console.log(
-        '[web-next][diag] about to User.findById, mongo readyState=%s',
-        mongoose.connection.readyState
+        '[web-next][diag] mongoose.connection.readyState=%s User.db.readyState=%s sameConnection=%s User.db.host=%s:%s',
+        mongoose.connection.readyState,
+        User.db.readyState,
+        User.db === mongoose.connection,
+        User.db.host,
+        User.db.port
       );
       const findStart = Date.now();
       const user = await User.findById(userId);
