@@ -2,7 +2,6 @@ const createDOMPurify = require('dompurify'),
  { JSDOM } = require('jsdom'),
  crypto = require('crypto'),
  { ObjectId } = require('mongodb'), // or mongoose.Types.ObjectId
- bcrypt = require('bcrypt'),
  ipRangeCheck = require("ip-range-check"),
  express = require("express"),
  multer = require("multer"),
