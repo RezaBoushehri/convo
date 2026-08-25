@@ -13,6 +13,15 @@ function connectDB() {
   const encodedPassword = encodeURIComponent(DB_PASSWORD || '');
   const uri = `mongodb://${DB_USERNAME}:${encodedPassword}@${MONGO_URI}/chatRoom?authSource=chatRoom`;
 
+  // Logged so a later "Operation ... buffering timed out" (queries queue
+  // silently while disconnected, then fail after serverSelectionTimeoutMS
+  // with no context of their own) can be matched up against when/why the
+  // connection actually dropped, instead of showing up as an unexplained
+  // one-off.
+  mongoose.connection.on('disconnected', () => console.error('[web-next] MongoDB disconnected'));
+  mongoose.connection.on('reconnected', () => console.log('[web-next] MongoDB reconnected'));
+  mongoose.connection.on('error', (err) => console.error('[web-next] MongoDB connection error (post-connect):', err.message));
+
   connectPromise = mongoose
     .connect(uri, {})
     .then(() => console.log('[web-next] MongoDB connected'))
