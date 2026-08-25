@@ -4,9 +4,14 @@
 // middleware so a socket handshake can be authenticated from the same
 // cookie the page request set. This mirrors the shape of the root
 // app.js, just re-hosting the Next.js page renderer instead of EJS.
-require('dotenv').config();
-const fs = require('fs');
 const path = require('path');
+// Explicit path, not the default cwd-relative lookup — a process manager
+// (PM2, systemd, ...) can launch this from a different working directory
+// than react/apps/web-next, in which case dotenv would silently find no
+// .env at all and every value below would be undefined instead of erroring
+// loudly, since nothing here checks dotenv's own return value.
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const express = require('express');
