@@ -16,6 +16,10 @@ const nextConfig = {
     // NEXT_PUBLIC_ name.
     NEXT_PUBLIC_BASE_PATH: BASE_PATH,
   },
+  allowedDevOrigins: ['mc.farahoosh.ir'],
+
+
+
 };
 
 module.exports = nextConfig;
