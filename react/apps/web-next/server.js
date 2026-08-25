@@ -131,16 +131,24 @@ async function main() {
   });
 
   // Gate every page render behind auth the same way middleware/index.js's
-  // isLoggedIn does, except the login page itself and Next.js's own
-  // internal asset requests. The chat shell lives at the router's root
+  // isLoggedIn does, except the login page itself, Next.js's own internal
+  // asset requests, and static asset folders (public/svg, public/sounds,
+  // public/img) that need to load on the login page itself and before any
+  // session exists. The chat shell lives at the router's root
   // (app/page.tsx) — i.e. at exactly BASE_PATH externally — rather than a
   // /chat or /metachat sub-route, so this has to be an exclusion list
   // instead of the narrower prefix match a nested route would allow.
   const PUBLIC_PAGE_PATHS = new Set(['/login']);
+  const PUBLIC_PATH_PREFIXES = ['/_next/', '/svg/', '/sounds/', '/img/'];
   router.use((req, res, next) => {
-    if (PUBLIC_PAGE_PATHS.has(req.path) || req.path.startsWith('/_next/')) {
+    if (PUBLIC_PAGE_PATHS.has(req.path) || PUBLIC_PATH_PREFIXES.some((p) => req.path.startsWith(p))) {
       return next();
     }
+    // Unauthenticated page visit — show our own /login (error message if
+    // this came from a failed SSO callback, otherwise just the "Login
+    // with PORTAL" button) rather than bouncing straight to the portal;
+    // the portal round-trip only happens once the visitor actually clicks
+    // through.
     if (!req.isAuthenticated || !req.isAuthenticated()) {
       return res.redirect(`${BASE_PATH}/login`);
     }
