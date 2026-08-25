@@ -22,6 +22,13 @@ below for exactly what works today.
   from-scratch socket contract (see its `types.ts` — it says so itself). This
   app instead implements the **real** event names/payloads ported from
   `app.js`, typed in `lib/types.ts`.
+- **HTTPS.** `server.js` starts an `https.createServer` when `SSL_KEY_PATH`/
+  `SSL_CERT_PATH` point at readable files (same Let's Encrypt paths `app.js`
+  uses by default, so both apps can share one cert on the same host) and
+  otherwise falls back to plain HTTP — no config needed for local/dev. It
+  also 301-redirects `x-forwarded-proto: http` requests to `https`, same
+  check `app.js` does, for the case where this sits behind a proxy that
+  terminates TLS itself.
 
 ## Running it
 

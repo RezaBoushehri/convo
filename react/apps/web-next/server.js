@@ -5,14 +5,36 @@
 // cookie the page request set. This mirrors the shape of the root
 // app.js, just re-hosting the Next.js page renderer instead of EJS.
 require('dotenv').config();
+const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const next = require('next');
 const { Server } = require('socket.io');
 
 const security = require('../../../utils/security');
+
+// Same TLS termination app.js uses in production (Let's Encrypt on the
+// same host), but env-overridable and optional — unset/missing files fall
+// back to plain HTTP so local/dev/sandbox runs aren't forced onto certs
+// that don't exist there.
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH || '/etc/letsencrypt/live/mc.farahoosh.ir/privkey.pem';
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH || '/etc/letsencrypt/live/mc.farahoosh.ir/fullchain.pem';
+
+function loadSslOptions() {
+  if (!fs.existsSync(SSL_KEY_PATH) || !fs.existsSync(SSL_CERT_PATH)) return null;
+  try {
+    return {
+      key: fs.readFileSync(SSL_KEY_PATH, 'utf8'),
+      cert: fs.readFileSync(SSL_CERT_PATH, 'utf8'),
+    };
+  } catch (err) {
+    console.error('[web-next] found SSL_KEY_PATH/SSL_CERT_PATH but failed to read them, falling back to HTTP', err);
+    return null;
+  }
+}
 
 const { connectDB } = require('./server/db');
 const { sessionMiddleware, passport } = require('./server/session');
@@ -38,6 +60,16 @@ async function main() {
   app.use(passport.initialize());
   app.use(passport.session());
   app.use(express.json());
+
+  // Behind a reverse proxy that terminates TLS itself (or that forwards
+  // to this process over plain HTTP), send plain-HTTP requests back as
+  // HTTPS — same check app.js does.
+  app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] === 'http') {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
 
   // Shared security middleware (utils/security.js — same module app.js
   // uses, required directly rather than duplicated).
@@ -80,7 +112,8 @@ async function main() {
     next();
   });
 
-  const server = http.createServer(app);
+  const sslOptions = loadSslOptions();
+  const server = sslOptions ? https.createServer(sslOptions, app) : http.createServer(app);
   const io = new Server(server, {
     cors: {
       origin: true,
@@ -106,7 +139,8 @@ async function main() {
   registerCallEvents(io);
 
   server.listen(port, () => {
-    console.log(`[web-next] ready on http://localhost:${port}`);
+    const scheme = sslOptions ? 'https' : 'http';
+    console.log(`[web-next] ready on ${scheme}://localhost:${port}`);
   });
 }
 
