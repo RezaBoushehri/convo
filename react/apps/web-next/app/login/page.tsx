@@ -34,7 +34,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         )}
         <a href={SSO_PORTAL_LOGIN_URL} className="sso-login-btn mt-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/portal/svg/logo.svg" alt="" height={12} />
+          <img src="/portal/svg/logo.svg" alt="" />
           Login with PORTAL
         </a>
       </div>
