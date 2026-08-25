@@ -26,11 +26,15 @@ import Sidebar from './Sidebar';
 import ChatWindow from './ChatWindow';
 import RightPanel, { AttachmentsSummary } from './RightPanel';
 import ForwardDialog from './ForwardDialog';
+import CallOverlay from './CallOverlay';
+import IncomingCallToast from './IncomingCallToast';
+import { useCall } from '@/hooks/useCall';
 
 const TYPING_CLEAR_MS = 4000;
 
 export default function ChatApp() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const call = useCall(currentUser);
   const [connected, setConnected] = useState(false);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [usersById, setUsersById] = useState<Map<string, RoomMember>>(new Map());
@@ -485,6 +489,9 @@ export default function ChatApp() {
           onDelete={deleteMessage}
           onReact={addReaction}
           onVoiceHeard={markVoiceHeard}
+          onStartVoiceCall={() => call.startCall('audio')}
+          onStartVideoCall={() => call.startCall('video')}
+          callDisabled={!activeRoomID || call.phase !== 'idle'}
           composerProps={{
             replyTo,
             onCancelReply: () => setReplyTo(null),
@@ -516,6 +523,33 @@ export default function ChatApp() {
       {!connected && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-slate-900/80 px-4 py-1.5 text-xs text-white">
           Connecting…
+        </div>
+      )}
+
+      {call.incomingCall && call.phase === 'incoming' && (
+        <IncomingCallToast call={call.incomingCall} onAccept={call.acceptIncoming} onDecline={call.declineIncoming} />
+      )}
+
+      {(call.phase === 'outgoing' || call.phase === 'active') && (
+        <CallOverlay
+          currentUser={currentUser}
+          callType={call.callType}
+          participants={call.participants}
+          localStream={call.localStream}
+          remoteStreams={call.remoteStreams}
+          connectionStates={call.connectionStates}
+          muted={call.muted}
+          cameraOff={call.cameraOff}
+          elapsedMs={call.elapsedMs}
+          onToggleMute={call.toggleMute}
+          onToggleCamera={call.toggleCamera}
+          onHangUp={call.hangUp}
+        />
+      )}
+
+      {call.toast && (
+        <div className="fixed bottom-4 left-1/2 z-[1095] -translate-x-1/2 rounded-full bg-slate-900/90 px-4 py-1.5 text-xs text-white">
+          {call.toast}
         </div>
       )}
     </div>

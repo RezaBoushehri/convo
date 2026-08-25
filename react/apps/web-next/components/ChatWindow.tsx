@@ -38,6 +38,9 @@ interface ChatWindowProps {
   onDelete: (message: ChatMessage) => void;
   onReact: (messageId: string, emoji: string) => void;
   onVoiceHeard: (fileId: string) => void;
+  onStartVoiceCall: () => void;
+  onStartVideoCall: () => void;
+  callDisabled: boolean;
   composerProps: ComposerProps;
 }
 
@@ -56,6 +59,9 @@ export default function ChatWindow({
   onDelete,
   onReact,
   onVoiceHeard,
+  onStartVoiceCall,
+  onStartVideoCall,
+  callDisabled,
   composerProps,
 }: ChatWindowProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -146,13 +152,13 @@ export default function ChatWindow({
               </div>
             ))}
           </div>
-          <button title="Video call (coming soon)" disabled className="text-slate-300">
+          <button onClick={onStartVideoCall} disabled={callDisabled} title="Video call" className="text-slate-400 hover:text-slate-600 disabled:opacity-40">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8}>
               <path d="M23 7l-7 5 7 5V7z" strokeLinecap="round" strokeLinejoin="round" />
               <rect x="1" y="5" width="15" height="14" rx="2" />
             </svg>
           </button>
-          <button title="Call (coming soon)" disabled className="text-slate-300">
+          <button onClick={onStartVoiceCall} disabled={callDisabled} title="Voice call" className="text-slate-400 hover:text-slate-600 disabled:opacity-40">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8}>
               <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>

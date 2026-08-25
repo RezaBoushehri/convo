@@ -1,8 +1,8 @@
-# MetaChat — Next.js rewrite (Phases 1–2)
+# MetaChat — Next.js rewrite (Phases 1–3)
 
 A Next.js rewrite of the MetaChat frontend, built to match the "Hatypo
 Studio" reference UI (rounded card layout, icon rail, member/attachments
-side panel). This is **Phases 1–2 of a multi-phase rewrite** — see "Scope"
+side panel). This is **Phases 1–3 of a multi-phase rewrite** — see "Scope"
 below for exactly what works today.
 
 ## Architecture
@@ -106,9 +106,33 @@ against your actual DB/SSO as the real smoke test.
   rendering for voice notes (a seek bar + play/pause instead), no
   drag-and-drop file upload (file picker only).
 
+### Done (Phase 3 — WebRTC calling)
+- **1:1 and group voice/video calls**, mesh-topology (every participant
+  connects directly to every other), ported near-verbatim from `app.js`'s
+  `call:*` signaling into `server/callEvents.js`: ring timeout (45s),
+  device-switch confirmation (answering the same account on a second
+  device), busy/no-answer/declined/disconnected end reasons, and STUN/TURN
+  config from the same env vars (`STUN_URL`/`TURN_URL`/`TURN_SECRET`/
+  `TURNS_URL` — see `.env.example`), including coturn's time-limited
+  HMAC credential scheme.
+- **Client**: `hooks/useCall.ts` owns the peer connections and signaling
+  state machine; `CallOverlay.tsx` (in-call: local PiP, a responsive
+  remote-tile grid, mute/camera/hang-up, live timer) and
+  `IncomingCallToast.tsx` (ring-in UI, synthesized ringtone via Web Audio —
+  no audio asset needed) are the two pieces of UI. Wired to the call
+  buttons in the chat header.
+
+### Deliberately simplified (Phase 3)
+- The local video tile is fixed in a corner — the original vanilla-JS
+  version had a draggable, resizable picture-in-picture; not carried over.
+- Device-switch confirmation ("you're already in this call on another
+  device — switch to this one?") uses `window.confirm` instead of a
+  styled dialog.
+- Remote participant avatars are initials, not the original's
+  `/portal/profile/img/:username` image endpoint (which isn't part of
+  this app).
+
 ### Deliberately not ported yet (later phases)
-- WebRTC calling (1:1 and group voice/video, TURN/STUN signaling) — this is
-  a substantial chunk of `app.js` on its own.
 - Admin/security surface: rate limiting, IP allowlisting, bulk user import,
   RTSP ingestion, the legacy PHP notification backup pipeline.
 - Room creation/management UI, private-chat search/start flow, message

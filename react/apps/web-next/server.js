@@ -17,6 +17,7 @@ const { sessionMiddleware, passport } = require('./server/session');
 const { registerSsoRoute } = require('./server/ssoRoute');
 const { registerUploadRoutes } = require('./server/uploadRoute');
 const { registerChatEvents } = require('./server/chatEvents');
+const { registerCallEvents } = require('./server/callEvents');
 
 const dev = process.env.NODE_ENV !== 'production';
 const port = parseInt(process.env.PORT || '4100', 10);
@@ -76,6 +77,7 @@ async function main() {
   });
 
   registerChatEvents(io);
+  registerCallEvents(io);
 
   server.listen(port, () => {
     console.log(`[web-next] ready on http://localhost:${port}`);

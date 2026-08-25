@@ -136,3 +136,60 @@ export interface AckResponse {
   message?: string;
   error?: string;
 }
+
+// ---------------------------- calling ----------------------------
+
+export type CallType = 'audio' | 'video';
+
+export interface CallParticipant {
+  socketId: string;
+  userId: string;
+  username: string;
+  fullName: string;
+}
+
+export interface IncomingCallPayload {
+  callId: string;
+  callType: CallType;
+  roomID: string;
+  caller: CallParticipant;
+}
+
+export interface CallInviteAck {
+  success: boolean;
+  callId?: string;
+  code?: string;
+  message?: string;
+  callType?: CallType;
+  roomID?: string;
+  participants?: CallParticipant[];
+}
+
+export interface CallSignalPayload {
+  callId: string;
+  from: string;
+  fromUser: CallParticipant;
+  type: 'offer' | 'answer' | 'ice-candidate';
+  payload: RTCSessionDescriptionInit | RTCIceCandidateInit;
+}
+
+export interface CallParticipantJoinedPayload {
+  callId: string;
+  participant: CallParticipant;
+}
+
+export interface CallParticipantLeftPayload {
+  callId: string;
+  socketId: string;
+  reason: string;
+}
+
+export interface CallDeclinedPayload {
+  callId: string;
+  by: CallParticipant;
+}
+
+export interface CallEndedPayload {
+  callId: string;
+  reason: 'declined' | 'no-answer' | 'disconnected' | 'answered-elsewhere' | 'left' | 'switched-device' | string;
+}
