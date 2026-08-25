@@ -42,6 +42,7 @@ interface ChatWindowProps {
   onStartVideoCall: () => void;
   callDisabled: boolean;
   composerProps: ComposerProps;
+  onBack: () => void;
 }
 
 export default function ChatWindow({
@@ -63,6 +64,7 @@ export default function ChatWindow({
   onStartVideoCall,
   callDisabled,
   composerProps,
+  onBack,
 }: ChatWindowProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -117,7 +119,7 @@ export default function ChatWindow({
 
   if (!room) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
+      <div className="hidden flex-1 items-center justify-center text-sm text-slate-400 md:flex">
         Select a conversation to start chatting.
       </div>
     );
@@ -128,13 +130,22 @@ export default function ChatWindow({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4 md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            onClick={onBack}
+            title="Back to conversations"
+            className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-50 hover:text-slate-600 md:hidden"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
             {initials(name) || '·'}
           </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-800">{name}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-800">{name}</p>
             <p className="text-xs text-emerald-500">
               {typingUser?.isTyping ? `${typingUser.name || typingUser.username} typing…` : ' '}
             </p>

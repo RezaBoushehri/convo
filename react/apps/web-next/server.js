@@ -105,7 +105,7 @@ async function main() {
   // Gate the chat shell behind auth the same way middleware/index.js's
   // isLoggedIn does; everything else (including client bundles/HMR)
   // passes through to Next.js.
-  app.get(['/chat', '/chat/*'], (req, res, next) => {
+  app.get(['/metachat', '/metachat/*'], (req, res, next) => {
     if (!req.isAuthenticated || !req.isAuthenticated()) {
       return res.redirect('/login');
     }

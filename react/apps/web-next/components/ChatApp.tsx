@@ -288,6 +288,16 @@ export default function ChatApp() {
     getSocket().emit('joinRoom', { roomID });
   }, []);
 
+  // Mobile only: the sidebar and the open conversation share one screen
+  // width below the md breakpoint, so "back" just clears the active room
+  // to swap the conversation pane back out for the room list.
+  const deselectRoom = useCallback(() => {
+    setActiveRoomID(null);
+    setAttachments(null);
+    setReplyTo(null);
+    setEditingMessage(null);
+  }, []);
+
   const notifyTyping = useCallback(
     (isTyping: boolean) => {
       if (!activeRoomID || !currentUser) return;
@@ -492,6 +502,7 @@ export default function ChatApp() {
           onStartVoiceCall={() => call.startCall('audio')}
           onStartVideoCall={() => call.startCall('video')}
           callDisabled={!activeRoomID || call.phase !== 'idle'}
+          onBack={deselectRoom}
           composerProps={{
             replyTo,
             onCancelReply: () => setReplyTo(null),

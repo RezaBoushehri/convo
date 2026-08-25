@@ -74,7 +74,7 @@ function registerSsoRoute(app) {
           req.session.save((saveErr) => {
             if (saveErr) return res.redirect('/login?error=session_save_error');
             const redirectPath = payload.redirectPath || req.query.redirect || '/';
-            res.redirect(redirectPath === '/' ? '/chat' : redirectPath);
+            res.redirect(redirectPath === '/' ? '/metachat' : redirectPath);
           });
         });
       });

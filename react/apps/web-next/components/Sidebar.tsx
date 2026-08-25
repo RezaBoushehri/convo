@@ -49,7 +49,11 @@ export default function Sidebar({ currentUser, rooms, usersById, activeRoomID, u
   }, [rooms, query, currentUser, usersById]);
 
   return (
-    <div className="flex w-[320px] shrink-0 flex-col border-r border-slate-100 bg-white">
+    <div
+      className={`${
+        activeRoomID ? 'hidden' : 'flex'
+      } w-full shrink-0 flex-col border-r border-slate-100 bg-white md:flex md:w-[320px]`}
+    >
       <div className="px-5 pb-4 pt-6">
         <h1 className="text-xl font-bold text-slate-900">Messages</h1>
         <div className="relative mt-4">
