@@ -55,27 +55,3 @@ Give a 🌟 to this repo if you liked it.
 Connect with me
 
 [![Instagram](https://img.shields.io/static/v1.svg?label=follow&message=@sparsh._jain&color=grey&logo=instagram&style=for-the-badge&logoColor=white&colorA=critical)](https://www.instagram.com/sparsh._jain/) [![LinkedIn](https://img.shields.io/static/v1.svg?label=connect&message=@SparshJain&color=success&logo=linkedin&style=for-the-badge&logoColor=white&colorA=blue)](https://www.linkedin.com/in/sparsh-jain-87379a168/) [![Github](https://img.shields.io/static/v1.svg?label=follow&message=@SparshJain2000&color=grey&logo=github&style=for-the-badge&logoColor=white&colorA=black)](https://www.github.com/SparshJain2000/)
-
-
-npm install dotenv --save-dev
-npm install -g pm2
-pm2 start app.js
-pm2 start app.js --watch
-pm2 list
-pm2 logs
-pm2 save
-pm2 startup
-pm2 stop app.js
-
-
-{
-    "name": "X",
-    "host": "172.16.28.29",
-    "protocol": "sftp",
-    "port": 22022,
-    "secure": true,
-    "username": "root",
-    "password": "Farah00sh@.ir",
-    "remotePath": "/usr/Projects/Rezahttps://mc.farahoosh.ir/metachat/",
-    "uploadOnSave": true
-}
