@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Secure chat application with encryption and real-time messaging",
   "main": "server.js",
+  "workspaces": [
+    "react/apps/web-next"
+  ],
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
